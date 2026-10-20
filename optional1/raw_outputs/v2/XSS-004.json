@@ -1,0 +1,62 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-004",
+  "input_version": "v2",
+  "prompt_version": "v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "XSS-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "输入路径完整可见：GET 参数 name 在第 3 行经 array_key_exists 与 != NULL 判断后进入处理；第 7 行以 htmlspecialchars() 对该值做输出编码并存回 $name；第 9 行把编码后的 $name 直接插入 <pre> 元素的文本节点，未进入属性、JavaScript 或 URL 上下文；本片段内不存在其他回显 $name 或 $_GET['name'] 的路径。文本上下文中 htmlspecialchars 默认会编码 < > & 及双引号，因此该路径不具备浏览器可解释的注入点。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$name = htmlspecialchars( $_GET[ 'name' ] );"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$html .= \"<pre>Hello {$name}</pre>\";"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 3,
+      "line_end": 3,
+      "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+    }
+  ],
+  "missing_context": [
+    "外围处理器与 context/ 中另存的外围源码未提供：无法确认 dvwaHtmlEcho 之前是否还有对 $_GET['name'] 或 $html 的其他拼接。",
+    "dvwaPage.inc.php 未提供：page['body'] 的最终输出方式、是否存在二次处理以及页面模板上下文未知。",
+    "PHP 版本与 default_charset 配置未知：htmlspecialchars 的默认 flags/编码随版本与 ini 配置变化，本片段未显式传入 UTF-8 与 ENT_QUOTES。",
+    "认证与难度分支未知：checkToken 失败时的跳转/退出行为、generateSessionToken 的实现及难度配置如何包含本片段未说明。",
+    "会话 token 的实际来源与有效性未知：user_token 经 $_REQUEST 读取，GET/POST 是否都接受未见代码。",
+    "浏览器版本与运行环境未实测，无法排除 mXSS 一类的解析差异。"
+  ],
+  "risk_notes": [
+    "checkToken 使用 $_REQUEST 读取 user_token，若同一 token 同时经 GET 与 POST 传递会导致来源不唯一；本片段未展示 token 校验失败后的处理路径，属 CSRF 相关风险，与本次 XSS 目标无关。",
+    "若外围处理器或页面模板在 dvwaHtmlEcho 之外再次拼接原始 $_GET['name']，则本片段的编码结论不覆盖该路径，需要在完整外围源码上复核。",
+    "第 9 行使用未在第 1-8 行初始化的 $html 变量做 .= 拼接，若外围未预置 $html 会触发未定义变量告警，属于健壮性问题而非 XSS。"
+  ],
+  "quality_notes": [
+    "第 3 行使用 $_GET['name'] != NULL 做宽松空值判断，语义上等价于非空/非 '0' 字符串判断，建议改为 $_GET['name'] !== '' 以明确意图。",
+    "htmlspecialchars 未显式指定 flags 与编码（如 ENT_QUOTES, 'UTF-8'），其安全性依赖运行时的 default_charset，属于易随配置漂移的写法。",
+    "第 9 行在可能未初始化的 $html 上做 .= 拼接，PHP 8 下会产生 Warning。"
+  ],
+  "limitations": [
+    "本判定只覆盖审计数据给出的 normalized_samples/XSS-004.php 片段及其所示的一条反射型路径，不覆盖外围处理器、dvwaPage.inc.php 与页面渲染链路上的其他输出点。",
+    "排除依据为静态代码：htmlspecialchars 在 <pre> 文本节点前完成编码；未执行任何浏览器验证，也未复核 default_charset 是否为 UTF-8，故不声称该路径在任意配置下均不可触发。",
+    "未提供全部写入/读取版本，不能把本片段的编码结论套用到其他难度或配置分支。",
+    "建议的回归观测方法（不构成本次运行证据）：在已登录且持有有效 session_token 的条件下访问 index.php?name=%3Cb%3ELLM_LAB_XSS%3C%2Fb%3E&user_token=<有效token>，浏览器应原样显示 <b>LLM_LAB_XSS</b> 字样而不加粗；再以 %22%3E%3Cb%3ELLM_LAB_XSS%3C%2Fb%3E 复核，若同样显示为字面文本则支持排除结论。"
+  ],
+  "runtime_evidence": []
+}

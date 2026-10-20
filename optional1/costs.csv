@@ -1,0 +1,7 @@
+﻿cohort,recorded_parent_tasks,extra_preserved_attempts,prompt_packets,average_input_characters,average_output_characters,mean_latency_seconds,total_tokens,total_api_calls,note
+v1,14,1,17,8625.57,10834.79,,,,任务数不是API内部调用数；字符数不是Token；耗时和Token未保存
+v2,14,0,17,9405.86,11699.5,,,,任务数不是API内部调用数；字符数不是Token；耗时和Token未保存
+v3,14,0,17,11352.36,13203.36,,,,任务数不是API内部调用数；字符数不是Token；耗时和Token未保存
+historical-final,14,0,17,9653.57,13307.29,,,,任务数不是API内部调用数；字符数不是Token；耗时和Token未保存
+wp4-baseline-final,14,0,17,9653.57,12394.21,,,,任务数不是API内部调用数；字符数不是Token；耗时和Token未保存
+wp4-intermediate,14,0,17,10383.36,13944.29,,,,任务数不是API内部调用数；字符数不是Token；耗时和Token未保存

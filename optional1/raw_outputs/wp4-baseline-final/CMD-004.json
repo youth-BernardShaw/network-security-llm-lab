@@ -1,0 +1,115 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "入口到汇点的静态路径完整：第 2 行由 $_POST['Submit'] 触发，第 6 行从 $_REQUEST['ip'] 取值，第 7 行 stripslashes，第 9 行按点号拆分，第 11 行要求恰好 4 段且每段 is_numeric，第 13 行仅用这 4 个通过数字检查的段重新拼接，之后才在第 17/21 行进入 shell_exec。分号、与号、管道、反引号、命令替换、重定向和引号等 shell 元字符均无法通过 is_numeric，攻击者不能向命令串注入其选择的命令或额外参数，故本片段展示的命令注入路径被有效防护。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 4,
+      "line_end": 4,
+      "quote": "checkToken( $_REQUEST[ 'user_token' ], $_SESSION[ 'session_token' ], 'index.php' );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 6,
+      "line_end": 6,
+      "quote": "$target = $_REQUEST[ 'ip' ];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$target = stripslashes( $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "if( ( is_numeric( $octet[0] ) ) && ( is_numeric( $octet[1] ) ) && ( is_numeric( $octet[2] ) ) && ( is_numeric( $octet[3] ) ) && ( sizeof( $octet ) == 4 ) ) {"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 13,
+      "line_end": 13,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 28,
+      "line_end": 28,
+      "quote": "$html .= '<pre>ERROR: You have entered an invalid IP.</pre>';"
+    }
+  ],
+  "missing_context": [
+    "未提供外围处理器与 dvwaPage.inc.php 源码，无法核实该片段在哪些难度或包含条件下被载入，以及 $html 的初始化与最终 dvwaHtmlEcho 输出链路。",
+    "未提供 checkToken 与 generateSessionToken 的实现及会话状态，既无法核实 token 校验是否可绕过，也无法断言未登录用户可达本路径；该前提不影响本片段对命令注入数据流的排除判断，但影响可达性结论。",
+    "未提供运行环境：PHP 版本（is_numeric 对前导/尾随空白与指数形式的处理随版本变化）、php_uname 返回的操作系统分支、shell_exec 是否启用、ping 是否存在及进程运行用户。",
+    "未提供 Web 服务工作目录与 PATH 内容，无法评估内容为数字的“命令名”或数字点号命名的文件被 shell 源引用的极端场景。",
+    "未提供部署难度配置与业务规格，无法确认片段是否只在特定难度下生效。"
+  ],
+  "risk_notes": [
+    "is_numeric 接受正负号、指数形式以及前导/尾随空白（PHP 8 起含尾随空白），且四个八位组未校验 0-255，因此 999.999.999.999、1e3.2.3.4 等非法 IP 会进入 ping，属于输入格式校验缺口而非命令注入。",
+    "is_numeric 允许前导空白（其中包含换行），第四个八位组可写成“换行后接数字”；例如提交 1.2.3.<LF>4 时，shell 会把第二行的 4 当作命令执行。这说明参数边界并非严格的 IPv4 白名单，但第二行可执行词只能由数字、符号和指数形式组成，无法指定任意命令；仅当 PATH 中存在数字命名的可执行文件，或攻击者能通过其他漏洞写入数字点号命名的文件时才可能被放大，本次未建立该链。",
+    "octet[0] 可为负数（如 -1），使 ping 的第一个主机参数以短横线开头，可能被解析为选项；可用选项受 ping 支持集限制，未发现可导致命令执行或敏感操作的静态证据。",
+    "ping 的 stdout/stderr 与错误内容被原样放入 <pre> 标签，存在主机名、网络拓扑与错误信息暴露面（范围外）。",
+    "若以数组形式提交 ip（如 ip[]=x），stripslashes 与 explode 在 PHP 8 下可能抛出 TypeError 造成 500，属于健壮性问题而非命令注入。"
+  ],
+  "quality_notes": [
+    "触发条件检查 $_POST['Submit']，但 ip 与 user_token 使用 $_REQUEST 读取，参数来源不一致，容易误判实际入口。",
+    "stripslashes 为遗留写法，对本类注入没有防护意义。",
+    "未使用 filter_var($target, FILTER_VALIDATE_IP) 或等价手段校验 IPv4，仅用 is_numeric 判断四段，语义不严谨。",
+    "继续使用 shell_exec 拼接字符串，未采用 escapeshellarg 或 proc_open 数组参数形式，属于不安全 API 使用习惯；在当前数字检查下未构成可利用注入。",
+    "$cmd 与 $html 依赖外围初始化；generateSessionToken 每次请求刷新 token，属外围会话设计，需要与 checkToken 行为一起回归。"
+  ],
+  "limitations": [
+    "仅分析 CMD-004 单包静态代码，未运行任何请求，runtime_evidence 为空；排除结论是静态判断，不能声称已实测确认。",
+    "未提供可运行 POC 环境与实测证据，按协议 POC status=不提供、execution_status=未运行；findings 为空，未编造攻击脚本。",
+    "PHP 版本未定，is_numeric 的空白与指数语义差异会影响“仅数字”边界的严格程度；本排除结论覆盖任意命令注入，但不声称所有版本下参数字符串都不含换行。",
+    "checkToken、generateSessionToken、php_uname 分支、shell_exec 配置、操作系统与 ping 可用性均由外围或部署提供，未审阅，结论仅覆盖本片段展示的路径。",
+    "若外围处理器在不同难度下替换本片段，或在包含前对 $target 另有赋值，需重新评估。"
+  ],
+  "poc": {
+    "status": "不提供",
+    "language": null,
+    "code": null,
+    "artifact_path": null,
+    "dependencies": [],
+    "parameters": [
+      "Submit",
+      "ip",
+      "user_token"
+    ],
+    "steps": [
+      "在本地授权靶场打开该页面，使用测试人员本地提供的会话登录并取得当前 user_token；token 与 Cookie 不写入版本库，也不在输出中打印。",
+      "对照组：提交 Submit=Submit、user_token=<本地值>、ip=127.0.0.1，记录返回的 ping 统计输出。",
+      "边界组：分别提交 ip=127.0.0.1;echo CMD004_MARKER、ip=127.0.0.1|echo CMD004_MARKER、ip=127.0.0.1&&echo CMD004_MARKER、ip=1.2.3、ip=1.2.3.4.5，观察是否均落入 invalid IP 分支。",
+      "记录每组的 HTTP 状态、响应体以及是否出现 CMD004_MARKER 或额外命令 stdout；只提交无害回显标记，不进行反向连接、下载执行、敏感文件读取或删除。"
+    ],
+    "expected_observation": "ip=127.0.0.1 返回正常 ping 输出；所有含分号、管道、与号、反引号、命令替换或非四段数字的输入均返回 ERROR: You have entered an invalid IP，响应中不出现 CMD004_MARKER，也不出现额外命令输出。",
+    "success_criteria": "在相同会话与难度条件下，对照组出现 ping 统计输出；所有元字符输入与错误段数输入均被拒绝，且响应中无 CMD004_MARKER、无额外命令 stdout，即支持本样本的静态排除结论。若任一元字符输入产生额外输出或标记，则原结论应降级为候选并交由工作包 3/4 按相同条件复核。",
+    "limitations": [
+      "本次未提供可运行 POC 环境与实测证据，按协议使用 status=不提供、execution_status=未运行。",
+      "上述内容仅为人工回归观察建议，不包含攻击脚本；执行者需自行提供本地会话与 token。"
+    ],
+    "execution_status": "未运行"
+  },
+  "runtime_evidence": []
+}

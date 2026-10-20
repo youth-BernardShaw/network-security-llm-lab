@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\AUTH-001__1.py",
+    "--base",
+    "http://127.0.0.1:9080/vulnerabilities/authbypass/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie"
+  ],
+  "started_at": "2026-10-20T14:41:32+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.206,
+  "stdout": "security=low status=200 json_kind=array detail={'count': 6, 'first_ids': ['1', '2', '3', '4', '5']}\r\nsecurity=impossible status=200 json_kind=object detail={'result': 'fail', 'error': 'Access denied'}\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "AUTH-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\AUTH-001__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080/vulnerabilities/authbypass/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie"
+  ]
+}

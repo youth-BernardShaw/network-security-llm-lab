@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\SQLI-002__1.py",
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-11/"
+  ],
+  "started_at": "2026-10-20T14:42:04+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.167,
+  "stdout": "[baseline] status=200 error=None bytes=1435 sha256_12=13207bd55f7b login_row=False failure_image=True sql_or_php_error=False\r\n[syntax-probe] status=200 error=None bytes=1603 sha256_12=b6b552b4a78f login_row=False failure_image=True sql_or_php_error=True\r\n[tautology-probe] status=200 error=None bytes=1521 sha256_12=b8fe49497b5a login_row=True failure_image=False sql_or_php_error=False\r\n\r\n观察：基线未返回用户行，恒真输入返回用户行，符合字符串拼接导致认证绕过的特征；\r\n仍需人工核查响应内容、服务器日志与代码行 16-17，不能仅凭本脚本断定漏洞成立。\r\n",
+  "stderr": "",
+  "cohort": "v2",
+  "stem": "SQLI-002__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\SQLI-002__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-11/"
+  ]
+}

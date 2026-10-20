@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-001__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ],
+  "started_at": "2026-10-20T14:43:24+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.125,
+  "stdout": "[INFO] HTTP 200，响应长度 4797\r\n[OBSERVE] 原始 payload 未经编码出现在响应中\r\n[NEXT] 需在浏览器中打开同一 URL，确认 alert('XSS001') 标记弹出\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "XSS-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-001__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ]
+}

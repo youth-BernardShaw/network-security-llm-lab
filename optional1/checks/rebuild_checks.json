@@ -1,0 +1,16 @@
+{
+  "status": "pass",
+  "historical_outputs_checked": 84,
+  "copied_inputs": 102,
+  "unique_audit_packets_checked": 17,
+  "all_packet_hashes_verified": true,
+  "source_files_hashed": 382,
+  "strict_protocol_counts": {
+    "v1": 5,
+    "v2": 8,
+    "v3": 14,
+    "historical-final": 4,
+    "wp4-baseline-final": 5,
+    "wp4-intermediate": 4
+  }
+}

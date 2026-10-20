@@ -1,0 +1,19 @@
+test_84_outputs_are_exact_source_copies (test_analysis.DeliverableIntegrity.test_84_outputs_are_exact_source_copies) ... ok
+test_final_not_merged_across_batches (test_analysis.DeliverableIntegrity.test_final_not_merged_across_batches) ... ok
+test_frozen_sources_unchanged (test_analysis.DeliverableIntegrity.test_frozen_sources_unchanged) ... ok
+test_input_hash_algorithms_and_data_equality (test_analysis.DeliverableIntegrity.test_input_hash_algorithms_and_data_equality) ... ok
+test_poc_not_run_is_not_zero_success_rate (test_analysis.DeliverableIntegrity.test_poc_not_run_is_not_zero_success_rate) ... ok
+test_primary_labels_condition_and_population (test_analysis.DeliverableIntegrity.test_primary_labels_condition_and_population) ... ok
+test_no_success_without_execution (test_analysis.FollowupEvidenceRules.test_no_success_without_execution) ... ok
+test_partial_execution_never_becomes_final_rate (test_analysis.FollowupEvidenceRules.test_partial_execution_never_becomes_final_rate) ... ok
+test_reject_changed_code_and_duplicate_identity (test_analysis.FollowupEvidenceRules.test_reject_changed_code_and_duplicate_identity) ... ok
+test_all_confusion_cells_and_unknown (test_analysis.StatisticalRules.test_all_confusion_cells_and_unknown) ... ok
+test_empty_or_negative_evidence_not_vacuously_complete (test_analysis.StatisticalRules.test_empty_or_negative_evidence_not_vacuously_complete) ... ok
+test_zero_denominators_and_imbalanced_case (test_analysis.StatisticalRules.test_zero_denominators_and_imbalanced_case) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 3.809s
+
+OK
+Frozen sources verified: 382
+C:\Users\12396\AppData\Local\Temp\optional1-evidence-test-wl7baimt\followup_poc_metrics.csv

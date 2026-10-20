@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-005__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--username",
+    "admin",
+    "--password",
+    "password",
+    "--security",
+    "low"
+  ],
+  "started_at": "2026-10-20T14:43:25+08:00",
+  "returncode": 1,
+  "elapsed_seconds": 0.127,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\r\n  File \"C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-005__1.py\", line 135, in <module>\r\n    sys.exit(main())\r\n             ^^^^^^\r\n  File \"C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-005__1.py\", line 75, in main\r\n    opener = make_opener()\r\n             ^^^^^^^^^^^^^\r\n  File \"C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-005__1.py\", line 32, in make_opener\r\n    jar = http.cookiejar.CookieJar()\r\n          ^^^^^^^^^^^^^^\r\nAttributeError: 'function' object has no attribute 'cookiejar'\r\n",
+  "cohort": "v2",
+  "stem": "XSS-005__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\XSS-005__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--username",
+    "admin",
+    "--password",
+    "password",
+    "--security",
+    "low"
+  ]
+}

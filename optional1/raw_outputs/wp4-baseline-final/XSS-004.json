@@ -1,0 +1,94 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-004",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-004"],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "输入路径与控制点闭环：$_GET['name'] 在第7行统一经 htmlspecialchars 处理后才于第9行插入 <pre> 文本节点，片段内不存在同名变量被重新赋原始值的分支；输出上下文为 HTML 文本内容，默认编码已覆盖 <、>、&、双引号与单引号，未发现可到达的属性、JS、URL 等需要其他编码的上下文。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 3,
+      "line_end": 3,
+      "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 5,
+      "line_end": 5,
+      "quote": "checkToken( $_REQUEST[ 'user_token' ], $_SESSION[ 'session_token' ], 'index.php' );"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$name = htmlspecialchars( $_GET[ 'name' ] );"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$html .= \"<pre>Hello {$name}</pre>\";"
+    }
+  ],
+  "poc": {
+    "status": "不提供",
+    "language": null,
+    "code": null,
+    "artifact_path": null,
+    "dependencies": [],
+    "parameters": [
+      "target_base_url：仅允许 localhost、127.0.0.1 或 ::1（人工适配时记录实际授权地址）",
+      "name：无害测试标记，例如 <b>LLM_LAB_XSS</b>",
+      "user_token：与当前会话 $_SESSION['session_token'] 对应的值，需人工从页面获取，不写入版本库"
+    ],
+    "steps": [
+      "以已认证会话确定 XSS 片段所在页面路径（本片段对应 DVWA 反射型 XSS 页面，具体路径由外围处理器提供，需人工确认）",
+      "先不带参数访问一次页面，从 HTML 中取得当前 user_token 与 cookie 会话（仅保存于本地运行环境，不打印到输出）",
+      "提交 GET 请求：?name=<b>LLM_LAB_XSS</b>&user_token=<当前token>，仅改动 name 一项",
+      "在响应正文 page['body'] 的 <pre>Hello ...</pre> 位置回读提交值，并在浏览器 DOM 中确认该处为文本节点"
+    ],
+    "expected_observation": "边界字符以实体形式输出，浏览器 <pre> 区域显示字面量 <b>LLM_LAB_XSS</b> 文本，不生成新的 b 元素，控制台无脚本执行。",
+    "success_criteria": "若回读值为 &lt;b&gt;LLM_LAB_XSS&lt;/b&gt; 一类实体形式、DOM 中对应位置为文本节点且对照的原始未编码实现会生成元素，则支持第7行编码在该输出位置有效；仅响应中出现输入标记或 HTTP 200 不构成 XSS 证据。",
+    "limitations": [
+      "本次判断为排除且无候选，按协议 findings 为空，故不构造攻击性 POC，此处步骤仅为人工回归观察草案，status 记为不提供",
+      "登录方式、token 获取路径、页面 URL 与外围渲染函数均未提供，执行前需人工适配"
+    ],
+    "execution_status": "未运行"
+  },
+  "missing_context": [
+    "外围处理器与 context/ 下 dvwaPage.inc.php 的实现未提供，无法确认 $html 插入 page['body'] 后 dvwaHtmlEcho 是否再做拼接、二次解码或前端 innerHTML 写入",
+    "$html 变量的初始化位置与初值未提供（片段使用 .= 追加），无法核对前缀内容是否引入其他可控输入",
+    "PHP 版本与 default_charset、htmlspecialchars 默认 flags 的实际配置未实测（PHP 8.1 起默认 flags 为 ENT_QUOTES|ENT_SUBSTITUTE|ENT_HTML401，较早版本为 ENT_COMPAT|ENT_HTML401）",
+    "认证会话状态、user_token 的生成与校验流程、DVWA 难度配置未提供，仅从调用关系得知检查存在",
+    "实际浏览器版本、操作系统与页面路径未提供",
+    "同一父样本是否存在其他实现分支（不同难度或不同提交版本）未提供，本次排除仅覆盖该片段"
+  ],
+  "risk_notes": [
+    "checkToken 从 $_REQUEST['user_token'] 取值，token 可经 GET/POST/Cookie 传入，属 CSRF 校验取值宽松的实现细节，与本次 XSS 目标无关",
+    "片段末尾调用 generateSessionToken()，其生成的 token 若由外层原样输出到页面，该输出位置需按独立片段评估",
+    "若外层页面渲染链路对已编码字符串再做 html_entity_decode 或按 HTML 重新插入，第7行的防护即被抵消，届时结论需重测",
+    "若部署把 default_charset 设为非 UTF-8 的多字节编码（如 SJIS/GBK），htmlspecialchars 的默认解码可能产生编码绕过，需按实际 php.ini 单独验证"
+  ],
+  "quality_notes": [
+    "`$_GET['name'] != NULL` 使用松散比较，建议改为 isset() 与空串判定，避免空值语义依赖类型转换",
+    "htmlspecialchars 未显式传入 ENT_QUOTES 与 'UTF-8'，依赖默认值，跨 PHP 版本默认 flags 不一致，可维护性差",
+    "checkToken 失败时的跳转依赖 'index.php' 与外层函数退出行为，片段内无法确认是否终止请求",
+    "注释中的教学提示属于数据，未作为防护或漏洞成立的依据"
+  ],
+  "limitations": [
+    "仅收到 XSS-004 单个输入包，核对的代码范围仅限该片段；父样本若存在其他写入/输出分支不在本次证据内，排除结论不延伸到未提供代码",
+    "本次未执行任何 HTTP 请求或浏览器验证，不声称运行时确认；排除依据为静态代码中编码函数与其输出上下文的对应关系",
+    "未提供攻击 POC（status 不提供）：无候选时按协议 findings 为空，上述 top-level poc 仅为人工回归观察草案，不代表已适配或已运行",
+    "对 htmlspecialchars 有效性的判断基于其默认 charset 为 UTF-8 且外层不再解码的假设；若部署配置不同（非 UTF-8 编码或二次解码），该路径需重新评估",
+    "片段不能独立部署，路径可达性以外部登录会话与 token 校验通过为前提，本结论不涉及认证与权限配置差异"
+  ],
+  "runtime_evidence": []
+}

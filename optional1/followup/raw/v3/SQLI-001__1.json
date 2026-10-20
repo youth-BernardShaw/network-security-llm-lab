@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\SQLI-001__1.py",
+    "--base",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-1/?id=1"
+  ],
+  "started_at": "2026-10-20T14:42:37+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.199,
+  "stdout": "{\r\n  \"sample_id\": \"SQLI-001\",\r\n  \"target\": {\r\n    \"base\": \"http://127.0.0.1:9081\",\r\n    \"path\": \"/Less-1/?id=1\",\r\n    \"param\": \"id\"\r\n  },\r\n  \"cases\": {\r\n    \"baseline_numeric\": {\r\n      \"status\": 200,\r\n      \"region\": {\r\n        \"row_found\": true,\r\n        \"login\": \"Dumb<br>Your Password:Dumb</font></font> </div></br></br></br><center>\",\r\n        \"password\": null,\r\n        \"error_text\": null\r\n      },\r\n      \"body_len\": 721\r\n    },\r\n    \"true_predicate\": {\r\n      \"status\": 200,\r\n      \"region\": {\r\n        \"row_found\": true,\r\n        \"login\": \"Dumb<br>Your Password:Dumb</font></font> </div></br></br></br><center>\",\r\n        \"password\": null,\r\n        \"error_text\": null\r\n      },\r\n      \"body_len\": 721\r\n    },\r\n    \"false_predicate\": {\r\n      \"status\": 200,\r\n      \"region\": {\r\n        \"row_found\": false,\r\n        \"login\": null,\r\n        \"password\": null,\r\n        \"error_text\": \"\"\r\n      },\r\n      \"body_len\": 670\r\n    }\r\n  },\r\n  \"checks\": {\r\n    \"baseline_row_present\": true,\r\n    \"true_predicate_same_row\": true,\r\n    \"false_predicate_no_row\": true\r\n  },\r\n  \"injection_observed\": true\r\n}\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "SQLI-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\SQLI-001__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-1/?id=1"
+  ]
+}

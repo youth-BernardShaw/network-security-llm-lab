@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\CMD-001__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie"
+  ],
+  "started_at": "2026-10-20T14:41:33+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 6.293,
+  "stdout": "control_http=200 control_marker=False\r\ntest_http=200 test_marker=True marker_literal_in_request=False\r\nRESULT COMMAND_EXECUTION_SIGNAL\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "CMD-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\CMD-001__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie"
+  ]
+}

