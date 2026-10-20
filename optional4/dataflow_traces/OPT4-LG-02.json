@@ -1,0 +1,56 @@
+{
+  "trace_id": "OPT4-LG-02",
+  "title": "DVWA csrf 模块：GET 改密无 Token/无当前口令/无 Origin 校验，攻击者页面与受害者会话组合后接管账号",
+  "traceback": {
+    "sample_id": null,
+    "scan_surface": "新扫描面：vulnerabilities/csrf（不在主体 samples.csv 内，属同一固定提交）",
+    "main_body_evidence": "反例机制复用主体 XSS-004/CMD-004 的 checkToken 行为记录",
+    "delta": "单函数扫描会把该文件判为『参数化/转义正确的 UPDATE，无注入』；只有把『谁可以合法发起这个请求』建为跨源组合序列，才能发现越权"
+  },
+  "source_commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+  "flow": [
+    {
+      "stage": "1-单步合法请求（伪装层）",
+      "phase_kind": "individually_legal_step",
+      "trigger_role": "R3 已登录（站内视角）",
+      "trigger_timing": "GET /vulnerabilities/csrf/?password_new=X&password_conf=X&Change=Change",
+      "code": {"file": "vulnerabilities/captcha/../csrf/source/low.php", "lines": "3-24"},
+      "statement": "UPDATE `users` SET password='<md5>' WHERE user='<dvwaCurrentUser()>'",
+      "observation": "UPDATE 本身无注入（md5 后拼接）；危害不在 SQL 层而在请求层"
+    },
+    {
+      "stage": "2-组合异常序列",
+      "phase_kind": "cross_site_composition",
+      "trigger_role": "R5 受害者浏览器（持有有效会话）+ R6 攻击者页面",
+      "trigger_timing": "受害者已登录状态下访问攻击者页面；页面含 <img src=\"http://127.0.0.1:9080/vulnerabilities/csrf/?password_new=<攻击者口令>&password_conf=<攻击者口郎>&Change=Change\">（img 加载即自动携带受害者 Cookie 发起 GET）",
+      "state_transition": "受害者已登录 → 受害者口令已变（攻击者已知新口令）",
+      "invariant_violated": "INV-03（状态变更未绑定主体意愿：无 Token/无 Origin/无 Referer 校验）、INV-01（无当前口令）",
+      "simulation_in_lab": "授权实验室内以『受害者 Cookie + 攻击者 Referer + 无 Token』直接构造该 GET 请求模拟 img 自动发起；不部署公网页面"
+    },
+    {
+      "stage": "3-危险汇点",
+      "carrier": "数据库字段 dvwa.users.password",
+      "sink_kind": "状态变更（账号接管）",
+      "second_stage_triggered": true,
+      "second_stage_reason": "请求层无任何主体绑定凭证，浏览器自动附带的会话 Cookie 即完整授权"
+    }
+  ],
+  "cross_request": true,
+  "cross_role": true,
+  "cross_state": true,
+  "carriers": ["会话Cookie(PHPSESSID+security)", "数据库字段(users.password)"],
+  "role_object_action_state": "R5/R6 × O3 × 跨站改密 × 受害者已登录→账号被接管",
+  "verdict_criteria": {
+    "necessary_evidence": [
+      "携带受害者 Cookie、伪造 Referer、无 Token 的 GET 请求后，DB 回查受害者口令哈希已变为攻击者指定值",
+      "请求方无需知道受害者当前口令，响应为 200 且含 'Password Changed.'",
+      "对照：同请求改打 impossible 档（Token 缺失）被 302 拒绝"
+    ],
+    "exclusion_conditions": [
+      "服务端强制 Token/Origin/当前口令任一 → 排除（impossible 档三重校验）",
+      "若改密动作为 POST+Token（本代码为 GET 无 Token）→ 排除"
+    ]
+  },
+  "expected_observable": " victims 用户行 md5 值从 md5(旧) 变为 md5(攻击者指定)；攻击者随后可用新口令登录受害者账号（POC 中以 DB 回查代替二次登录以减少破坏）",
+  "counter_example_ref": "csrf/source/impossible.php（checkToken+当前口令+PDO）"
+}

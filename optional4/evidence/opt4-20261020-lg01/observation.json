@@ -1,0 +1,37 @@
+{
+  "run_id": "opt4-20261020-lg01",
+  "batch_id": "opt4-poc-02",
+  "started_at": "2026-10-20T20:19:23+08:00",
+  "finished_at": "2026-10-20T20:19:23+08:00",
+  "meta": {
+    "case_id": "OPT4-LG-01",
+    "batch_id": "opt4-poc-02",
+    "deployment_id": "dvwa-wsl-02",
+    "source_commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+    "base": "http://127.0.0.1:9080"
+  },
+  "observations": {
+    "steps": {
+      "low_jump": {
+        "status": 200,
+        "page_message_visible": false,
+        "page_html_overwritten_by_key_banner": true,
+        "hash_changed_without_current_password": true,
+        "restored": true
+      },
+      "medium_client_flag": {
+        "negative_blocked_without_flag": true,
+        "negative_page_notice_visible": false,
+        "positive_changed_with_spoofed_flag": true,
+        "restored": true
+      },
+      "impossible_control": {
+        "status": 302,
+        "rejected_by_token_check": true,
+        "no_change": true
+      }
+    },
+    "original_hash_ok": true,
+    "verdict": "触发"
+  }
+}

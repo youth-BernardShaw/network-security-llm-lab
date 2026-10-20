@@ -1,0 +1,224 @@
+{
+  "low": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=0q5ifredrt7ekle0l2dvafa8ie; expires=Wed, 21 Oct 2026 12:19:23 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "gordonb",
+        "password": "<redacted>",
+        "Login": "Login",
+        "user_token": "e3ca7daa70fdbd96f30dc3fd27482637"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=0q5ifredrt7ekle0l2dvafa8ie; expires=Wed, 21 Oct 2026 12:19:23 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/vulnerabilities/captcha/",
+      "request_headers": {},
+      "request_body": {
+        "step": "2",
+        "password_new": "<redacted>",
+        "password_conf": "<redacted>",
+        "Change": "Change"
+      },
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    }
+  ],
+  "medium": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=dhaf70p8tpl0htk1l3q4ldgt35; expires=Wed, 21 Oct 2026 12:19:23 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "gordonb",
+        "password": "<redacted>",
+        "Login": "Login",
+        "user_token": "580c2e7da27ab9735161919b668fce8a"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=dhaf70p8tpl0htk1l3q4ldgt35; expires=Wed, 21 Oct 2026 12:19:23 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/vulnerabilities/captcha/",
+      "request_headers": {},
+      "request_body": {
+        "step": "2",
+        "password_new": "<redacted>",
+        "password_conf": "<redacted>",
+        "Change": "Change"
+      },
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/vulnerabilities/captcha/",
+      "request_headers": {},
+      "request_body": {
+        "step": "2",
+        "passed_captcha": "true",
+        "password_new": "<redacted>",
+        "password_conf": "<redacted>",
+        "Change": "Change"
+      },
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    }
+  ],
+  "impossible": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=kvggusv173bc0cc9qd69fj2tt9; expires=Wed, 21 Oct 2026 12:19:23 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "gordonb",
+        "password": "<redacted>",
+        "Login": "Login",
+        "user_token": "ae974433c699eb1d26770b760151cea6"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=kvggusv173bc0cc9qd69fj2tt9; expires=Wed, 21 Oct 2026 12:19:23 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/vulnerabilities/captcha/",
+      "request_headers": {},
+      "request_body": {
+        "step": "2",
+        "password_new": "<redacted>",
+        "password_conf": "<redacted>",
+        "Change": "Change"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:19:23 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    }
+  ]
+}

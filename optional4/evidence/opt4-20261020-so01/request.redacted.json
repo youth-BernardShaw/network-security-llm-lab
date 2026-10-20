@@ -1,0 +1,128 @@
+{
+  "attacker": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9081/Less-24/login_create.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "<svg onload=__o4s=1>",
+        "password": "<redacted>",
+        "re_password": "<redacted>",
+        "submit": "Register"
+      },
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9081",
+        "Connection": "close",
+        "X-Powered-By": "PHP/5.6.40",
+        "Set-Cookie": "PHPSESSID=56156616d2b38b22ad8d47e6336b2593; path=/",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+        "Pragma": "no-cache",
+        "refresh": "5, url=index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9081/Less-24/login.php",
+      "request_headers": {},
+      "request_body": {
+        "login_user": "<svg onload=__o4s=1>",
+        "login_password": "<redacted>",
+        "mysubmit": "Login"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9081",
+        "Connection": "close",
+        "X-Powered-By": "PHP/5.6.40",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+        "Pragma": "no-cache",
+        "Set-Cookie": "Auth=1; expires=Tue, 20-Oct-2026 13:14:00 GMT; Max-Age=3600",
+        "Location": "logged-in.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9081/Less-24/logged-in.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9081",
+        "Connection": "close",
+        "X-Powered-By": "PHP/5.6.40",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+        "Pragma": "no-cache",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    }
+  ],
+  "control": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9081/Less-24/login_create.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "opt4ctl",
+        "password": "<redacted>",
+        "re_password": "<redacted>",
+        "submit": "Register"
+      },
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9081",
+        "Connection": "close",
+        "X-Powered-By": "PHP/5.6.40",
+        "Set-Cookie": "PHPSESSID=668f503b03282669ba72639cc0e06eb1; path=/",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+        "Pragma": "no-cache",
+        "refresh": "5, url=index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9081/Less-24/login.php",
+      "request_headers": {},
+      "request_body": {
+        "login_user": "opt4ctl",
+        "login_password": "<redacted>",
+        "mysubmit": "Login"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9081",
+        "Connection": "close",
+        "X-Powered-By": "PHP/5.6.40",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+        "Pragma": "no-cache",
+        "Set-Cookie": "Auth=1; expires=Tue, 20-Oct-2026 13:14:00 GMT; Max-Age=3600",
+        "Location": "logged-in.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9081/Less-24/logged-in.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9081",
+        "Connection": "close",
+        "X-Powered-By": "PHP/5.6.40",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+        "Pragma": "no-cache",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    }
+  ]
+}

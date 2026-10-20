@@ -1,0 +1,43 @@
+{
+  "run_id": "opt4-20261020-so01",
+  "batch_id": "opt4-poc-02",
+  "started_at": "2026-10-20T20:14:00+08:00",
+  "finished_at": "2026-10-20T20:14:00+08:00",
+  "meta": {
+    "case_id": "OPT4-SO-01",
+    "batch_id": "opt4-poc-02",
+    "deployment_id": "sqli-labs-wsl-02",
+    "source_commit": "e96f21776372c8613a7e565106e62bc01a59355e",
+    "base": "http://127.0.0.1:9081"
+  },
+  "observations": {
+    "steps": {
+      "payload_registered": true,
+      "register_page_sha256": "d520342f8116f4b545558af8d87df75ad41989a924937fa40155ba6f887f7515",
+      "stored_verbatim": {
+        "rows": 1,
+        "stored_username": "<svg onload=__o4s=1>",
+        "matches_literal": true
+      },
+      "payload_login_status": 302,
+      "auth_cookie_set": true,
+      "sink_hit": {
+        "status": 200,
+        "marker_present_unencoded": true,
+        "marker_encoded": false
+      },
+      "control": {
+        "registered": true,
+        "login_status": 302,
+        "marker_absent": true,
+        "username_echoed": true
+      }
+    },
+    "baseline_users": 13,
+    "restore": {
+      "users_after": 13,
+      "leftovers": []
+    },
+    "verdict": "触发"
+  }
+}

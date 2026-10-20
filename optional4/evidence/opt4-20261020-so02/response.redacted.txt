@@ -1,0 +1,11 @@
+### medium GET http://127.0.0.1:9080/login.php -> 200
+### medium POST http://127.0.0.1:9080/login.php -> 302
+### medium POST http://127.0.0.1:9080/vulnerabilities/xss_s/ -> 200
+### medium GET http://127.0.0.1:9080/vulnerabilities/xss_s/ -> 200
+### low GET http://127.0.0.1:9080/login.php -> 200
+### low POST http://127.0.0.1:9080/login.php -> 302
+### low POST http://127.0.0.1:9080/vulnerabilities/xss_s/ -> 200
+### low GET http://127.0.0.1:9080/vulnerabilities/xss_s/ -> 200
+### impossible GET http://127.0.0.1:9080/login.php -> 200
+### impossible POST http://127.0.0.1:9080/login.php -> 302
+### impossible POST http://127.0.0.1:9080/vulnerabilities/xss_s/ -> 302

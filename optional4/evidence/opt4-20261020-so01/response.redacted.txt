@@ -1,0 +1,6 @@
+### attacker POST http://127.0.0.1:9081/Less-24/login_create.php -> 200
+### attacker POST http://127.0.0.1:9081/Less-24/login.php -> 302
+### attacker GET http://127.0.0.1:9081/Less-24/logged-in.php -> 200
+### control POST http://127.0.0.1:9081/Less-24/login_create.php -> 200
+### control POST http://127.0.0.1:9081/Less-24/login.php -> 302
+### control GET http://127.0.0.1:9081/Less-24/logged-in.php -> 200

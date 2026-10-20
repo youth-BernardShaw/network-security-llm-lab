@@ -1,0 +1,6 @@
+### victim GET http://127.0.0.1:9080/login.php -> 200
+### victim POST http://127.0.0.1:9080/login.php -> 302
+### victim GET http://127.0.0.1:9080/vulnerabilities/csrf/?password_new=opt4csrf&password_conf=opt4csrf&Change=Change -> 200
+### impossible GET http://127.0.0.1:9080/login.php -> 200
+### impossible POST http://127.0.0.1:9080/login.php -> 302
+### impossible GET http://127.0.0.1:9080/vulnerabilities/csrf/?password_new=opt4csrf&password_conf=opt4csrf&Change=Change -> 302

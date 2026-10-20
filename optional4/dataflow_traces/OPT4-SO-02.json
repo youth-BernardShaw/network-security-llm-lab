@@ -1,0 +1,82 @@
+{
+  "trace_id": "OPT4-SO-02",
+  "title": "DVWA xss_s medium 档 name 字段：写入端只删 <script> 小写 + DB转义，读取端无输出编码（二次存储型XSS，同页 message 字段为反例）",
+  "traceback": {
+    "sample_id": "XSS-005",
+    "main_body_evidence": "verification/validation_log/wp4-20261019-xss005-low.json（仅 low 档）",
+    "delta": "主体只验证 low 档整体可注入；本追踪比较 medium 档同一请求内两个字段的写入端差异，证明『第一阶段写入是否触发』必须逐字段判定"
+  },
+  "source_commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+  "flow": [
+    {
+      "stage": "1-输入",
+      "phase_kind": "first_stage_write",
+      "trigger_role": "R3 已登录（自注入，专用测试留言）",
+      "trigger_timing": "POST /vulnerabilities/xss_s/（security=medium Cookie）",
+      "request": {
+        "method": "POST",
+        "params": {
+          "txtName": "<img src=x onerror=window.__opt4nm=1>",
+          "mtxMessage": "<img src=x onerror=window.__opt4ms=1>",
+          "btnSign": "Sign Guestbook"
+        }
+      },
+      "code": {
+        "file": "vulnerabilities/xss_s/source/medium.php",
+        "lines": "14-24"
+      },
+      "transform": {
+        "name": "str_replace('<script>','') 不命中载荷 → mysqli_real_escape_string（对HTML无防护）→ 字面值落库",
+        "message": "strip_tags 直接剥除整个 <img> 元素（可执行构造从未持久化）→ 落库为空串；再经 mysqli 转义与 htmlspecialchars"
+      }
+    },
+    {
+      "stage": "2-存储",
+      "carrier": "数据库字段 dvwa.guestbook.name / .comment",
+      "statement": "INSERT INTO guestbook (comment, name) VALUES ('$message','$name')",
+      "stored_form": {
+        "name": "字面值 <img src=x onerror=window.__opt4nm=1>",
+        "message": "空串（元素被 strip_tags 剥除）"
+      },
+      "first_stage_triggered": false,
+      "first_stage_reason": "两个字段的 INSERT 语义均未被改变（写入均安全，但安全性来源不同：name 靠黑名单漏过，message 靠标签剥除）"
+    },
+    {
+      "stage": "3-读取+汇点",
+      "carrier": "HTML 输出（xss_s/index.php 渲染 guestbook）",
+      "trigger_role": "R3 已登录",
+      "trigger_timing": "再次 GET /vulnerabilities/xss_s/（任意后续访客即受害者视角）",
+      "code": {
+        "file": "vulnerabilities/xss_s/index.php",
+        "lines": "渲染存储行"
+      },
+      "sink_kind": "HTML上下文输出",
+      "second_stage_triggered": true,
+      "second_stage_reason": "输出端无上下文编码：name 字面值以元素形式进入 DOM（onerror 执行）；message 的元素已被剥除，页面上不存在可执行构造"
+    }
+  ],
+  "cross_request": true,
+  "cross_role": true,
+  "carriers": [
+    "数据库字段(guestbook.name)"
+  ],
+  "encoding_timeline": [
+    "T1 输入：两字段原始载荷相同",
+    "T2 写库：name=黑名单未命中+DB转义（字面值落库）；message=strip_tags 剥除元素（空串落库）",
+    "T3 读回渲染：均无再编码 → name 成为可执行元素，message 无可执行内容"
+  ],
+  "permission_changes": "无；危害为对后续访客（含 admin 账号浏览留言时）的会话窃取向量",
+  "verdict_criteria": {
+    "necessary_evidence": [
+      "medium 档写入后 DB 回查：name 为字面值；comment 中不存在 <img 元素（被 strip_tags 剥除）",
+      "再次访问页面响应中 name 的 <img 原样出现在元素位置，message 无可执行构造",
+      "对照组：low 档两字段均字面值渲染（主体已验）；impossible 档两字段均预编码且需 Token"
+    ],
+    "exclusion_conditions": [
+      "读取点始终按数据处理且有正确编码 → 排除（message 字段即内置反例：元素在写入端已被剥除）",
+      "危险汇点不可达（impossible 档 Token 缺失 302，主体 XSS-004 同机制已验）"
+    ]
+  },
+  "expected_observable": "同一页面同一请求产生的两字段：响应含未编码 <img（name）且 message 无任何 <img 元素",
+  "counter_example_ref": "message 字段（medium）；impossible 档（Token+双字段预编码+PDO）"
+}

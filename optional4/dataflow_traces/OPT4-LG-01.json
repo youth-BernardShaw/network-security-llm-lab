@@ -1,0 +1,98 @@
+{
+  "trace_id": "OPT4-LG-01",
+  "title": "DVWA captcha 模块改密状态机：服务端不校验步骤迁移（low 跳过 CAPTCHA；medium 信任客户端 passed_captcha 标记）",
+  "variants": [
+    "OPT4-LG-01a (security=low)",
+    "OPT4-LG-01b (security=medium)"
+  ],
+  "traceback": {
+    "sample_id": null,
+    "scan_surface": "新扫描面：vulnerabilities/captcha（不在主体 samples.csv 15 个样本内，属同一固定提交）",
+    "main_body_evidence": "反例机制复用主体 XSS-004/CMD-004 的 checkToken 行为记录",
+    "delta": "单函数扫描只能看到 UPDATE 语句本身（参数来自 POST，非注入点）；只有把 step=1→step=2 建成状态机并检查迁移凭证的来源，才能发现状态跳跃"
+  },
+  "source_commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+  "flow": [
+    {
+      "stage": "1-合法前置（被跳过的状态）",
+      "phase_kind": "expected_state_transition",
+      "state": "初始 → step=1（CAPTCHA 校验+双口令一致）→ 确认页",
+      "code": {
+        "file": "vulnerabilities/captcha/source/low.php",
+        "lines": "5-50"
+      },
+      "server_enforcement": "依赖第三方 reCAPTCHA；本地未配置密钥时 recaptcha_check_answer 恒假（合法路径不可达是环境事实，不影响异常路径分析）；且密钥为空时 index.php:38-42 会在模块代码运行后覆盖 $html，页面消息被替换为密钥缺失横幅——判定一律以 DB 回查为准"
+    },
+    {
+      "stage": "2-异常序列（状态跳跃）",
+      "phase_kind": "state_jump",
+      "trigger_role": "R3 已登录（自攻击，专用测试账号）",
+      "trigger_timing": "单请求 POST /vulnerabilities/captcha/（security=low）",
+      "request": {
+        "method": "POST",
+        "params": {
+          "step": "2",
+          "password_new": "<新口令>",
+          "password_conf": "<新口令>",
+          "Change": "Change"
+        }
+      },
+      "code": {
+        "file": "vulnerabilities/captcha/source/low.php",
+        "lines": "52-86"
+      },
+      "state_transition": "任意状态 → 口令已变（step=1 从未发生）",
+      "invariant_violated": "INV-01（无当前口令校验）、INV-02（步骤迁移无服务端凭证）"
+    },
+    {
+      "stage": "2b-异常序列（客户端状态标记伪造）",
+      "phase_kind": "client_trusted_flag",
+      "trigger_timing": "单请求 POST /vulnerabilities/captcha/（security=medium）",
+      "request": {
+        "method": "POST",
+        "params": {
+          "step": "2",
+          "passed_captcha": "true",
+          "password_new": "<新口令>",
+          "password_conf": "<新口令>",
+          "Change": "Change"
+        }
+      },
+      "code": {
+        "file": "vulnerabilities/captcha/source/medium.php",
+        "lines": "60-69"
+      },
+      "state_transition": "任意状态 → 口令已变（passed_captcha 是 step=1 页面输出的隐藏域，非服务端会话状态）",
+      "invariant_violated": "INV-01、INV-02（校验对象是客户端参数）"
+    },
+    {
+      "stage": "3-危险汇点",
+      "carrier": "数据库字段 dvwa.users.password",
+      "statement": "UPDATE `users` SET password = '<md5>' WHERE user = '<dvwaCurrentUser()>'",
+      "sink_kind": "状态变更（权限对象）",
+      "second_stage_triggered": true,
+      "second_stage_reason": "UPDATE 的前置条件（CAPTCHA 通过、用户确认）全部可由单个伪造请求满足"
+    }
+  ],
+  "cross_request": false,
+  "cross_role": false,
+  "cross_state": true,
+  "carriers": [
+    "客户端提交的流程状态(step/passed_captcha)",
+    "数据库字段(users.password)"
+  ],
+  "role_object_action_state": "R3 × O3/O6 × 改密 × 任意状态→已变更",
+  "verdict_criteria": {
+    "necessary_evidence": [
+      "在不知道当前口令、未通过 CAPTCHA 的前提下，单请求后 DB 回查口令哈希已变化（low）",
+      "medium 档：不带 passed_captcha 的同一请求被拦截（哈希不变），带该参数则成功——证明该客户端参数是被检的唯一条件",
+      "impossible 档无 Token 请求被 302 拒绝（反例）"
+    ],
+    "exclusion_conditions": [
+      "服务端状态机完整（impossible：Token+当前口令+PDO）→ 排除",
+      "若 step=2 分支校验会话内服务端标志（本代码没有）→ 排除"
+    ]
+  },
+  "expected_observable": "low：POST step=2 后 dvwa.users.password 变为 md5(新口令)（页面消息被横幅覆盖，DB 为准）；medium：不带 passed_captcha 时哈希不变（被拦截），带 passed_captcha=true 时哈希变化",
+  "counter_example_ref": "captcha/source/impossible.php（checkToken+当前口令+PDO）"
+}

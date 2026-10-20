@@ -1,0 +1,30 @@
+{
+  "run_id": "opt4-20261020-lg02",
+  "batch_id": "opt4-poc-02",
+  "started_at": "2026-10-20T20:14:27+08:00",
+  "finished_at": "2026-10-20T20:14:28+08:00",
+  "meta": {
+    "case_id": "OPT4-LG-02",
+    "batch_id": "opt4-poc-02",
+    "deployment_id": "dvwa-wsl-02",
+    "source_commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+    "base": "http://127.0.0.1:9080"
+  },
+  "observations": {
+    "steps": {
+      "cross_site_get": {
+        "status": 200,
+        "password_changed_message": true,
+        "hash_changed_to_attacker_value": true,
+        "restored": true
+      },
+      "impossible_control": {
+        "status": 302,
+        "rejected_by_token_check": true,
+        "no_change": true
+      }
+    },
+    "original_hash_ok": true,
+    "verdict": "触发"
+  }
+}
