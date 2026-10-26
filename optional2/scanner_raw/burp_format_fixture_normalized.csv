@@ -1,0 +1,4 @@
+﻿scanner_finding_id,source,scanner_rule,sample_id,asset,route,http_method,parameter,vulnerability_type,severity,confidence,title,evidence_summary,request_sample,code_location,condition,verification_status,evidence,notes
+BURP-001,scanner:burp,SQL injection,,http://127.0.0.1:9081,/Less-1/index.php,GET,,SQL注入,High,Certain,SQL injection,The id parameter appears to be vulnerable to SQL injection. The payload 1' AND '1'='1 was submitted and the response differed from the false condition.,"GET /Less-1/index.php?id=1%27 AND%20'1'='1 HTTP/1.1
+Host: 127.0.0.1:9081
+",,env=imported|scope=burp,unverified,burp_format_fixture.xml,Burp XML import; requires dedup + human verification

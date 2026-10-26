@@ -1,0 +1,41 @@
+{
+  "base": "https://127.0.0.1:3443/api/v1",
+  "create_target": {
+    "method": "POST",
+    "path": "/targets",
+    "body": {
+      "address": "http://127.0.0.1:9080/",
+      "description": "optional2 local lab",
+      "type": "default",
+      "criticality": 10
+    }
+  },
+  "schedule_scan": {
+    "method": "POST",
+    "path": "/scans",
+    "body": {
+      "profile_id": "11111111-1111-1111-1111-111111111111",
+      "incremental": false,
+      "schedule": {
+        "disable": false,
+        "start_date": null,
+        "time_sensitive": false
+      },
+      "user_authorized_to_scan": "yes",
+      "target_id": "<target_id>"
+    }
+  },
+  "poll": {
+    "method": "GET",
+    "path": "/scans/{scan_id}"
+  },
+  "results": {
+    "method": "GET",
+    "path": "/scans/{scan_id}/results"
+  },
+  "vulnerabilities": {
+    "method": "GET",
+    "path": "/scans/{scan_id}/results/{result_id}/vulnerabilities"
+  },
+  "note": "Set AWVS_API_KEY and drop --dry-run for a licensed instance."
+}

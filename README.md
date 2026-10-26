@@ -44,6 +44,15 @@
 
 17 条 `single_person_review_only` 运行已完成独立盲评：复核人只收到脱敏证据、不知道原判断与正式标签，触发判断和条件标签均为 17/17 一致；盲评记录见[盲评报告](verification/blind_review/report.md)。这仍是子代理辅助复核，不替代人工小组成员签字。
 
+### 选做2 LLM 与 Burp/AWVS 等传统扫描器联动
+
+已完成两条联动流程、Wapiti 3.0.4 本地真实扫描、Burp XML/AWVS API 适配器、归一化去重、覆盖四象限和比较指标。详见[选做2 报告](optional2/comparison_report.md)与[架构图](optional2/integration_architecture.png)。
+
+- Wapiti 实际扫描 4 个端点，4/4 命中；LLM 覆盖全部 12 个阳性父样本；
+- 仅 LLM 确认 8 个（扫描器未测）、两者共同确认 4 个、scanner-only 目标 0 个；
+- 工具独有补充发现 1 个（Less-25 XSS，范围外）；9 条 CSP/Header/Cookie 配置告警被 LLM 解释为非目标范围；
+- 发现覆盖率 12/12，扫描器目标告警有效率 4/4，互补发现率 8/12。
+
 v1/v2/final 的 42 条记录已在独立子代理上下文中运行并填入 `prompts/evaluation_records.csv`（状态 `completed`），分类均为 14/14；但模型快照、采样参数与用量不可取得，不是正式商业 API 成绩，限制见[批次说明](results/batches/wp2-eval-42/README.md)。
 
 
@@ -55,6 +64,7 @@ v1/v2/final 的 42 条记录已在独立子代理上下文中运行并填入 `pr
 - `docs/`：各模块报告及总报告材料，由全组整合；任务 3 主报告为 `docs/module3_design.md`。
 - `verification/`：环境、POC、适配差异及运行证据，由验证负责人维护。
 - `results/`：结果对比、误报漏报归因、统计和优化复盘，由结果负责人维护。
+- `optional2/`：选做2 的 LLM 与 Burp/AWVS 等扫描器联动方案、扫描原始结果、合并/去重、指标与案例。
 
 实际姓名由小组补充。工作包 3 的附件放在 `workpackage3/`，主报告放在 `docs/`，供总报告整合。
 

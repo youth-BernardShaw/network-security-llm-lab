@@ -1,0 +1,14 @@
+﻿finding_id,sample_id,route,http_method,parameter,condition,scanner_seed,rescan_status,reason
+LLM-SQLI-001-F1,SQLI-001,/Less-1/index.php,GET,id,env=sqli-labs|role=anonymous,GET /Less-1/index.php (id),confirmed_by_wapiti,scanner run in this optional2 batch
+LLM-SQLI-002-F1,SQLI-002,/Less-11/index.php,POST,uname,env=sqli-labs|role=anonymous,POST /Less-11/index.php (uname),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-SQLI-003-F1,SQLI-003,/Less-25/index.php,GET,id,env=sqli-labs|role=anonymous,GET /Less-25/index.php (id),confirmed_by_wapiti,scanner run in this optional2 batch
+LLM-SQLI-005-F1,SQLI-005,/Less-24/pass_change.php,POST,username(session),env=sqli-labs|role=anonymous|stage=register-login-pass,POST /Less-24/pass_change.php (username(session)),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-XSS-001-F1,XSS-001,/vulnerabilities/xss_r/,GET,name,env=dvwa-wsl-01|security=low,GET /vulnerabilities/xss_r/ (name),confirmed_by_wapiti,scanner run in this optional2 batch
+LLM-XSS-002-F1,XSS-002,/vulnerabilities/xss_r/,GET,name,env=dvwa-wsl-01|security=medium,GET /vulnerabilities/xss_r/ (name),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-XSS-003-F1,XSS-003,/vulnerabilities/xss_r/,GET,name,env=dvwa-wsl-01|security=high,GET /vulnerabilities/xss_r/ (name),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-XSS-005-F1,XSS-005,/vulnerabilities/xss_s/,POST,mtxMessage,env=dvwa-wsl-01|security=low|stage=stored,POST /vulnerabilities/xss_s/ (mtxMessage),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-CMD-001-F1,CMD-001,/vulnerabilities/exec/,POST,ip,env=dvwa-wsl-01|security=low,POST /vulnerabilities/exec/ (ip),confirmed_by_wapiti,scanner run in this optional2 batch
+LLM-CMD-002-F1,CMD-002,/vulnerabilities/exec/,POST,ip,env=dvwa-wsl-01|security=medium,POST /vulnerabilities/exec/ (ip),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-CMD-003-F1,CMD-003,/vulnerabilities/exec/,POST,ip,env=dvwa-wsl-01|security=high,POST /vulnerabilities/exec/ (ip),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-AUTH-001-F1,AUTH-001,/vulnerabilities/authbypass/get_user_data.php,GET,-,env=dvwa-wsl-01|security=low|role=ordinary|object=wp4target,GET /vulnerabilities/authbypass/get_user_data.php (-),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup
+LLM-AUTH-001-F2,AUTH-001,/vulnerabilities/authbypass/change_user_details.php,POST,id,env=dvwa-wsl-01|security=low|role=ordinary|object=wp4target,POST /vulnerabilities/authbypass/change_user_details.php (id),not_tested,not in the 4-endpoint Wapiti scope; scanner would need auth/multi-stage setup

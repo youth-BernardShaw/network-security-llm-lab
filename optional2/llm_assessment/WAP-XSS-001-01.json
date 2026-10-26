@@ -1,0 +1,23 @@
+{
+  "scanner_finding_id": "WAP-XSS-001-01",
+  "sample_id": "XSS-001",
+  "scanner": "Wapiti 3.0.4 (Cross Site Scripting)",
+  "code_location": "XSS-001:6",
+  "root_cause": "$_GET['name'] 未编码拼接到 <pre>Hello ...</pre>，属于 HTML 文本上下文。",
+  "data_flow": [
+    "line 4: array_key_exists('name', $_GET)",
+    "line 6: $html .= '<pre>Hello ' . $_GET['name'] . '</pre>'"
+  ],
+  "preconditions": [
+    "DVWA 已登录",
+    "security=low"
+  ],
+  "llm_verdict": "confirmed",
+  "target_status": "in_scope",
+  "confidence": "high",
+  "evidence": [
+    "verification/evidence/wp4-20261019-xss001-low/browser.json"
+  ],
+  "extension": "Wapiti 以反射 payload 触发；已有浏览器 POC 的 DOM 标记证明真实执行。",
+  "residual_risk": "只证明该 low 路径；medium/high 另行验证。"
+}

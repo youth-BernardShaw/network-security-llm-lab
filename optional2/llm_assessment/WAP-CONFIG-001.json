@@ -1,0 +1,34 @@
+{
+  "scanner_finding_id": "WAP-CONFIG-001",
+  "applies_to": [
+    "WAP-CFG-01",
+    "WAP-CFG-02",
+    "WAP-CFG-03",
+    "WAP-CFG-04",
+    "WAP-CFG-05",
+    "WAP-CFG-06",
+    "WAP-CFG-07",
+    "WAP-CFG-08",
+    "WAP-CFG-09"
+  ],
+  "sample_id": "CONFIG-DVWA-LOGIN",
+  "scanner": "Wapiti 3.0.4 (CSP/HTTP headers/cookie flags)",
+  "code_location": "N/A (deployment configuration)",
+  "root_cause": "登录页缺少 CSP、X-Frame-Options、X-Content-Type-Options、HSTS；PHPSESSID/security Cookie 缺少 HttpOnly/Secure。",
+  "data_flow": [
+    "HTTP response headers",
+    "Set-Cookie attributes"
+  ],
+  "preconditions": [
+    "本地 HTTP 实验环境",
+    "DVWA 预置配置"
+  ],
+  "llm_verdict": "excluded",
+  "target_status": "excluded_non_target",
+  "confidence": "high",
+  "evidence": [
+    "optional2/scanner_raw/wapiti_headers_login.json"
+  ],
+  "extension": "这些是部署加固问题，不是 14 个父样本的目标漏洞；本地 HTTP 无 TLS，Secure flag 不适用；不进入目标漏洞分母。",
+  "residual_risk": "若部署到真实环境，应单独按配置加固项跟踪；不能把它们算成目标漏洞的 FP 或 TP。"
+}

@@ -1,0 +1,21 @@
+﻿metric,numerator,denominator,display,unit,definition
+gold_standard_positive_parents,12,12,12/12,count,parent samples with a confirmed target vulnerability
+gold_standard_negative_parents,2,2,2/2,count,parent samples with a confirmed exclusion in scope
+llm_confirmed_positive,12,12,12/12,count,LLM candidates confirmed by existing POC evidence
+both_confirmed,4,12,4/12,count,target parents confirmed by both LLM and Wapiti
+llm_only_confirmed,8,12,8/12,count,target parents confirmed by LLM; scanner not run on that endpoint
+scanner_only_target,0,12,0/12,count,target parents confirmed only by scanner
+neither_target,0,12,0/12,count,target positives missed by both (within tested scope)
+discovery_coverage,12,12,12/12,ratio,union of LLM and scanner / gold-standard positive parents
+scanner_tested_endpoints,4,14,4/14,count,endpoints actually scanned; untested is not a miss
+scanner_target_recall,4,4,4/4,ratio,target-confirmed / endpoints scanned
+complementary_discovery_rate,8,12,8/12,ratio,LLM-only or scanner-only confirmed / confirmed positives; scanner-only target = 0
+wapiti_all_alerts,14,14,14,count,all Wapiti alerts in the five scans
+wapiti_target_alerts,4,4,4,count,Wapiti target alerts confirmed in the 14-parent set
+wapiti_additional_true,1,1,1,count,Wapiti-only additional XSS outside the 14-parent target labels
+wapiti_config_alerts,9,9,9,count,CSP/header/cookie hardening alerts excluded from target scope
+wapiti_false_positive,0,4,0/4,count,"target-scope false positives; config alerts are out-of-scope, not FP"
+wapiti_target_alert_precision,4,4,4/4,ratio,target alerts confirmed / target alerts
+wapiti_scope_relevance,5,14,5/14,ratio,alerts that are real vulnerabilities (target + additional) / all alerts
+llm_alert_precision,12,12,12/12,ratio,LLM positive candidates confirmed / positive candidates
+llm_first_rescan_tested,4,13,4/13,count,LLM candidates sent to Wapiti / all LLM candidate rows

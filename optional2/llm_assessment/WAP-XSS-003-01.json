@@ -1,0 +1,24 @@
+{
+  "scanner_finding_id": "WAP-XSS-003-01",
+  "sample_id": "ADDITIONAL-001",
+  "scanner": "Wapiti 3.0.4 (Cross Site Scripting)",
+  "code_location": "SQLI-003:44",
+  "root_cause": "Less-25 页面在 line 44 直接把 $hint 拼进 HTML，未做 HTML 编码；这是与 SQLI-003 的 SQL 注入不同的 XSS 路径。",
+  "data_flow": [
+    "line 14: $hint=$id",
+    "line 44: echo \"Hint: ... \".$hint",
+    "无 htmlspecialchars"
+  ],
+  "preconditions": [
+    "Less-25 可访问",
+    "浏览器执行 payload"
+  ],
+  "llm_verdict": "confirmed",
+  "target_status": "out_of_scope",
+  "confidence": "high",
+  "evidence": [
+    "optional2/case_studies/less25_xss_browser.json"
+  ],
+  "extension": "用无害 svg onload 标记在浏览器验证；它不是 14 个父样本的目标标签，只作为工具独有补充发现。",
+  "residual_risk": "不要把它计入 SQLI-003 的 SQL 标签，也不要把父样本数增加为 15。"
+}

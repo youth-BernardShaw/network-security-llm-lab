@@ -1,0 +1,99 @@
+{
+  "batch_id": "optional2-scanner-llm-01",
+  "date": "2026-10-21",
+  "timezone": "+08:00",
+  "scanner": "Wapiti 3.0.4 (reference traditional scanner)",
+  "tool_availability": {
+    "burp_professional": "not installed (commercial license)",
+    "burp_community": "not installed; no active scanner",
+    "awvs": "not installed (commercial license)",
+    "wapiti": "3.0.4, installed via apt"
+  },
+  "adapters": {
+    "burp_xml_parser": "optional2/tools/burp_xml.py",
+    "burp_format_fixture": "optional2/scanner_raw/burp_format_fixture.xml",
+    "awvs_client": "optional2/tools/awvs_client.py",
+    "awvs_dry_run": "optional2/scanner_raw/awvs_dryrun.json"
+  },
+  "targets": [
+    "http://127.0.0.1:9080",
+    "http://127.0.0.1:9081"
+  ],
+  "scan_window": "2026-10-21T22:08:00+08:00 ~ 2026-10-21T22:10:30+08:00 (approx., 5 local scans)",
+  "scans": [
+    {
+      "file": "wapiti_sqli001.json",
+      "url": "http://127.0.0.1:9081/Less-1/index.php?id=1",
+      "scope": "page",
+      "modules": "sql,xss,exec",
+      "auth": "none",
+      "rate": "-S polite",
+      "max_scan_time": 60,
+      "command": "wapiti -u 'http://127.0.0.1:9081/Less-1/index.php?id=1' --scope page -m 'sql,xss,exec' -S polite --max-scan-time 60 --max-attack-time 60 -f json -o optional2/scanner_raw/wapiti_sqli001.json --flush-session",
+      "output": "optional2/scanner_raw/wapiti_sqli001.json",
+      "findings": 1
+    },
+    {
+      "file": "wapiti_sqli003.json",
+      "url": "http://127.0.0.1:9081/Less-25/index.php?id=1",
+      "scope": "page",
+      "modules": "sql,xss,exec",
+      "auth": "none",
+      "rate": "-S polite",
+      "max_scan_time": 45,
+      "command": "wapiti -u 'http://127.0.0.1:9081/Less-25/index.php?id=1' --scope page -m 'sql,xss,exec' -S polite --max-scan-time 45 --max-attack-time 45 -f json -o optional2/scanner_raw/wapiti_sqli003.json --flush-session",
+      "output": "optional2/scanner_raw/wapiti_sqli003.json",
+      "findings": 2
+    },
+    {
+      "file": "wapiti_xss001.json",
+      "url": "http://127.0.0.1:9080/vulnerabilities/xss_r/?name=test",
+      "scope": "page",
+      "modules": "sql,xss,permanentxss,exec",
+      "auth": "DVWA admin session (security=low)",
+      "rate": "-S polite",
+      "max_scan_time": 60,
+      "command": "wapiti -u 'http://127.0.0.1:9080/vulnerabilities/xss_r/?name=test' --scope page -m 'sql,xss,permanentxss,exec' -c optional2/tmp/dvwa_cookies.json -S polite --max-scan-time 60 --max-attack-time 60 -f json -o optional2/scanner_raw/wapiti_xss001.json --flush-session",
+      "output": "optional2/scanner_raw/wapiti_xss001.json",
+      "findings": 1
+    },
+    {
+      "file": "wapiti_cmd001.json",
+      "url": "http://127.0.0.1:9080/vulnerabilities/exec/",
+      "scope": "page",
+      "modules": "sql,xss,exec",
+      "auth": "DVWA admin session (security=low)",
+      "rate": "-S polite",
+      "max_scan_time": 45,
+      "command": "wapiti -u 'http://127.0.0.1:9080/vulnerabilities/exec/' --scope page -m 'sql,xss,exec' -c optional2/tmp/dvwa_cookies.json -S polite --max-scan-time 45 --max-attack-time 45 -f json -o optional2/scanner_raw/wapiti_cmd001.json --flush-session",
+      "output": "optional2/scanner_raw/wapiti_cmd001.json",
+      "findings": 1
+    },
+    {
+      "file": "wapiti_headers_login.json",
+      "url": "http://127.0.0.1:9080/login.php",
+      "scope": "page",
+      "modules": "cookieflags,http_headers,csp",
+      "auth": "none",
+      "rate": "-S polite",
+      "max_scan_time": 20,
+      "command": "wapiti -u 'http://127.0.0.1:9080/login.php' --scope page -m 'cookieflags,http_headers,csp' -S polite --max-scan-time 20 --max-attack-time 20 -f json -o optional2/scanner_raw/wapiti_headers_login.json --flush-session",
+      "output": "optional2/scanner_raw/wapiti_headers_login.json",
+      "findings": 9
+    }
+  ],
+  "normalized_rows": 14,
+  "merged_rows": 23,
+  "additional_scanner_only": [
+    "WAP-XSS-003-01",
+    "WAP-CFG-01",
+    "WAP-CFG-02",
+    "WAP-CFG-03",
+    "WAP-CFG-04",
+    "WAP-CFG-05",
+    "WAP-CFG-06",
+    "WAP-CFG-07",
+    "WAP-CFG-08",
+    "WAP-CFG-09"
+  ]
+}

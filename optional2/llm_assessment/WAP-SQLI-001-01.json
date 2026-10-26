@@ -1,0 +1,26 @@
+{
+  "scanner_finding_id": "WAP-SQLI-001-01",
+  "sample_id": "SQLI-001",
+  "scanner": "Wapiti 3.0.4 (SQL Injection)",
+  "code_location": "SQLI-001:14-15",
+  "root_cause": "$_GET['id'] 直接拼接到 SELECT ... WHERE id='$id'，随后 mysql_query 执行；没有参数化、白名单或转义。",
+  "data_flow": [
+    "line 8: $id = $_GET['id']",
+    "line 14: $sql = \"SELECT * FROM users WHERE id='$id' LIMIT 0,1\"",
+    "line 15: mysql_query($sql)",
+    "lines 20-22/28: 结果与错误回显"
+  ],
+  "preconditions": [
+    "Less-1 可访问",
+    "users 表可读",
+    "PHP 5.6 ext/mysql 正常"
+  ],
+  "llm_verdict": "confirmed",
+  "target_status": "in_scope",
+  "confidence": "high",
+  "evidence": [
+    "verification/evidence/wp4-20261019-sqli001-low/observation.json"
+  ],
+  "extension": "Wapiti 用错误型 payload 已触发 SQL 报错；已有 POC 的布尔对照进一步证明语义改变。",
+  "residual_risk": "不枚举数据；只验证最小真假对照。"
+}

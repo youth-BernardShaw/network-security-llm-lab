@@ -1,0 +1,17 @@
+sample_id,vulnerability_type,asset,route,http_method,parameters,auth,security_level,scanner_target,notes
+SQLI-001,SQL注入,http://127.0.0.1:9081,/Less-1/index.php,GET,id,anonymous,n/a,yes,Less-1 string concatenation
+SQLI-002,SQL注入,http://127.0.0.1:9081,/Less-11/index.php,POST,uname;passwd,anonymous,n/a,no,Less-11 login query
+SQLI-003,SQL注入,http://127.0.0.1:9081,/Less-25/index.php,GET,id,anonymous,n/a,yes,Less-25 or/AND blacklist
+SQLI-005,SQL注入,http://127.0.0.1:9081,/Less-24/login_create.php -> login.php -> pass_change.php,POST,username;password;login_user;login_password;current_password,anonymous,n/a,no,multi-stage second-order
+XSS-001,XSS,http://127.0.0.1:9080,/vulnerabilities/xss_r/,GET,name,DVWA admin session,low,yes,reflected low
+XSS-002,XSS,http://127.0.0.1:9080,/vulnerabilities/xss_r/,GET,name,DVWA admin session,medium,no,reflected medium
+XSS-003,XSS,http://127.0.0.1:9080,/vulnerabilities/xss_r/,GET,name,DVWA admin session,high,no,reflected high
+XSS-004,XSS,http://127.0.0.1:9080,/vulnerabilities/xss_r/,GET,name;user_token,DVWA admin session,impossible,no,encoded output + token
+XSS-005,XSS,http://127.0.0.1:9080,/vulnerabilities/xss_s/,POST,btnSign;txtName;mtxMessage,DVWA admin session,low,no,stored write/read
+CMD-001,命令注入,http://127.0.0.1:9080,/vulnerabilities/exec/,POST,Submit;ip,DVWA admin session,low,yes,exec low
+CMD-002,命令注入,http://127.0.0.1:9080,/vulnerabilities/exec/,POST,Submit;ip,DVWA admin session,medium,no,exec medium
+CMD-003,命令注入,http://127.0.0.1:9080,/vulnerabilities/exec/,POST,Submit;ip,DVWA admin session,high,no,exec high
+CMD-004,命令注入,http://127.0.0.1:9080,/vulnerabilities/exec/,POST,Submit;ip;user_token,DVWA admin session,impossible,no,numeric IP + token
+AUTH-001,权限越权,http://127.0.0.1:9080,/vulnerabilities/authbypass/,GET,-,DVWA ordinary session,low,no,page access
+AUTH-001,权限越权,http://127.0.0.1:9080,/vulnerabilities/authbypass/get_user_data.php,GET,-,DVWA ordinary session,low,no,read API
+AUTH-001,权限越权,http://127.0.0.1:9080,/vulnerabilities/authbypass/change_user_details.php,POST,id;first_name;surname,DVWA ordinary session,low,no,update API

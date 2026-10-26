@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!-- Format fixture for optional2/tools/burp_xml.py.
+     This is NOT a real Burp scan and is not counted in optional2 metrics. -->
+<issues burpVersion="2025.1" exportTime="2026-10-21T22:00:00+08:00">
+  <issue>
+    <serialNumber>1</serialNumber>
+    <type>1049088</type>
+    <name><![CDATA[SQL injection]]></name>
+    <host ip="127.0.0.1">http://127.0.0.1:9081</host>
+    <path><![CDATA[/Less-1/index.php]]></path>
+    <location><![CDATA[/Less-1/index.php [id parameter]]></location>
+    <severity>High</severity>
+    <confidence>Certain</confidence>
+    <issueDetail><![CDATA[The id parameter appears to be vulnerable to SQL injection. The payload 1' AND '1'='1 was submitted and the response differed from the false condition.]]></issueDetail>
+    <requestresponse>
+      <request method="GET" base64="true"><![CDATA[R0VUIC9MZXNzLTEvaW5kZXgucGhwP2lkPTElMjcgQU5EJTIwJzEnPScxIEhUVFAvMS4xDQpIb3N0OiAxMjcuMC4wLjE6OTA4MQ0K]]></request>
+      <response base64="false"><![CDATA[HTTP/1.1 200 OK]]></response>
+      <responseRedirected>false</responseRedirected>
+    </requestresponse>
+  </issue>
+</issues>

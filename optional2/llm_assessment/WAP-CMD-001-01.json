@@ -1,0 +1,25 @@
+{
+  "scanner_finding_id": "WAP-CMD-001-01",
+  "sample_id": "CMD-001",
+  "scanner": "Wapiti 3.0.4 (Command execution)",
+  "code_location": "CMD-001:12,15",
+  "root_cause": "$_REQUEST['ip'] 未过滤拼接到 shell_exec('ping -c 4 ' . $target)，shell 解释 ; 后命令。",
+  "data_flow": [
+    "line 4: $target = $_REQUEST['ip']",
+    "line 12: shell_exec('ping -c 4 ' . $target)",
+    "line 15: <pre>{$cmd}</pre>"
+  ],
+  "preconditions": [
+    "DVWA 已登录",
+    "security=low",
+    "shell_exec 可用"
+  ],
+  "llm_verdict": "confirmed",
+  "target_status": "in_scope",
+  "confidence": "high",
+  "evidence": [
+    "verification/evidence/wp4-20261019-cmd001-low/observation.json"
+  ],
+  "extension": "Wapiti 使用 ;env; 证明命令执行；已有 POC 用 printf 标记并区分 <pre> 命令输出与页面反射。",
+  "residual_risk": "只回显固定标记，不读取敏感文件。"
+}

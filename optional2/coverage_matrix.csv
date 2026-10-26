@@ -1,0 +1,15 @@
+﻿sample_id,vulnerability_type,llm_status,scanner_tested,scanner_status,union_status,quadrant,note
+SQLI-001,SQL注入,confirmed,yes,confirmed,confirmed,both,confirmed by both
+SQLI-002,SQL注入,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+SQLI-003,SQL注入,confirmed,yes,confirmed,confirmed,both,confirmed by both
+SQLI-005,SQL注入,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+XSS-001,XSS,confirmed,yes,confirmed,confirmed,both,confirmed by both
+XSS-002,XSS,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+XSS-003,XSS,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+XSS-004,XSS,negative_exclusion,no,not_tested,negative,negative,negative path; scanner not run
+XSS-005,XSS,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+CMD-001,命令注入,confirmed,yes,confirmed,confirmed,both,confirmed by both
+CMD-002,命令注入,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+CMD-003,命令注入,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss
+CMD-004,命令注入,negative_exclusion,no,not_tested,negative,negative,negative path; scanner not run
+AUTH-001,权限越权,confirmed,no,not_tested,confirmed,llm_only,scanner not run on this endpoint; not a miss

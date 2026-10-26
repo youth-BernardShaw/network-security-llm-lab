@@ -1,0 +1,26 @@
+{
+  "scanner_finding_id": "WAP-SQLI-003-01",
+  "sample_id": "SQLI-003",
+  "scanner": "Wapiti 3.0.4 (SQL Injection)",
+  "code_location": "SQLI-003:16,40-41",
+  "root_cause": "blacklist() 只 preg_replace 掉 or/AND 字面量，随后仍把 id 拼进 SELECT；&& 符号未被过滤。",
+  "data_flow": [
+    "line 7: $id = $_GET['id']",
+    "line 13: $id = blacklist($id)",
+    "lines 40-41: 仅删除 or/AND 字面量",
+    "line 16: SELECT ... WHERE id='$id'",
+    "line 44: $hint 未编码回显"
+  ],
+  "preconditions": [
+    "Less-25 可访问",
+    "MySQL/MariaDB 接受 && 作为 AND"
+  ],
+  "llm_verdict": "confirmed",
+  "target_status": "in_scope",
+  "confidence": "high",
+  "evidence": [
+    "verification/evidence/wp4-20261019-sqli003-low/observation.json"
+  ],
+  "extension": "Wapiti 的错误型检测与已有 POC 的 && 布尔差分相互印证。",
+  "residual_risk": "同一入口还存在一条 XSS 告警，见 WAP-XSS-003-01；不要与 SQLI-003 的 SQL 标签混算。"
+}
