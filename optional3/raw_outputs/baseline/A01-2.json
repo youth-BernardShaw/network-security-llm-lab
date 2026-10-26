@@ -1,0 +1,111 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["SQLI-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "代码中 $_GET['id'] 未经参数化或白名单约束直接拼接进 SQL 字符串，随后执行 mysql_query，存在可改变查询语义的路径；但无真实运行证据，故 verdict 为待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 10,
+          "line_end": 10,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 12,
+          "line_end": 12,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 23,
+          "line_end": 23,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "第10行：$_GET['id'] 被直接赋给 $id，无过滤或转义。",
+        "第12行：$id 被拼入单引号包围的 SQL 字符串，进入 WHERE 子句的值位置。",
+        "第13行：拼接后的 $sql 被 mysql_query 执行，攻击者可闭合单引号并改变查询结构。",
+        "第14-22行：结果被读取并回显，可观察查询是否成功及返回内容。",
+        "第23行：查询失败时回显 mysql_error，可能辅助注入探测。"
+      ],
+      "principle": "用户可控的 id 参数未经参数化、白名单约束或与字符集匹配的转义，直接拼接进 SQL 语句并执行，改变了 WHERE 子句的语义，构成 SQL 注入候选。",
+      "impact": "攻击者可绕过 WHERE 条件、改变查询逻辑或利用错误回显探测数据库结构；未验证是否可读取额外数据或执行更新，取决于数据库权限和连接配置。",
+      "preconditions": [
+        "脚本可通过 HTTP 访问，且 include 的 sql-connect.php 正常提供数据库连接。",
+        "MySQL 扩展可用且 mysql_query 成功连接数据库。",
+        "id 参数通过 GET 传入并到达第10行赋值。",
+        "数据库用户具有对 users 表的查询权限。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 中使用了某种全局过滤或参数化封装，可能阻止拼接进入实际查询，但当前未提供该文件。",
+        "若 Web 层在到达 PHP 前对 id 做了严格数字白名单，则本路径不可达，但当前代码未体现。",
+        "若 mysql_query 不可用或数据库连接失败，查询不执行，注入不成立。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "bash/curl",
+        "code": "#!/usr/bin/env bash\nset -euo pipefail\nBASE_URL=\"${1:?usage: poc.sh BASE_URL PATH TEST_PARAM SESSION_FILE}\"\nPATH_PART=\"${2:?usage: poc.sh BASE_URL PATH TEST_PARAM SESSION_FILE}\"\nPARAM_NAME=\"${3:?usage: poc.sh BASE_URL PATH TEST_PARAM SESSION_FILE}\"\nSESSION_FILE=\"${4:?usage: poc.sh BASE_URL PATH TEST_PARAM SESSION_FILE}\"\n\n# 正常输入对照\ncurl -s -b \"$SESSION_FILE\" \"${BASE_URL}${PATH_PART}?${PARAM_NAME}=1\" -o /tmp/sqli001_normal.out\n# 最小测试输入：闭合单引号并附加恒真条件\ncurl -s -b \"$SESSION_FILE\" \"${BASE_URL}${PATH_PART}?${PARAM_NAME}=1%27%20OR%20%271%27%3D%271\" -o /tmp/sqli001_test.out\n\necho '--- normal ---'\ncat /tmp/sqli001_normal.out\necho '--- test ---'\ncat /tmp/sqli001_test.out\n",
+        "artifact_path": null,
+        "dependencies": ["curl", "bash", "可访问的目标环境", "有效会话文件（如需要）"],
+        "parameters": ["BASE_URL", "PATH_PART", "PARAM_NAME=id", "SESSION_FILE"],
+        "steps": [
+          "确认目标路径和参数名来自代码：参数名为 id。",
+          "使用正常输入 id=1 请求，记录响应作为对照。",
+          "使用最小测试输入 id=1' OR '1'='1 请求，观察响应差异。",
+          "检查测试响应是否出现与正常输入不同的用户数据或 SQL 错误信息。",
+          "若响应包含认证跳转或 PHP 接口不兼容，先排除外围环境问题再判断。"
+        ],
+        "expected_observation": "正常输入返回单个用户记录；测试输入可能返回多条记录中的第一条或改变 WHERE 条件后的结果，或触发 SQL 语法错误回显。",
+        "success_criteria": "测试输入导致查询语义改变，表现为返回与正常输入不同的用户数据或明确的 SQL 错误信息，且差异可由拼接位置解释。",
+        "limitations": [
+          "未运行，不能确认实际响应。",
+          "未提供 sql-connect.php，无法确认是否存在全局过滤或参数化封装。",
+          "未提供数据库版本和字符集，无法评估转义匹配情况。",
+          "参数名来自代码，但表单未提供，需人工确认实际请求路径。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 未提供，无法确认数据库连接方式、字符集和是否存在全局过滤。",
+    "未提供 Web 服务器和 PHP 运行版本，无法确认 mysql_* 扩展可用性。",
+    "未提供实际请求路由和表单，参数名来自代码但请求路径需人工适配。",
+    "未提供数据库用户权限，无法评估注入后可读取或修改的范围。"
+  ],
+  "risk_notes": [
+    "第12行将用户输入写入 result.txt 日志文件，若日志目录可公开访问，可能泄露输入内容。",
+    "第23行回显 mysql_error，可能向攻击者泄露数据库错误信息。"
+  ],
+  "quality_notes": [
+    "使用过时的 mysql_* 扩展，存在兼容性和安全性维护问题，但不单独作为 SQL 注入判定依据。",
+    "error_reporting(0) 关闭错误报告，可能掩盖部分运行时问题。"
+  ],
+  "limitations": [
+    "本次仅收到 SQLI-001 包，未收到其他输入包，分析范围限于该代码块。",
+    "未运行代码，不访问网络，所有判断为静态分析。",
+    "未提供外围连接文件和运行配置，无法确认实际可达性和防护效果。"
+  ],
+  "runtime_evidence": []
+}

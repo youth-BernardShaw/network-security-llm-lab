@@ -1,0 +1,64 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "medium",
+    "reason": "输入仅取自 $_REQUEST['ip']，经 stripslashes 后按 '.' 切分为四段，四个元素必须全部通过 is_numeric，且段数必须恰为 4，之后只用 '.' 将各段重新拼接（第 9、11、13 行），再进入第 17/21 行的 shell_exec。is_numeric 只接受数字、正负号、小数点、指数记号和首尾空白，分号、管道、&、$、反引号、括号、重定向等 shell 元字符都会使校验失败并进入 ERROR 分支，因此在本片段内不存在把任意命令文本送入 ping 参数的可达路径。置信为 medium 而非 high：未获得 PHP 版本与运行配置，is_numeric 对首尾空白（尤其换行）的处理随版本不同，且缺少片段外代码。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "is_numeric( $octet[0] )"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 13,
+      "line_end": 13,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    }
+  ],
+  "missing_context": [
+    "片段从 <?php 开始、到 ?> 结束，片段外的包含文件、控制器前置过滤与全局参数处理未提供。",
+    "PHP 版本未知；is_numeric 对指数形式、十六进制字符串和首尾空白的接受范围在不同主版本间有差异，影响边界判定。",
+    "checkToken 与 generateSessionToken 的实现未提供，无法确认其校验强度与失败时的跳转行为。",
+    "Web 服务器与 PHP 配置未知：shell_exec 是否被 disable_functions 禁用、ping 是否存在于 PATH、是否处于 chroot 或容器限制。",
+    "php_uname('s') 的输出决定进入 Windows 还是 *nix 分支，运行环境未知。",
+    "未提供运行日志、请求抓包或命令执行审计记录。"
+  ],
+  "risk_notes": [
+    "shell_exec 在本片段中被实际调用且未使用 escapeshellarg/escapeshellcmd；虽然当前参数受数值校验约束，但该调用方式是高危能力，后续改动或新增分支若放宽拼接条件会立即形成注入面，属范围外的架构风险。",
+    "命令输出被直接拼入 HTML，第 24 行 \"<pre>{$cmd}</pre>\" 未做转义；若某些系统下 ping 的回显包含受污染的主机名或错误文本，可能构成反射型 XSS，该问题与命令注入分开评估。",
+    "在 PHP 8 的 is_numeric 语义下，数值字符串允许首尾空白（含换行与制表符），理论上可让拼接后的参数内含换行并使 shell 将其解释为第二条命令；但第二条命令名仍只能是数字、点和指数记号组成的串，无法执行任意程序，实际影响受限且需运行证据才能定性，不构成本样本的任意命令注入结论。",
+    "同一请求中 $_REQUEST['user_token'] 与 $_REQUEST['ip'] 混用 $_REQUEST，若上层存在 Cookie 或 GET 覆盖语义，可能影响 token 校验逻辑，属范围外风险。"
+  ],
+  "quality_notes": [
+    "is_numeric 不是严格的 IPv4 校验：可接受 1e3、+1、空格包裹的数值以及大于 255 的段，校验通过后仍可能生成无效地址；这是输入校验缺陷，不等同于命令注入。",
+    "sizeof( $octet ) == 4 的判断放在索引 $octet[3] 之后，段数不足 4 时会先访问未定义下标，产生告警或异常，逻辑顺序不严谨。",
+    "直接拼接字符串调用 shell_exec，而不是使用 proc_open 加参数数组的无 shell 调用方式，也不使用 escapeshellarg，属于过时且难以维护的调用模式。",
+    "注释中存在拼写与语法瑕疵（octects、theres），不影响执行，但降低可读性。"
+  ],
+  "limitations": [
+    "本次仅基于 CMD-004 的标准化片段做静态审查，未运行任何代码、未联网、未加载页面，因此不能提供运行证据，verdict 为排除仅针对该片段已覆盖的这条路径。",
+    "排除结论依赖 is_numeric 拒绝 shell 元字符这一语义；若运行时使用被修改过的扩展、自定义错误处理把校验异常吞掉，或上游对 $target 另有赋值，需以实际代码与环境重新验证。",
+    "回归观察建议：向 ip 参数分别提交 127.0.0.1;id、127.0.0.1|id、127.0.0.1&whoami、127.0.0.1$(id)、127.0.0.1`id`、127.0.0.1%0aid 以及 1.2.3、1.2.3.4.5、256.1.1.1 等输入，预期均落入 ERROR 分支或仅产生普通 ping 回显，不出现额外命令输出；该观察需在授权本机靶场执行，本次未运行。",
+    "修复方向：保留四段数值校验并补做 0-255 范围与严格 IPv4 校验，或将 ping 目标以参数数组方式传入 proc_open/exec 的第二个参数并配合 escapeshellarg，避免任何字符串拼接进 shell。"
+  ],
+  "runtime_evidence": []
+}

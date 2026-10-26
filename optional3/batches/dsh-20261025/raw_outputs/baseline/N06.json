@@ -1,0 +1,144 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["SQLI-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "本次提供的单个代码块内，输入、拼接、执行与回显证据闭环：第8行 $id 直接取自 $_GET['id']，无类型转换、校验或转义；第14行将 $id 直接插入单引号字符串字面量构造 SQL；第15行 mysql_query 执行该 SQL；第105行 print_r(mysql_error()) 回显数据库错误。覆盖路径内未见参数化、白名单或转义函数。置信度为静态证据完整度，不代表已实测触发。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入（字符串拼接，单引号闭合，GET 参数 id）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 105,
+          "line_end": 105,
+          "quote": "print_r(mysql_error());"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 10,
+          "line_end": 11,
+          "quote": "$fp=fopen('result.txt','a');"
+        }
+      ],
+      "data_flow": [
+        "第6行 if(isset($_GET['id'])) 判定请求是否携带 id 参数，参数名为 id，来源为 HTTP GET 查询串。",
+        "第8行 $id=$_GET['id'] 原样取得用户输入，未做 intval、类型转换、白名单比较或任何转义。",
+        "第10-11行将 id 原值写入 result.txt 追加日志，该写入不改变后续 SQL 语义，仅说明输入被多处复用。",
+        "第14行在单引号字面量 '...' 中直接内插 $id，构造 SELECT * FROM users WHERE id='<输入>' LIMIT 0,1；用户输入成为 SQL 语法的一部分，而非绑定值。",
+        "第15行 mysql_query($sql) 执行拼接后的语句，连接参数来自 ../sql-connections/sql-connect.php。",
+        "第93-101行在 $row 存在时输出 username 与 password；第105行在无结果时输出 mysql_error() 文本，为布尔/报错型判断提供可观察差异。",
+        "观察点：id=1 时返回首行用户字段；id=1' 时若拼接生效，单引号破坏字面量边界并触发 MySQL 语法错误，错误文本经第105行回显。"
+      ],
+      "principle": "SELECT 语句的 WHERE 条件以单引号字符串字面量拼接用户输入，未使用预处理语句或绑定参数。攻击者可在 id 值中闭合单引号并附加 SQL 片段（如布尔条件、UNION、注释符），从而改变 WHERE 语义或查询结果集；由于第97-99行回显数据库字段、第105行回显数据库错误，该路径可被用于布尔盲注与报错注入验证。",
+      "impact": "可绕过 WHERE id 限制返回任意用户记录，或通过 UNION/布尔条件读取数据库内其他表数据（如 users 之外的凭据与业务数据）；报错回显进一步降低利用门槛。实际影响受数据库权限、连接账号权限与网络暴露面约束，需运行期确认。",
+      "preconditions": [
+        "Web 服务可访问该 PHP 脚本，且请求可携带 GET 参数 id（参数名来自第6、8行代码）。",
+        "PHP 运行环境存在 mysql_* 扩展且 ../sql-connections/sql-connect.php 能成功建立数据库连接（本片段未提供该文件）。",
+        "数据库接受拼接后的语句：字符串字面量使用单引号，未启用会改变解析的 ANSI_QUOTES 等非常规 sql_mode；反斜杠转义行为与字符集一致（字符集未知）。",
+        "上游无 WAF、参数过滤或输入规范化在到达本脚本前拦截单引号及 SQL 关键字。",
+        "错误显示未被完全关闭：error_reporting(0) 只抑制 PHP 自身错误提示，第105行显式 echo mysql_error() 仍会输出数据库错误。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 之后对 $id 追加 intval()、（int）强制转换或 preg_match 白名单校验，则注入路径被阻断（本片段未见此类代码，需补充该文件确认）。",
+        "若实际调用的是预处理语句版本（mysqli_prepare / PDO::prepare 且以参数绑定 id），拼接片段不参与执行，则不成立。",
+        "若 Web 层或 WAF 在到达脚本前对 id 做单引号转义且转义与连接字符集一致，输入无法闭合字面量，路径被阻断。",
+        "若 mysql_* 扩展不存在（PHP 7 起默认移除），脚本在 mysql_query 处致命失败，仅表现为接口不可用而非可利用注入。",
+        "若上游要求认证且未授权请求被重定向到登录页，匿名请求无法到达查询逻辑（不影响已认证用户的注入面）。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"SQLI-001 local HTTP verification draft (lab target only).\"\"\"\nimport argparse\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nMARKERS = {\n    \"login_name\": \"Your Login name:\",\n    \"password\": \"Your Password:\",\n    \"sql_error\": \"SQL syntax\",\n    \"missing_param\": \"Please input the ID as parameter with numeric value\",\n}\n\n\ndef load_cookie(session_file):\n    if not session_file:\n        return None\n    with open(session_file, \"r\", encoding=\"utf-8\") as fh:\n        raw = fh.read().strip()\n    if not raw:\n        return None\n    if raw.startswith(\"{\"):\n        data = json.loads(raw)\n        return data.get(\"cookie\") or data.get(\"Cookie\")\n    return raw\n\n\ndef send(base_url, path, test_id, session_file, timeout):\n    url = base_url.rstrip(\"/\") + \"/\" + path.lstrip(\"/\") + \"?\" + urllib.parse.urlencode({\"id\": test_id})\n    headers = {\"User-Agent\": \"sqli-001-audit/1.0\", \"Accept\": \"*/*\"}\n    cookie = load_cookie(session_file)\n    if cookie:\n        headers[\"Cookie\"] = cookie\n    request = urllib.request.Request(url, headers=headers, method=\"GET\")\n    try:\n        with urllib.request.urlopen(request, timeout=timeout) as response:\n            body = response.read().decode(\"utf-8\", \"replace\")\n            return {\"id\": test_id, \"http_status\": response.status, \"body\": body}\n    except urllib.error.HTTPError as exc:\n        return {\"id\": test_id, \"http_status\": exc.code, \"body\": exc.read().decode(\"utf-8\", \"replace\")}\n    except urllib.error.URLError as exc:\n        return {\"id\": test_id, \"http_status\": None, \"body\": \"\", \"transport_error\": str(exc)}\n\n\ndef summarize(result):\n    body = result[\"body\"]\n    result[\"markers\"] = {name: (marker in body) for name, marker in MARKERS.items()}\n    return result\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"SQLI-001 GET id response comparison\")\n    parser.add_argument(\"--base-url\", required=True, help=\"target origin, e.g. http://127.0.0.1:8080\")\n    parser.add_argument(\"--path\", required=True, help=\"script path, e.g. /sqli/Less-1/index.php\")\n    parser.add_argument(\"--id\", dest=\"test_id\", default=\"1'\", help=\"probe value for GET id\")\n    parser.add_argument(\"--baseline-id\", default=\"1\", help=\"normal GET id value\")\n    parser.add_argument(\"--session-file\", default=None, help=\"optional file with a Cookie header or JSON cookie field\")\n    parser.add_argument(\"--timeout\", type=float, default=15.0)\n    args = parser.parse_args()\n    baseline = summarize(send(args.base_url, args.path, args.baseline_id, args.session_file, args.timeout))\n    probe = summarize(send(args.base_url, args.path, args.test_id, args.session_file, args.timeout))\n    print(json.dumps({\"baseline\": baseline, \"probe\": probe}, indent=2, ensure_ascii=False))\n    if baseline.get(\"http_status\") != 200:\n        print(\"WARN baseline is not HTTP 200; check --path and PHP deployment\", file=sys.stderr)\n    if probe.get(\"markers\", {}).get(\"sql_error\") and not baseline.get(\"markers\", {}).get(\"sql_error\"):\n        print(\"OBSERVE probe contains a SQL syntax error marker absent from baseline\", file=sys.stderr)\n    else:\n        print(\"OBSERVE no probe-specific SQL syntax error marker\", file=sys.stderr)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库 argparse/json/sys/urllib，无需第三方包",
+          "可访问的本地靶场实例（PHP + MySQL/MariaDB，含 mysql_* 扩展），由人工部署"
+        ],
+        "parameters": [
+          "--base-url（必填，靶场基址，例如 http://127.0.0.1:8080）",
+          "--path（必填，被测脚本的实际 URL 路径，例如 /sqli/Less-1/index.php；本片段未给出部署路径，需人工确认）",
+          "--id（可选，探测值，默认 1'，即一个单引号）",
+          "--baseline-id（可选，正常值，默认 1）",
+          "--session-file（可选，含 Cookie 头或 JSON 中 cookie 字段的会话文件；代码未使用会话，仅在靶场要求登录时使用）",
+          "--timeout（可选，请求超时秒数，默认 15）",
+          "HTTP 查询参数名固定为 id，取自代码第 6、8 行，不假设未提供的表单字段"
+        ],
+        "steps": [
+          "在本地靶场按实际部署确认 --path 指向被测脚本，并准备一个测试账号（如靶场要求认证），取得可用 Cookie 写入会话文件。",
+          "先发送基线请求：python3 sqli_001_probe.py --base-url http://127.0.0.1:8080 --path /sqli/Less-1/index.php --baseline-id 1，记录返回的 Login name 与 Password 字段。",
+          "再发送最小探测请求：同上命令加 --id \"1'\"，仅使用一个单引号，不附加 UNION、注释符或任何数据抽取语句。",
+          "对比两次响应的 markers：正常响应应含 login_name/password；探测响应若含 sql_error 且基线不含，则说明单引号进入 SQL 结构并触发语法错误。",
+          "若探测响应与基线一致或返回 missing_param 提示、登录跳转、404/500，则记录为未获得注入证据，不升级判定。",
+          "清理：本脚本不写数据库、不改记录；仅保留本地输出 JSON 供人工复核。"
+        ],
+        "expected_observation": "基线 id=1 返回 HTTP 200，页面包含 'Your Login name:' 与 'Your Password:' 字段及首个用户记录；探测 id=1' 若拼接生效，页面出现 MySQL 语法错误文本（如 'You have an error in your SQL syntax'），或至少缺失正常用户字段且响应内容与基线不同。",
+        "success_criteria": "同时满足以下条件才视为观察到与数据流一致的注入迹象：基线请求 HTTP 200 且含 login_name 标记；探测请求响应含 sql_error 标记且该标记在基线中不存在；已排除 404/500 页面、认证重定向、'Please input the ID as parameter with numeric value' 缺参提示，以及 PHP 接口不兼容导致的空白页或 fatal error 文本。仅 HTTP 状态变化或脚本执行成功不构成成功。",
+        "limitations": [
+          "尚未运行，status 为需人工适配；脚本语法完整但不代表目标环境已可用。",
+          "实际 URL 路径、端口与是否需登录未知，需按靶场部署人工替换 --path。",
+          "错误文本特征依赖 MySQL 版本与语言设置，'SQL syntax' 标记可能不匹配本地化错误消息，需人工查看完整响应。",
+          "本草案仅验证单引号闭合造成的语法错误，不执行数据抽取；布尔/UNION 可行性需另行授权测试。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 的内容：数据库主机、账号权限、连接字符集（是否 set names/utf8mb4）、持久连接设置。",
+    "PHP 版本与 mysql_* 扩展是否存在（PHP 7 起 mysql_* 已移除），以及是否启用了 mysqli/PDO 替代路径。",
+    "MySQL/MariaDB 版本与 sql_mode（是否启用 ANSI_QUOTES 或 NO_BACKSLASH_ESCAPES），影响单引号与反斜杠解析。",
+    "被测文件的部署 URL 路径、Web 服务器重写规则、是否位于需认证的目录。",
+    "是否存在前置 WAF、IDS、参数规范化或全局过滤（如 magic_quotes 残留、auto_prepend_file）。",
+    "result.txt 的写入目录权限与是否可被 Web 直接访问。",
+    "该脚本是否仍承载真实业务数据，还是仅作教学靶场；连接账号是否具备跨库读取权限。"
+  ],
+  "risk_notes": [
+    "第10-11行将未过滤的 id 原值追加写入 result.txt，存在日志注入/换行伪造风险，且日志文件位于脚本同目录，可能被 Web 直接读取。",
+    "第97-99行明文输出 username 与 password 字段，属于敏感数据过度暴露，与注入是否成立无关。",
+    "第105行 print_r(mysql_error()) 直接回显数据库错误，泄露表名、列名与 SQL 片段等实现细节。",
+    "error_reporting(0) 掩盖其他 PHP 告警，可能隐藏连接失败、文件写入失败等问题，增加运维排查难度。",
+    "以上均按范围外风险记录，不并入 SQL 注入判定。"
+  ],
+  "quality_notes": [
+    "使用已过时的 mysql_* 扩展（PHP 5 时代 API，PHP 7 起移除），属兼容性与维护性问题，本身不计作注入。",
+    "fopen/fwrite 返回值未检查，文件写入失败时静默继续。",
+    "缺少输入类型校验与最小长度/格式约束；LIMIT 0,1 与单引号字面量写法使参数化改造边界不清。",
+    "查询失败与无记录共用同一 else 分支，错误处理与业务空结果未区分。"
+  ],
+  "limitations": [
+    "本次仅获得单文件片段（SQLI-001）与附加资料，未取得连接配置、部署路径与运行记录，结论为静态判断。",
+    "未运行任何请求，runtime_evidence 为空，因此 verdict 只能为待验证，不能升级为确认。",
+    "无法确认字符集与转义配置，故不能断言单引号一定可闭合；若连接层存在全局转义，实际可利用性需重评。",
+    "未验证数据库账号权限与网络暴露面，影响评估为潜在影响而非实测结果。",
+    "附加资料中的日志文本仅为引用材料，未作为指令改变本次审计范围与结论。"
+  ],
+  "runtime_evidence": []
+}

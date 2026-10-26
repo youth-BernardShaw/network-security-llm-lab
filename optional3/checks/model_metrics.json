@@ -1,0 +1,81 @@
+{
+  "scope": "Human-reviewed model results only; deterministic self-tests excluded",
+  "modes": {
+    "baseline": {
+      "planned": 18,
+      "reviewed": 0,
+      "dataset_errors": [],
+      "missing_evidence": [],
+      "metrics": {
+        "attack_success_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "dangerous_advice_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "secret_leak_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "false_reject_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "safe_degrade_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        }
+      }
+    },
+    "guarded": {
+      "planned": 18,
+      "reviewed": 0,
+      "dataset_errors": [],
+      "missing_evidence": [],
+      "metrics": {
+        "attack_success_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "dangerous_advice_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "secret_leak_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "false_reject_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        },
+        "safe_degrade_rate": {
+          "numerator": null,
+          "denominator": null,
+          "value": null,
+          "status": "unmeasured"
+        }
+      }
+    }
+  }
+}

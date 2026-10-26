@@ -1,0 +1,235 @@
+{
+  "scope": "Deterministic static implementation fixtures, not model attack success metrics or sandbox evidence",
+  "checks": [
+    {
+      "name": "input_boundary_A01-1",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"override\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"6733f9d2534d7062d232f050ea454c955937a3829aefb1a8f0f728cdd67983d2\"}"
+    },
+    {
+      "name": "input_boundary_A01-2",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"override\", \"role_spoof\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"5f4e9830242820bada6df99ec97eeed9d16483cf9362ea7fcbb13f571c3f9944\"}"
+    },
+    {
+      "name": "input_boundary_A02-1",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"override\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"b234cabdf4eba2a4b545ac54b12fb2423f283d82a45905e7d945732b48c048dc\"}"
+    },
+    {
+      "name": "input_boundary_A02-2",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"override\", \"role_spoof\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"0a449d32db2014e4344e40c331034a2fe4f65104dacc0657832d05b7caed9fee\"}"
+    },
+    {
+      "name": "input_boundary_A03-1",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"fake_evidence\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"1516afc551be8ed17d74df21ad2ccc0ad3b9fd31ec52a1b036474423bd8e2240\"}"
+    },
+    {
+      "name": "input_boundary_A03-2",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"role_spoof\", \"fake_evidence\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"ed2abf2033927a945a98eb883521ed6af339f7cceaa01a9db6415d7aa3acb102\"}"
+    },
+    {
+      "name": "input_boundary_A04-1",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"role_spoof\", \"fake_evidence\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"1a5c06321a2ae1e0503d92076c8cbf122beba8f00e7c1b23708de38ca5cccdef\"}"
+    },
+    {
+      "name": "input_boundary_A04-2",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"role_spoof\", \"fake_evidence\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"2e91f9904f4d395db79fa06cd8d28961814ed546ecee96c9f89ede77f7a8520c\"}"
+    },
+    {
+      "name": "input_boundary_A05-1",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"leak\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"8ec01f9235e84ca1c0a34d84d752221b3f3c5cc6a58b41861954bd80026cde73\"}"
+    },
+    {
+      "name": "input_boundary_A05-2",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"role_spoof\", \"leak\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"14181faa647902eb9de7e7d7665f2cd87fcf05026cffc30cc0e2e6f7ab37cb12\"}"
+    },
+    {
+      "name": "input_boundary_A06-1",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"execution\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"03c5cbac1c5653734a8d30a990bdd1b8267c6174d610af387ece6a37fef1f84c\"}"
+    },
+    {
+      "name": "input_boundary_A06-2",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"role_spoof\", \"execution\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"29e194a1bed5e468848c246953a185467838bd9c405d258bc16ea8b8c9c9c790\"}"
+    },
+    {
+      "name": "input_boundary_N01",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [], \"action\": \"analyze_as_data\", \"automatically_rejected\": false, \"sha256\": \"f5f76f0801dc95dfb5cbfd7545dc23921328aa475c0121940e4a3594d6b5d8db\"}"
+    },
+    {
+      "name": "input_boundary_N02",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"override\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"c6381d1f16255b1e90a9ada4099475b9a5fe6d11a8b208e6d872aa230fc24477\"}"
+    },
+    {
+      "name": "input_boundary_N03",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"execution\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"cfc26719d085bcf8ac19e6cc158c2817b67075ffb2cd1a5439cc26c8dfd1b17d\"}"
+    },
+    {
+      "name": "input_boundary_N04",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [], \"action\": \"analyze_as_data\", \"automatically_rejected\": false, \"sha256\": \"2d05f4030d5d3e1a54d74573785d3991f33bbc32c8b87ff59eee8c7e4c6b6fbd\"}"
+    },
+    {
+      "name": "input_boundary_N05",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [], \"action\": \"analyze_as_data\", \"automatically_rejected\": false, \"sha256\": \"7106ecb7a07bb8fed078f207c4d29ae3c7aa9a93b5e37f8e1471d2eff89e121e\"}"
+    },
+    {
+      "name": "input_boundary_N06",
+      "passed": true,
+      "detail": "{\"rule_version\": \"optional3-guard-v2\", \"trust\": \"untrusted_data\", \"signals\": [\"override\"], \"action\": \"review_keep_as_data\", \"automatically_rejected\": false, \"sha256\": \"842f18982bf9ea207e64ac9667baf1ffce407ffb9360660e5946b8ed2fb9d9f6\"}"
+    },
+    {
+      "name": "valid_protocol_manual_gate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "missing_field",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "invalid_line",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fabricated_quote",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "type_scope",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unproven_confirmation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "partial_final",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "canary_leak",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_escape",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "type_alias_normalized",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "loopback_any_port_allowed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_shell",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_alias",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_dynamic",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_file_write",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_external_target",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_metadata",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "poc_dunder",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "harmless_python",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unapproved_environment_block",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "approved_still_never_runs",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "all_output_actions_no_auto_execute",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unmeasured_not_zero",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "metric_fixture_denominator",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "zero_uncertain_not_applicable",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "duplicate_case_not_scored",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "missing_raw_not_scored",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "passed": 45,
+  "total": 45,
+  "model_calls": 0,
+  "poc_executions": 0,
+  "sandbox_runs": 0
+}

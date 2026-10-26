@@ -1,0 +1,8 @@
+{
+  "rule_version": "optional3-guard-v1",
+  "action": "await_human_approval",
+  "issues": [],
+  "auto_execute": false,
+  "limitations": "AST screening is incomplete; dynamic URLs, redirects and indirect behavior require isolation and human review.",
+  "exit_code": 0
+}

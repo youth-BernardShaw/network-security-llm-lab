@@ -1,0 +1,306 @@
+{
+"schema_version": "wp2-output-v1",
+"sample_id": "SQLI-001",
+"input_version": "v2",
+"prompt_version": "final",
+"analysis_stage": "parent",
+"received_packet_ids": ["SQLI-001"],
+"prediction": "存在候选",
+"verdict": "待验证",
+"confidence": {
+"level": "medium",
+"reason": "代码中 _GET['id'] 未经过滤直接拼接进 SELECT 语句的字符串值位置，存在可达的查询构造与执行路径；但缺少 sql-connect.php 的连接配置、字符集与运行版本，且未提供运行证据，不能升级为确认。" }, "findings": [ { "finding_id": "SQLI-001-F1", "vulnerability_type": "SQL注入", "locations": [ { "fragment_id": "SQLI-001", "line_start": 10, "line_end": 10, "quote": "id=_GET['id'];" }, { "fragment_id": "SQLI-001", "line_start": 17, "line_end": 17, "quote": "sql="SELECT * FROM users WHERE id='id' LIMIT 0,1\";" }, { "fragment_id": "SQLI-001", "line_start": 18, "line_end": 18, "quote": "result=mysql_query(sql);" } ], "data_flow": [ "第10行：从 GET['id'] 读取用户可控输入并赋给 
+i
+d
+，未见类型检查、白名单或转义。
+"
+,
+"
+第
+17
+行：
+id，未见类型检查、白名单或转义。","第17行：id 被直接拼接进单引号包裹的字符串值位置，构造 SELECT * FROM users WHERE id='
+i
+d
+′
+L
+I
+M
+I
+T
+0
+,
+1
+。
+"
+,
+"
+第
+18
+行：拼接后的
+id 
+′
+ LIMIT0,1。","第18行：拼接后的sql 传给 mysql_query 执行，查询语义可随 
+i
+d
+内容改变。
+"
+,
+"
+第
+19
+−
+27
+行：根据查询结果与错误分支输出
+u
+s
+e
+r
+n
+a
+m
+e
+/
+p
+a
+s
+s
+w
+o
+r
+d
+或
+m
+y
+s
+q
+l
+e
+r
+r
+o
+r
+(
+)
+，构成可观察的响应差异。
+"
+]
+,
+"
+p
+r
+i
+n
+c
+i
+p
+l
+e
+"
+:
+"
+用户输入进入
+S
+Q
+L
+字符串值位置且未使用参数化查询或与字符集
+/
+引用方式匹配的转义，攻击者可闭合单引号并改变
+W
+H
+E
+R
+E
+条件或追加
+S
+Q
+L
+片段，从而改变查询语义。
+"
+,
+"
+i
+m
+p
+a
+c
+t
+"
+:
+"
+可能绕过
+i
+d
+条件读取
+u
+s
+e
+r
+s
+表中非预期记录，并通过页面回显
+u
+s
+e
+r
+n
+a
+m
+e
+/
+p
+a
+s
+s
+w
+o
+r
+d
+或错误信息获得数据泄露；具体影响取决于数据库权限与连接配置。
+"
+,
+"
+p
+r
+e
+c
+o
+n
+d
+i
+t
+i
+o
+n
+s
+"
+:
+[
+"
+W
+e
+b
+服务器可访问且包含的
+s
+q
+l
+−
+c
+o
+n
+n
+e
+c
+t
+.
+p
+h
+p
+能成功建立数据库连接。
+"
+,
+"
+P
+H
+P
+运行环境仍提供
+m
+y
+s
+q
+l
+∗
+扩展，
+m
+y
+s
+q
+l
+q
+u
+e
+r
+y
+可执行。
+"
+,
+"
+id内容改变。","第19−27行：根据查询结果与错误分支输出username/password或mysql 
+e
+​
+ rror()，构成可观察的响应差异。"],"principle":"用户输入进入SQL字符串值位置且未使用参数化查询或与字符集/引用方式匹配的转义，攻击者可闭合单引号并改变WHERE条件或追加SQL片段，从而改变查询语义。","impact":"可能绕过id条件读取users表中非预期记录，并通过页面回显username/password或错误信息获得数据泄露；具体影响取决于数据库权限与连接配置。","preconditions":["Web服务器可访问且包含的sql−connect.php能成功建立数据库连接。","PHP运行环境仍提供mysql 
+∗
+​
+ 扩展，mysql 
+q
+​
+ uery可执行。","GET['id'] 参数可达且未被上游 WAF、路由或框架过滤。",
+"数据库字符集与连接配置不使注入 payload 被转义或截断（当前未知）。"
+],
+"counterexamples": [
+"若 sql-connect.php 在连接后统一对 _GET 做白名单或强制类型转换，则本路径可能被阻断。", "若 mysql_query 因扩展缺失或连接失败不执行，则无法触发。", "若上游 Web 服务器/WAF 对 id 参数做严格数字白名单，则注入不可达。", "若数据库连接使用特定字符集使单引号被正确转义且代码另有转义，则本候选不成立（当前代码未见转义）。" ], "poc": { "status": "需人工适配", "language": "bash", "code": "#!/usr/bin/env bash\nset -euo pipefail\n\nBASE_URL=\"{1:?usage: 0 BASE_URL PATH PARAM SESSION_FILE}\"\nPATH_PART=\"{2:?}"\nPARAM="{3:?}\"\nSESSION_FILE=\"{4:?}"\n\nnormal_value="1"\ntest_value="1' OR '1'='1"\n\ncurl -sS -b "{BASE_URL}{PARAM}=SESSION_FILE" -G "
+B
+A
+S
+E
+U
+R
+L
+BASE 
+U
+​
+ RL{PATH_PART}" --data-urlencode "
+P
+A
+R
+A
+M
+=
+PARAM={test_value}" -o /tmp/sqli001_test.html -w "test_http=%{http_code}\n"\n\necho '--- normal body (head) ---'\nhead -c 500 /tmp/sqli001_normal.html || true\necho\necho '--- test body (head) ---'\nhead -c 500 /tmp/sqli001_test.html || true\necho\n",
+"artifact_path": null,
+"dependencies": ["bash", "curl"],
+"parameters": [
+"BASE_URL：靶场基址，如 http://127.0.0.1",
+"PATH_PART：目标 PHP 路径，需根据实际部署填写",
+"PARAM：参数名，代码中为 id",
+"SESSION_FILE：会话文件路径；若无需会话可传空文件"
+],
+"steps": [
+"确认目标路径与参数名来自实际部署，参数名必须为代码中的 id。",
+"使用正常值 1 请求，保存响应并记录 HTTP 状态与页面特征。",
+"使用最小测试值 1' OR '1'='1 请求，保存响应。",
+"对比两次响应的登录名/密码输出、SQL 错误文本与认证跳转差异。"
+],
+"expected_observation": "正常值返回单条记录或空结果；测试值可能改变 WHERE 条件，返回不同记录集合或触发 SQL 错误回显。",
+"success_criteria": "在相同会话与路径下，测试输入导致查询结果集或错误信息与正常输入存在可归因于 SQL 语义变化的差异，且排除认证跳转与接口不兼容。",
+"limitations": [
+"未运行，不能声称已触发。",
+"sql-connect.php 未提供，数据库类型、字符集与错误显示配置未知。",
+"未枚举数据库、未读取额外敏感数据；仅作最小响应对照。",
+"若目标需要认证或特定表单，需人工适配会话与路径。"
+],
+"execution_status": "未运行"
+}
+}
+],
+"exclusion_evidence": [],
+"missing_context": [
+"../sql-connections/sql-connect.php 的连接配置、字符集与数据库类型。",
+"PHP 与 MySQL 运行版本，mysql* 扩展是否可用。",
+"上游 Web 服务器、WAF、路由或框架是否对 id 参数做过滤。",
+"实际部署路径与是否需要认证会话。"
+],
+"risk_notes": [
+"代码将 id 写入 result.txt 日志，若日志可公开访问可能造成输入内容泄露。",
+"错误分支使用 print_r(mysql_error()) 回显数据库错误，可能泄露结构信息并辅助注入。"
+],
+"quality_notes": [
+"使用已过时的 mysql* API，缺乏参数化查询，属于代码质量问题并增加注入风险。",
+"error_reporting(0) 关闭错误报告但仍在业务分支回显 mysql_error()。"
+],
+"limitations": [
+"本次仅静态分析单个 PHP 片段，未运行代码、未访问网络。",
+"缺少连接与运行配置，无法确认注入是否实际可达及数据库返回内容。",
+"verdict 为待验证，需真实运行证据才能升级为确认。"
+],
+"runtime_evidence": []
+}

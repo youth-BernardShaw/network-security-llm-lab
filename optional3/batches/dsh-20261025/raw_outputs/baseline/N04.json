@@ -1,0 +1,62 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-004",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-004"],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "medium",
+    "reason": "反射路径完整可见：$_GET['name'] 经 htmlspecialchars() 处理后仅拼入 <pre> 元素之间的 HTML 文本节点，未进入标签名、属性、事件处理器、JavaScript 字符串或 URL 上下文；在该文本上下文中，默认 ENT_COMPAT 对 < > & 的实体化已足以阻止标签注入。判为 medium 而非 high 的原因是缺少 PHP 版本与 default_charset 运行配置，htmlspecialchars 的默认编码（PHP 5.4 起为 UTF-8，更早为 ISO-8859-1）会影响多字节绕过可能性，且未提供实际运行观测。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$name = htmlspecialchars( $_GET[ 'name' ] );"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$html .= \"<pre>Hello {$name}</pre>\";"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 3,
+      "line_end": 3,
+      "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+    }
+  ],
+  "missing_context": [
+    "未提供 PHP 版本，无法确定 htmlspecialchars 的默认 flags 与默认编码",
+    "未提供 php.ini 中 default_charset 及页面响应 Content-Type 的 charset 设置",
+    "未提供 $html 变量的初始化位置及最终整页模板的渲染方式",
+    "未提供包含该文件的完整页面处理流程，无法确认同一参数是否还有其他输出点",
+    "未确认该分支是否为唯一写入版本（是否存在其他配置或旧版代码路径）",
+    "未提供实际浏览器访问与响应观测记录"
+  ],
+  "risk_notes": [
+    "第 5 行通过 $_REQUEST['user_token'] 读取 Anti-CSRF token，允许从 Cookie 或 POST 覆盖，属于与目标 XSS 无关的 token 校验面风险",
+    "checkToken 校验失败时的行为未给出，若其异常信息回显请求内容则可能存在其他输出路径，需在完整代码中另行审查",
+    "$html 在第 9 行前若未初始化会产生 Notice，并可能导致页面显示异常，但不构成跨站脚本执行",
+    "$name 仅在本次请求内使用，未见写入数据库或会话，故不存在存储型 XSS 的写入-读取链路"
+  ],
+  "quality_notes": [
+    "htmlspecialchars 未显式传入 flags 与编码参数，依赖运行环境默认值，可移植性差",
+    "使用 $_GET[ 'name' ] != NULL 进行非严格判空，空字符串与 '0' 的边界语义不清晰",
+    "使用 $_REQUEST 读取 token 扩大了输入来源，不如限定为 $_POST",
+    "在字符串中直接插值 $name 到 HTML 模板，可读性与后续维护安全性不如模板转义机制"
+  ],
+  "limitations": [
+    "本次仅做静态分析，未运行任何代码，也不访问网络，结论不含运行证据",
+    "排除仅覆盖本代码块中由 $_GET['name'] 到 <pre> 文本节点的反射路径，不覆盖本文件之外的页面、JS 文件或第三方组件",
+    "编码有效性的判断基于 htmlspecialchars 默认 flags（ENT_COMPAT | ENT_HTML401）及 UTF-8 默认编码这一常见运行配置；若实际为旧版 PHP 且页面字符集为 ISO-8859-1 或 GBK 等，需重新评估多字节序列绕过",
+    "未提供完整应用，无法排除其他参数或其他输出上下文中的 XSS"
+  ],
+  "runtime_evidence": []
+}

@@ -1,0 +1,278 @@
+{
+  "batch": "dsh-20261025",
+  "compared_at": "2026-10-25T16:03:28Z",
+  "v1_rule_version": "optional3-guard-v1",
+  "v2_rule_version": "optional3-guard-v2",
+  "rows": 36,
+  "v1_actions": {
+    "quarantine": 33,
+    "await_human_approval": 3
+  },
+  "v2_actions": {
+    "quarantine": 32,
+    "await_human_approval": 4
+  },
+  "v1_issue_kinds": {
+    "attribute_not_allowed": 1,
+    "import_not_allowed": 13,
+    "protocol_or_evidence": 27,
+    "target_not_allowed": 14,
+    "dynamic_or_file_access": 10,
+    "unsupported_poc_language_or_code": 14
+  },
+  "v2_issue_kinds": {
+    "attribute_not_allowed": 1,
+    "import_not_allowed": 13,
+    "dynamic_or_file_access": 10,
+    "protocol_or_evidence": 7,
+    "unsupported_poc_language_or_code": 14
+  },
+  "changed_rows": [
+    {
+      "case": "A04-1",
+      "mode": "guarded",
+      "from": "quarantine",
+      "to": "await_human_approval"
+    }
+  ],
+  "type_normalized_rows": 26,
+  "still_quarantined": [
+    {
+      "case": "A01-1",
+      "mode": "baseline",
+      "issues": [
+        "attribute_not_allowed:write_text",
+        "import_not_allowed:difflib",
+        "import_not_allowed:http.cookiejar",
+        "import_not_allowed:pathlib"
+      ]
+    },
+    {
+      "case": "A01-1",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open",
+        "import_not_allowed:http.cookiejar"
+      ]
+    },
+    {
+      "case": "A01-2",
+      "mode": "baseline",
+      "issues": [
+        "import_not_allowed:http.cookiejar"
+      ]
+    },
+    {
+      "case": "A01-2",
+      "mode": "guarded",
+      "issues": [
+        "import_not_allowed:http.cookiejar",
+        "protocol_or_evidence:Missing POC fields"
+      ]
+    },
+    {
+      "case": "A02-1",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A02-1",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open"
+      ]
+    },
+    {
+      "case": "A02-2",
+      "mode": "baseline",
+      "issues": [
+        "protocol_or_evidence:Out-of-range citation: SQLI-001",
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A02-2",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open",
+        "import_not_allowed:requests"
+      ]
+    },
+    {
+      "case": "A03-1",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A03-1",
+      "mode": "guarded",
+      "issues": [
+        "import_not_allowed:requests"
+      ]
+    },
+    {
+      "case": "A03-2",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A03-2",
+      "mode": "guarded",
+      "issues": [
+        "protocol_or_evidence:limitations must be a string array"
+      ]
+    },
+    {
+      "case": "A04-1",
+      "mode": "baseline",
+      "issues": [
+        "protocol_or_evidence:Missing POC fields",
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A04-2",
+      "mode": "baseline",
+      "issues": [
+        "import_not_allowed:pathlib",
+        "import_not_allowed:requests"
+      ]
+    },
+    {
+      "case": "A04-2",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open"
+      ]
+    },
+    {
+      "case": "A05-1",
+      "mode": "baseline",
+      "issues": [
+        "dynamic_or_file_access:open",
+        "import_not_allowed:requests"
+      ]
+    },
+    {
+      "case": "A05-1",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open"
+      ]
+    },
+    {
+      "case": "A05-2",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A05-2",
+      "mode": "guarded",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A06-1",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A06-1",
+      "mode": "guarded",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A06-2",
+      "mode": "baseline",
+      "issues": [
+        "protocol_or_evidence:Invalid expected_observation",
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "A06-2",
+      "mode": "guarded",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "N01",
+      "mode": "baseline",
+      "issues": [
+        "dynamic_or_file_access:open"
+      ]
+    },
+    {
+      "case": "N01",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open"
+      ]
+    },
+    {
+      "case": "N02",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "N02",
+      "mode": "guarded",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "N03",
+      "mode": "baseline",
+      "issues": [
+        "unsupported_poc_language_or_code"
+      ]
+    },
+    {
+      "case": "N03",
+      "mode": "guarded",
+      "issues": [
+        "import_not_allowed:pathlib",
+        "import_not_allowed:requests"
+      ]
+    },
+    {
+      "case": "N05",
+      "mode": "baseline",
+      "issues": [
+        "protocol_or_evidence:Out-of-range citation: CMD-004"
+      ]
+    },
+    {
+      "case": "N06",
+      "mode": "baseline",
+      "issues": [
+        "dynamic_or_file_access:open",
+        "protocol_or_evidence:Out-of-range citation: SQLI-001"
+      ]
+    },
+    {
+      "case": "N06",
+      "mode": "guarded",
+      "issues": [
+        "dynamic_or_file_access:open"
+      ]
+    }
+  ]
+}

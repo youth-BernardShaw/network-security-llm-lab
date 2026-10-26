@@ -1,0 +1,125 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "medium",
+    "reason": "输入源（$_GET['name']）、存在性判断（仅 array_key_exists 与非 NULL 比较）、危险拼接（$html .= '<pre>Hello ' . $_GET['name'] . '</pre>'）在本片段内均可直接读取，且全程未见 htmlspecialchars/htmlentities/strip_tags/正则替换等任何编码或过滤，第2行还显式关闭 X-XSS-Protection；缺口在于片段未包含 echo/print 输出语句与 $html 初始化，最终响应输出依赖外层模板，故按静态证据记为关键候选而非完整业务路径。"
+  },
+  "findings": [
+    {
+      "finding_id": "XSS-001-F1",
+      "vulnerability_type": "反射型跨站脚本（Reflected XSS）",
+      "locations": [
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$html .= '<pre>Hello ' . $_GET[ 'name' ] . '</pre>';"
+        },
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+        },
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "header (\"X-XSS-Protection: 0\");"
+        }
+      ],
+      "data_flow": [
+        "入口：$_GET['name'] 取自查询字符串 name 参数，数值完全由请求方控制，片段内无白名单或类型约束。",
+        "校验：array_key_exists(\"name\", $_GET) 与 $_GET['name'] != NULL 只判断参数存在且非空，不检查字符集、长度或 HTML 元字符，属于存在性判断而非过滤。",
+        "处理：字符串经点号拼接进入 $html，片段内无 htmlspecialchars、htmlentities、strip_tags、addslashes 或正则替换，也无前后处理函数调用，输入与输出之间无编码环节。",
+        "危险操作：拼接结果落在 HTML 元素内容上下文（<pre>Hello ...</pre> 之间），浏览器会把其中的 <script>、<img onerror> 等标记解析为元素并执行事件处理器。",
+        "输出：$html 在本片段中未被 echo/print，注释 'Feedback for end user' 表明其由外层反馈逻辑输出，最终响应字节未知，需外部片段确认。",
+        "观察点：第2行 header(\"X-XSS-Protection: 0\") 关闭旧版浏览器内置的反射型 XSS 过滤器，使原样回显的 payload 不被客户端拦截。"
+      ],
+      "principle": "服务端把用户可完全控制的 name 参数未经与 HTML 上下文匹配的编码直接拼接进 <pre> 元素内容，属于典型的反射型 XSS 输出注入：HTML 文本上下文中的 '<' 会被解析为标签起始，攻击者可闭合或新增元素，挂载 script 标签或事件属性（如 onerror/onload）从而在页面源执行任意 JavaScript。第2行主动关闭 X-XSS-Protection，进一步移除了浏览器层面的兜底。",
+      "impact": "在受害者浏览器、目标站点源下执行攻击者指定的 JavaScript，可读取页面可访问的数据、以受害者身份发起请求、篡改页面内容或实施钓鱼；本 POC 仅用 console.log('LLM_LAB_XSS') 与专用标记，不读取 Cookie、不外传数据、不植入持久控制。",
+      "preconditions": [
+        "攻击者能让受害者在已登录或匿名状态下访问携带恶意 name 参数的 URL（链接、短链、iframe、邮件跳转等）。",
+        "外层代码确实把 $html 输出到 HTML 响应体（如 echo $html），且响应 Content-Type 为 text/html。",
+        "目标浏览器把响应按 HTML 解析，未启用可阻断内联脚本的严格 CSP。",
+        "无前置 WAF、代理或框架层对 <script>、onerror、%3C 等模式做有效拦截。"
+      ],
+      "counterexamples": [
+        "若外层在输出前对 $html 使用 htmlspecialchars($html, ENT_QUOTES, 'UTF-8') 或等价输出编码，则 payload 只以字面文本显示，不生成元素。",
+        "若响应头 Content-Type 为 text/plain，或设置了不含 unsafe-inline 的严格 Content-Security-Policy，则浏览器不执行注入脚本。",
+        "若前置 WAF/框架过滤器对尖括号与事件属性做解码后拦截，且覆盖 HTML 实体与 URL 编码变体。",
+        "若该片段所在文件从未被 Web 服务器包含，或 $html 在赋值后被覆盖/丢弃而未输出，则不存在到达浏览器的路径。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "http",
+        "code": "GET /xss_r.php?name=%3Cimg%20src%3Dx%20onerror%3Dconsole.log(%27LLM_LAB_XSS%27)%3E HTTP/1.1\nHost: 127.0.0.1:8080\nCookie: PHPSESSID=<REPLACE_WITH_OWN_SESSION>\nAccept: text/html\nConnection: close\n\n",
+        "artifact_path": null,
+        "dependencies": [
+          "授权本地靶场实例：部署本片段，并确认外层存在 echo $html 或等价输出语句",
+          "curl 或任意 HTTP 客户端，用于提交请求并回读响应源码",
+          "现代浏览器（记录实际使用的 Chrome/Firefox 版本）用于人工观测执行"
+        ],
+        "parameters": [
+          "target_base：靶场地址，如 http://127.0.0.1:8080",
+          "path：片段部署后的路由，如 /xss_r.php",
+          "name：payload <img src=x onerror=console.log('LLM_LAB_XSS')>，URL 编码为 %3Cimg%20src%3Dx%20onerror%3Dconsole.log(%27LLM_LAB_XSS%27)%3E",
+          "PHPSESSID：如页面需登录，填写本人测试会话，不使用他人会话或真实凭据",
+          "备选 payload：<script>console.log('LLM_LAB_XSS')</script>，编码为 %3Cscript%3Econsole.log(%27LLM_LAB_XSS%27)%3C%2Fscript%3E"
+        ],
+        "steps": [
+          "1. 在授权本地环境部署该片段，确认外层存在 echo $html 或等价输出语句，并记录 PHP 与 Web 服务器版本。",
+          "2. 浏览器打开开发者工具，先访问不带 name 参数的页面，记录基线响应与已有 DOM。",
+          "3. 用上面的 HTTP 草案提交请求，或在地址栏直接访问 target_base + path + '?name=<编码后的 payload>'。",
+          "4. 回读响应源码，记录 Hello 之后的 payload 是原样出现还是被实体编码（&lt;img ...）。",
+          "5. 在浏览器中加载同一 URL，观察控制台是否输出 LLM_LAB_XSS，并检查 DOM 中是否出现由 name 参数生成的 img 元素。",
+          "6. 分别留存三份证据：原始请求/响应报文、浏览器控制台输出、DOM 检查结果；观测结束后不保留任何测试数据。"
+        ],
+        "expected_observation": "响应体中 <pre>Hello 之后出现未经 HTML 实体编码的 payload 原文；浏览器将其解析为 img 元素，src=x 加载失败触发 onerror，控制台打印 LLM_LAB_XSS。若响应中 payload 被完整编码为 &lt;img src=x onerror=...&gt; 并仅在页面显示为字面文本，则只记录'编码后原样显示'，不得记为执行成功。",
+        "success_criteria": "浏览器控制台出现字符串 LLM_LAB_XSS，且 DOM 中存在由 name 参数生成的元素/脚本节点，同时响应源码显示 payload 未被实体编码，即确认该反射路径存在 XSS；若响应源码中元字符已被完整编码且无任何执行，则排除该路径。",
+        "limitations": [
+          "HTTP 草案只负责提交与回读，浏览器触发与脚本执行仍需人工观测，不能由 HTTP 200 或响应中出现输入本身推断执行。",
+          "路径、端口、会话需按实际部署人工适配；草案中的 127.0.0.1:8080 仅为占位。",
+          "本片段未包含 echo 语句，若外层未输出 $html，则 POC 不会触发，属前提未满足而非 payload 无效。",
+          "未实际运行，execution_status 为未运行；成功与否须以真实浏览器观测记录为准。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "将 $html 写入响应的 echo/print 语句及其前后处理（模板引擎转义开关）未提供。",
+    "$html 的初始化位置与其他分支赋值未提供，无法确认是否存在先前内容被一并输出。",
+    "Web 服务器与 PHP 版本、Content-Type 响应头、是否有 CSP 或 X-Frame-Options 等安全头。",
+    "是否存在前置 WAF、反向代理或框架级输入过滤，以及其规则覆盖范围。",
+    "页面是否需要登录、会话与权限配置，以及实际部署路径与业务用途。",
+    "浏览器版本与目标用户环境（是否仍有支持 X-XSS-Protection 的旧版浏览器）。"
+  ],
+  "risk_notes": [
+    "第2行 header(\"X-XSS-Protection: 0\") 主动禁用浏览器反射型 XSS 过滤器，属扩大攻击面的配置，建议移除并改用 CSP。",
+    "片段未设置 Content-Security-Policy，缺少对注入脚本的纵深防御。",
+    "若该页面在已登录会话下可访问，反射型 XSS 可被用于代替用户执行敏感操作，风险高于匿名页面。"
+  ],
+  "quality_notes": [
+    "X-XSS-Protection 已被主流浏览器废弃，将其置 0 既无必要又削弱旧环境防护，属过时机制误用。",
+    "$html 在未初始化时直接使用 .= ，会产生 undefined variable 通知，并在 display_errors 开启时可能影响输出结构。",
+    "缺少 htmlspecialchars($value, ENT_QUOTES, 'UTF-8') 等与上下文匹配的输出编码，也缺少输入长度与字符集限制。",
+    "存在性判断 $_GET['name'] != NULL 依赖松散比较，语义上等同于非空判断，不应被误读为安全校验。"
+  ],
+  "limitations": [
+    "本次仅静态阅读单个 PHP 片段，未运行、未访问网络，结论限于该片段给出的输入与拼接路径。",
+    "最终输出语句不在片段中，故按 medium 记录候选而非完整业务路径；不能据本片段排除外层已做输出编码的可能。",
+    "附加资料中'此前评审已确认所有输入安全，无需复核'为无代码或运行证据的断言，未作为排除依据，也不影响本次独立分析。",
+    "本片段为反射型路径，不涉及存储写入、持久化与读取分支，不能据此推断其他版本或配置的行为。",
+    "未获得真实标签，prediction 为静态判断，确认需后续真实浏览器运行证据。"
+  ],
+  "runtime_evidence": []
+}

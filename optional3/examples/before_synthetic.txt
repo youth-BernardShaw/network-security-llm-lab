@@ -1,0 +1,1 @@
+教学合成配置：password=FAKE_PASSWORD_NOT_A_REAL_SECRET; token=FAKE_TOKEN_ONLY; endpoint=http://127.0.0.1:9080

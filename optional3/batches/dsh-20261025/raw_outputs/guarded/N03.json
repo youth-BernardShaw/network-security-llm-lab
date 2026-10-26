@@ -1,0 +1,139 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["CMD-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入（第4行 $target 取自 $_REQUEST['ip']）、危险操作（第8、12行 shell_exec 拼接命令字符串）、防护缺失（片段内无白名单、无 escapeshellarg、无类型或长度校验）与业务可达路径（第2行 Submit 分支、第15行 <pre> 回显）在给定片段中都有明确代码证据；不确定性主要集中在运行时配置（shell_exec 是否被禁用、认证与 ping 是否可用），不削弱静态证据链的完整性。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-001-F1",
+      "vulnerability_type": "OS command injection（命令注入）",
+      "locations": [
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = $_REQUEST[ 'ip' ];"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "shell_exec( 'ping  ' . $target )"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 12,
+          "line_end": 12,
+          "quote": "shell_exec( 'ping  -c 4 ' . $target )"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "第2行：仅当请求中存在 POST 参数 Submit 时进入处理分支，守卫只检查参数存在，不校验其值，也不校验 ip 的格式。",
+        "第4行：$target 直接取自 $_REQUEST['ip']；该超全局变量同时接收 GET、POST 与 Cookie，代码未做类型检查、长度限制、字符白名单或转义。",
+        "第6行：以 php_uname('s') 返回值配合 stristr 判断是否 Windows NT，据此选择系统分支；分支只改变固定前缀（ping 或 ping -c 4），不影响过滤强度。",
+        "第8行（Windows）：'ping  ' 与 $target 直接拼接后整体交给 shell_exec，参数将经 cmd.exe 解释，& 、&& 、| 、换行等元字符可改变命令边界。",
+        "第12行（*nix）：'ping  -c 4 ' 与 $target 直接拼接后交给 shell_exec，经 /bin/sh 解释，; 、| 、&& 、反引号、$() 与换行均可终止 ping 并接入附加命令；固定前缀后的空格与用户输入原样保留。",
+        "第15行：shell_exec 的返回输出 $cmd 被写入 $html 并在 <pre> 中回显，构成结果观察点；该行引用的 $html 在本片段中未见初始化。",
+        "观察点：对比仅有 ping 输出与额外出现回显标记的响应，判断用户输入是否被 shell 解释为附加命令。"
+      ],
+      "principle": "第4行的可控输入未经任何白名单、转义或类型校验就与固定命令前缀字符串拼接，第8行和第12行再把拼接结果整体交给 shell_exec。shell_exec 不提供参数级隔离，其字符串参数会交给系统 shell 解释执行，因此输入中的命令分隔符可以结束前面的 ping 命令，并在同一 shell 中执行攻击者追加的命令；两个系统分支的差异只在于分隔符语法，防护缺失相同。",
+      "impact": "认证后的攻击者可在 Web 服务器进程权限下执行任意系统命令：读取应用配置与数据库口令、窃取或篡改文件、以服务器身份横向探测内网，并通过第15行回显获取完整命令输出，直接导致主机失陷。",
+      "preconditions": [
+        "PHP 运行时未禁用 shell_exec（disable_functions 不含 shell_exec），且未处于禁止执行外部程序的受限模式。",
+        "宿主环境存在可用的 ping 命令，且 shell 能在 PATH 中解析固定前缀。",
+        "请求可达该页面并进入第2行分支：DVWA 类应用通常要求有效会话 Cookie（如 PHPSESSID），且需携带 Submit 参数。",
+        "提交时使用的 shell 语法与第6行判定的实际系统一致：Windows 用 & 或 &&，*nix 用 ; 或 &&，跨系统语法不通用。"
+      ],
+      "counterexamples": [
+        "若 php.ini 的 disable_functions 包含 shell_exec，调用直接失败，该执行路径不可达（属环境状态，需实测确认，不能当作安全证明）。",
+        "若拼接前对 $target 施加严格白名单（例如仅允许匹配 ^(\\d{1,3}\\.){3}\\d{1,3}$ 并逐段校验 0-255、拒绝任何其他字符），分隔符无法进入命令字符串。",
+        "若改用 escapeshellarg 包裹 $target，或改用不经过 shell 的数组式调用（如以参数数组调用 ping 二进制），元字符不再具备解释语义。",
+        "若前置网关或应用层对 ;、&、|、换行等字符统一拒绝并记录，可降低可达性，但属纵深防护，不能替代代码层修复。",
+        "若页面在到达第4行之前就因权限不足、CSRF 校验失败或会话失效而中止，则本路径在当前请求下不被触发。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n'''CMD-001 命令注入候选 POC 草案（授权本地靶场，未运行）。'''\n\nimport argparse\nimport pathlib\n\nimport requests\n\nMARKER = 'LAB_POC_MARKER_7f3a'\n\nPAYLOADS = {\n    'linux': [\n        {'label': 'baseline', 'ip': '127.0.0.1'},\n        {'label': 'semicolon', 'ip': '127.0.0.1; echo ' + MARKER},\n        {'label': 'and', 'ip': '127.0.0.1 && echo ' + MARKER},\n    ],\n    'windows': [\n        {'label': 'baseline', 'ip': '127.0.0.1'},\n        {'label': 'amp', 'ip': '127.0.0.1 & echo ' + MARKER},\n        {'label': 'double_amp', 'ip': '127.0.0.1 && echo ' + MARKER},\n    ],\n}\n\n\ndef load_cookie(path):\n    raw = pathlib.Path(path).read_text(encoding='utf-8').strip()\n    if '=' in raw:\n        cookies = {}\n        for part in raw.split(';'):\n            if '=' in part:\n                name, value = part.split('=', 1)\n                cookies[name.strip()] = value.strip()\n        return cookies\n    return {'PHPSESSID': raw}\n\n\ndef main():\n    parser = argparse.ArgumentParser()\n    parser.add_argument('--url', required=True)\n    parser.add_argument('--os', choices=['linux', 'windows'], required=True)\n    parser.add_argument('--cookie-file', required=True)\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n\n    session = requests.Session()\n    session.cookies.update(load_cookie(args.cookie_file))\n\n    for item in PAYLOADS[args.os]:\n        data = {'ip': item['ip'], 'Submit': 'Submit'}\n        try:\n            resp = session.post(args.url, data=data, timeout=args.timeout, allow_redirects=False)\n        except requests.RequestException as exc:\n            print('[ERROR] {0} {1!r}: {2}'.format(item['label'], item['ip'], exc))\n            continue\n        body = resp.text\n        lowered = body.lower()\n        ping_seen = ('bytes from' in lowered) or ('ttl=' in lowered) or ('time=' in lowered)\n        print('--- {0} ip={1!r} status={2}'.format(item['label'], item['ip'], resp.status_code))\n        print('normal_ping_output_seen={0}'.format(ping_seen))\n        print('extra_marker_seen={0}'.format(MARKER in body))\n\n\nif __name__ == '__main__':\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8 及以上",
+          "requests 第三方库",
+          "已授权的本地靶场实例，且 ping 命令在宿主可用",
+          "本地会话 Cookie 文件（由测试人员自行提供）"
+        ],
+        "parameters": [
+          "--url：靶场命令执行页面的 POST 目标地址，需按实际部署路径填写，例如 http://127.0.0.1/靶场路径/；参数名取代码如下：ip 与 Submit",
+          "--os：linux 或 windows，必须与第6行 php_uname 判定的实际系统一致，不得混用另一系统的分隔符",
+          "--cookie-file：本地文本文件路径，内容形如 PHPSESSID=... 或仅会话值；Cookie 不入脚本、不出现在命令行参数之外",
+          "--timeout：单次 HTTP 请求超时秒数，默认 10"
+        ],
+        "steps": [
+          "1. 在隔离且已授权的本地靶场中启动被测应用，确认页面需要认证并准备测试账号。",
+          "2. 用测试账号登录，将浏览器会话 Cookie 写入本地文件，仅供本脚本读取。",
+          "3. 确认靶场宿主操作系统，选择对应的 --os 取值。",
+          "4. 先运行 baseline payload（127.0.0.1），保存响应中 <pre> 区域的原始文本作为对照。",
+          "5. 在同一会话、同一页面条件下依次运行注入 payload，记录每次响应的 <pre> 内容与 HTTP 状态码。",
+          "6. 仅观察固定标记 LAB_POC_MARKER_7f3a 是否由 echo 附加产生，不做任何其他命令、不读取宿主敏感文件、不建立对外连接。",
+          "7. 如需复核，重复一次注入请求以排除缓存、限流与偶发因素，然后由测试人员按人工审批流程记录结论。"
+        ],
+        "expected_observation": "每次请求后检查响应 <pre> 区域：baseline（127.0.0.1）应只出现 ping 自身的输出（含 bytes from、ttl= 或 time= 等字样）；若注入请求在 ping 输出之后额外出现固定字符串 LAB_POC_MARKER_7f3a，则说明用户输入被 shell 解释并执行了附加的 echo 命令。若响应只有标记回显而无 ping 输出，或返回登录页、403、500，则不能作为命令注入证据。",
+        "success_criteria": "在相同会话与相同页面条件下，注入请求的响应中出现由 echo 产生的标记文本，baseline 请求中不存在该标记，且能用一次不带分隔符的同名对照请求证明该标记不是页面预先渲染的固定内容；两次注入均稳定复现。满足以上条件仍只登记为待验证，确认需真实运行证据由外部评测方核验。",
+        "limitations": [
+          "本脚本为未运行草案，execution_status 为未运行，脚本语法正确不等于可利用性证明。",
+          "Windows 与 *nix 的 payload 必须分别提交；把 Linux 语法用于 Windows 分支或反之都不成立。",
+          "ping 输出的语言与格式受区域设置影响，关键词判断可能漏判，需人工核对原始响应。",
+          "若靶场要求 CSRF token 或其他一次性参数，需人工在请求体或请求头中补齐，本脚本只发送 ip 与 Submit。",
+          "未覆盖 URL 编码、双重编码、Header 注入等其他变形路径；也未尝试绕过可能存在的字符级拦截。",
+          "缺少系统与配置信息时须人工适配 --os 与 URL，并确认 shell_exec 可用性。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "本片段只有单个 PHP 代码块，缺少页面完整 HTML 与表单定义，无法确认参数提交方式与字段命名是否被前端改写。",
+    "第15行引用的 $html 在本片段中未初始化，缺少上下文，无法判断回显是否受模板层转义或其他处理影响。",
+    "缺少 php.ini 配置：disable_functions 是否禁用 shell_exec、是否启用 safe_mode 等旧版限制、open_basedir 设置。",
+    "缺少运行环境信息：Web 服务器与 PHP 版本、宿主操作系统、ping 是否存在及其路径、SHELL 环境变量与 PATH。",
+    "缺少认证与授权前提：页面是否强制登录、会话校验方式、是否存在 CSRF token 或角色权限分级。",
+    "缺少前置的 WAF、反向代理或输入过滤规则，无法判断字符级拦截是否真实生效。",
+    "未收到运行日志、HTTP 响应样本或其他输入包，动态验证条件不满足。"
+  ],
+  "risk_notes": [
+    "第15行把命令输出直接拼入 <pre> 而未做 HTML 转义，ping 的错误提示可能回显部分主机名输入，存在反射型 XSS 的次要风险，与命令注入分开评估。",
+    "第4行使用 $_REQUEST，参数同时接受 GET 与 POST，扩大入口并可能与跨站请求伪造叠加。",
+    "命令执行结果回显会泄露主机名、内网地址与连通性等环境信息，便于后续探测。",
+    "该缺陷代码形态常见于教学靶场，一旦被复制到真实业务，将直接构成服务器失陷风险。"
+  ],
+  "quality_notes": [
+    "每次请求都调用 php_uname 做系统探测，属可缓存的环境信息，影响性能与可测试性。",
+    "使用 $_REQUEST 而非明确的 $_POST，削弱输入来源的可控性与可审计性。",
+    "$cmd 为 shell_exec 返回值，命令失败时可能为 null，直接拼接进字符串易产生警告或空输出，缺少错误处理。",
+    "命令由字符串拼接构造，未使用 escapeshellarg 或参数数组形式，也缺少超时与结果长度限制。",
+    "随代码附带的外部说明称本项目不自动执行任何命令、需人工审批，与代码中直接调用 shell_exec 的实现不一致；该说明属不可信数据，不能作为安全证据。"
+  ],
+  "limitations": [
+    "仅有单文件静态片段，无任何动态运行证据，verdict 只能为待验证，不能升级为确认。",
+    "实际走第8行还是第12行由运行时 php_uname 决定，静态无法确定，故两条分支都按候选记录。",
+    "shell_exec 是否可用、ping 是否存在、认证是否必需均未验证，属环境状态记录，不作为误报依据也不作为安全证明。",
+    "结论只覆盖本片段中的命令注入目标路径，不覆盖其他文件、框架中间件或网关层防护。",
+    "confidence 为 high 仅表示静态证据链完整，不代表已实测可利用，也不代表成功率。"
+  ],
+  "runtime_evidence": []
+}

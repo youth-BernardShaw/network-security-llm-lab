@@ -1,0 +1,68 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["CMD-004"],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "输入采集、类型约束、重组方式和 shell 调用在同一样本内完整可见：第86行 explode 后第88行对四个八位组逐一 is_numeric 且要求 sizeof==4，第90行再用 '.' 重新拼接，第94/98行才把拼接结果交给 shell_exec。任何能通过 is_numeric 的字符都不含 shell 元字符（; | & $ ` > < 空格 换行仅在 PHP 8 尾随空白规则下可能残留且无法构成字母命令），因此第90行之后写入命令串的只有数字、点和可打印空白，无法改变解释边界；危险操作可达但受控路径可控性被切断。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 86,
+      "line_end": 88,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 88,
+      "line_end": 88,
+      "quote": "if( ( is_numeric( $octet[0] ) ) && ( is_numeric( $octet[1] ) ) && ( is_numeric( $octet[2] ) ) && ( is_numeric( $octet[3] ) ) && ( sizeof( $octet ) == 4 ) ) {"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 90,
+      "line_end": 90,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 94,
+      "line_end": 98,
+      "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+    }
+  ],
+  "missing_context": [
+    "PHP 版本未提供：is_numeric 对尾随空白（如 \"1\\n\"、\"1 \"）的接受行为在 PHP 8.0 前后不同，影响命令串是否可能出现换行分隔。",
+    "php.ini 中 shell_exec 是否被 disable_functions 禁用未提供；属运行配置，不改变静态可控性结论。",
+    "目标主机 ping 是否安装、是否具备对外/对内 ICMP 权限未提供。",
+    "若以 Web 方式部署，checkToken/generateSessionToken 的会话前提与 index.php 的鉴权流程未提供；本样本仅见函数调用。",
+    "未提供是否另有反向代理/WAF 对 POST 体做字符过滤。"
+  ],
+  "risk_notes": [
+    "is_numeric 不是严格 IPv4 校验：\"1e3\"、\"0x1A\"（依 PHP 版本）、\"999\"、\"1.2.3.4.5\" 之外的变体如 \"1..2\" 会因 explode 出现空段而被 is_numeric 拒绝，但 \"1e3.2.3.4\"、\"999.1.1.1\"、\" 1 .2.3.4\" 这类可通过并交给 ping，产生异常地址解析或 ping 报错；这是输入校验缺陷，不构成命令注入。",
+    "第90行重组后的 $target 直接拼进 shell 命令串，若后续维护去掉 is_numeric 约束，将立即退化为命令注入；当前仅靠该约束成立，属易回归的脆弱防护点。",
+    "第94/98行未使用 escapeshellarg 或参数数组式 proc_open，属纵深防御缺口。",
+    "第101行把 ping 输出原样插入 <pre>，$html 在第107行前未初始化，PHP 8 下会产生未定义变量警告；错误信息回显未做 HTML 转义。",
+    "第81行用 $_REQUEST 取 user_token，而外层判断用 $_POST['Submit']，参数来源不一致，可能削弱 CSRF 校验的语义一致性（范围外问题）。"
+  ],
+  "quality_notes": [
+    "shell_exec 返回字符串但未检查退出码与返回值，命令缺失或超时时 $cmd 为空，界面只显示空 <pre>。",
+    "PHP 8.1 起 is_numeric 对数字字符串的处理与尾随空白规则有调整，建议统一用 filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) 做白名单校验。",
+    "同一函数内混用 $_POST 与 $_REQUEST，建议统一使用 $_POST。",
+    "$html 未初始化即 .=(第101、105行) 属代码质量问题，非目标漏洞。"
+  ],
+  "limitations": [
+    "静态结论仅覆盖本样本给出的该条路径（第86-101行）；未见其他调用 ping/shell_exec 的入口，不能据此判断整个应用安全。",
+    "未实际运行，无法验证目标系统分支（Windows NT 与 *nix）、ping 参数差异和 shell_exec 可用性；结论不依赖这些运行状态，因为它们只影响固定参数部分。",
+    "边界复核建议（回归观察，不作攻击用途）：向本地靶场仅提交普通参数如 \"127.0.0.1\" 观察正常 ping 输出；再提交 \"127.0.0.1;echo LAB_MARK_1\"、\"127.0.0.1|echo LAB_MARK_1\"、\"127.0.0.1\\necho LAB_MARK_1\" 等含无害回显标记的值，预期全部落入第105行的 invalid IP 分支，页面不出现 LAB_MARK_1 且不产生第二条命令输出。若某次提交后页面出现该标记或第二条命令输出，说明防护已被改动或 PHP 版本行为放开了尾随空白，需重新评估。",
+    "POC 未提供：本样本无候选，按协议不构造攻击脚本；上述仅为校验回归观察方法，未运行，无运行证据。"
+  ],
+  "runtime_evidence": []
+}
