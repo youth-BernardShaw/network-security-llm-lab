@@ -1,0 +1,91 @@
+{
+  "trace_id": "OPT4-SO-01",
+  "title": "Less-24 注册用户名经存储与会话中转后在 logged-in.php 无编码渲染（二次存储型XSS）",
+  "traceback": {
+    "sample_id": "SQLI-005",
+    "main_body_evidence": "verification/validation_log/wp4-20261019-sqli005-low.json",
+    "delta": "主体将 logged-in.php 仅用作『落库原文回到会话』的检查点；本追踪把同一数据流延伸到它的 HTML 输出汇点"
+  },
+  "source_commit": "e96f21776372c8613a7e565106e62bc01a59355e",
+  "flow": [
+    {
+      "stage": "1-输入",
+      "phase_kind": "first_stage_write",
+      "trigger_role": "R2 注册入口（自注入，专用测试账号）",
+      "trigger_timing": "注册请求 POST /Less-24/login_create.php（submit=1）",
+      "request": {
+        "method": "POST",
+        "params": {
+          "username": "<svg onload=__o4s=1>",
+          "password": "<专用口令>",
+          "re_password": "<专用口令>"
+        }
+      },
+      "code": {
+        "file": "Less-24/login_create.php",
+        "lines": "25-27,48-49"
+      },
+      "transform": "mysql_escape_string：仅对 SQL 特殊字符加反斜杠；载荷不含 '\\ 与引号，字面值不变。注意 security.users.username 为 varchar(20)：注册端存在长度约束但无字符集约束，载荷须≤20字符（真实攻击面约束，已并入判定）"
+    },
+    {
+      "stage": "2-存储",
+      "carrier": "数据库字段 security.users.username",
+      "statement": "INSERT INTO users (username, password) VALUES(\"$username\",\"$pass\")",
+      "stored_form": "字面值 <svg onload=__o4s=1>",
+      "first_stage_triggered": false,
+      "first_stage_reason": "INSERT 语义未被改变（写入安全）；第一阶段不可达任何执行点"
+    },
+    {
+      "stage": "3-读取",
+      "carrier": "会话 $_SESSION[\"username\"]",
+      "trigger_role": "R3 已登录（攻击者本人会话）",
+      "trigger_timing": "登录请求 POST /Less-24/login.php（输入与落库原文一致，SELECT 精确匹配）",
+      "code": {
+        "file": "Less-24/login.php",
+        "lines": "17-25,40-45"
+      },
+      "transform": "无变换：$row[1]（数据库原文）直接赋值 $_SESSION[\"username\"]（主体 SQLI-005 已验证该性质）"
+    },
+    {
+      "stage": "4-危险汇点",
+      "carrier": "HTML 输出",
+      "trigger_role": "R3 已登录",
+      "trigger_timing": "登录后 GET /Less-24/logged-in.php（自动重定向即触发）",
+      "code": {
+        "file": "Less-24/logged-in.php",
+        "lines": "26-28"
+      },
+      "statement": "echo $_SESSION[\"username\"];",
+      "sink_kind": "HTML上下文输出",
+      "second_stage_triggered": true,
+      "second_stage_reason": "无 htmlspecialchars/htmlentities；载荷以元素形式进入 DOM，onerror 会在浏览器解析时执行"
+    }
+  ],
+  "cross_request": true,
+  "cross_role": false,
+  "carriers": [
+    "数据库字段(users.username)",
+    "会话/缓存($_SESSION)"
+  ],
+  "encoding_timeline": [
+    "T1 注册输入：原始载荷",
+    "T2 注册写库：mysql_escape_string（SQL转义，对HTML无防护作用）→ 字面值落库",
+    "T3 登录取回：SELECT 精确匹配 → 原文进会话（无解码/再编码）",
+    "T4 渲染：echo 原文 → 无输出编码"
+  ],
+  "permission_changes": "无（同一低权用户完成全部阶段）；约束记录：username 列 varchar(20) 限制载荷长度，但 <、>、= 等字符不受限",
+  "verdict_criteria": {
+    "necessary_evidence": [
+      "注册载荷字面值可在 security.users.username 中回查",
+      "登录成功后会话取回同一字面值",
+      "logged-in.php 响应体包含未编码的 <svg onload=__o4s=1> 于HTML元素位置",
+      "对照组（无载荷用户名）响应不含标记"
+    ],
+    "exclusion_conditions": [
+      "若 echo 前有 htmlspecialchars → 排除（反例：DVWA xss_s impossible）",
+      "若注册端拒绝含 < > 的用户名 → 排除（本代码无此校验，见 login_create.php 全文）"
+    ]
+  },
+  "expected_observable": "响应 HTML 中 <svg onload=__o4s=1> 完整出现且未被 &lt; 转义；浏览器侧 window 解析该元素时执行 onload 赋值",
+  "counter_example_ref": "OPT4-SO-02 内 message 字段（写前预编码）与 xss_s impossible 档"
+}

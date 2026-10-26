@@ -1,0 +1,129 @@
+{
+  "victim": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:14:27 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=pg84s98db8kgmerqeqnngg1dm7; expires=Wed, 21 Oct 2026 12:14:27 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "gordonb",
+        "password": "<redacted>",
+        "Login": "Login",
+        "user_token": "d629dcd234fddff01bd29b9137d1b479"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:14:28 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=pg84s98db8kgmerqeqnngg1dm7; expires=Wed, 21 Oct 2026 12:14:27 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/vulnerabilities/csrf/?password_new=opt4csrf&password_conf=opt4csrf&Change=Change",
+      "request_headers": {
+        "Referer": "http://attacker.invalid/opt4.html"
+      },
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:14:28 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    }
+  ],
+  "impossible": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:14:28 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=g1oi5hsl082evv5nfa0kfphr1d; expires=Wed, 21 Oct 2026 12:14:28 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, must-revalidate",
+        "Content-Type": "text/html;charset=utf-8",
+        "Expires": "Tue, 23 Jun 2009 12:00:00 GMT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:9080/login.php",
+      "request_headers": {},
+      "request_body": {
+        "username": "gordonb",
+        "password": "<redacted>",
+        "Login": "Login",
+        "user_token": "1e55e90acd6ba4443ae1503ee20a7328"
+      },
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:14:28 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Set-Cookie": "PHPSESSID=g1oi5hsl082evv5nfa0kfphr1d; expires=Wed, 21 Oct 2026 12:14:28 GMT; Max-Age=86400; path=/; domain=127.0.0.1",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:9080/vulnerabilities/csrf/?password_new=opt4csrf&password_conf=opt4csrf&Change=Change",
+      "request_headers": {
+        "Referer": "http://attacker.invalid/opt4.html"
+      },
+      "request_body": null,
+      "status": 302,
+      "response_headers": {
+        "Host": "127.0.0.1:9080",
+        "Date": "Tue, 20 Oct 2026 12:14:28 GMT",
+        "Connection": "close",
+        "X-Powered-By": "PHP/8.3.6",
+        "Expires": "Thu, 19 Nov 1981 08:52:00 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Location": "index.php",
+        "Content-type": "text/html; charset=UTF-8"
+      }
+    }
+  ]
+}

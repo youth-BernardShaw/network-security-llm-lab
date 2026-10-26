@@ -1,0 +1,42 @@
+{
+  "run_id": "opt4-20261020-so02",
+  "batch_id": "opt4-poc-02",
+  "started_at": "2026-10-20T20:14:15+08:00",
+  "finished_at": "2026-10-20T20:14:16+08:00",
+  "meta": {
+    "case_id": "OPT4-SO-02",
+    "batch_id": "opt4-poc-02",
+    "deployment_id": "dvwa-wsl-02",
+    "source_commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+    "base": "http://127.0.0.1:9080"
+  },
+  "observations": {
+    "steps": {
+      "medium_write": {
+        "post_status": 200,
+        "rows": 1,
+        "name_stored_literal": true,
+        "message_element_stripped": true
+      },
+      "medium_read": {
+        "name_rendered_raw": true,
+        "message_no_executable_element": true
+      },
+      "low_control": {
+        "post_status": 200,
+        "name_rendered_raw": true,
+        "message_rendered_raw": true
+      },
+      "impossible_control": {
+        "post_status": 302,
+        "rejected_by_token_check": true,
+        "not_stored": true
+      }
+    },
+    "baseline_guestbook": 1,
+    "restore": {
+      "guestbook_after": 1
+    },
+    "verdict": "触发"
+  }
+}

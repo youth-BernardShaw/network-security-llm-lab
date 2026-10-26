@@ -1,0 +1,41 @@
+选做4 执行日志（execution_log.txt）  批次 opt4-poc-02  环境 opt4-env-02  时区 UTC+08:00
+================================================================
+
+[环境阶段]
+19:4x  本机 WSL(Ubuntu 24.04.2) 安装 MariaDB 10.11.14 + PHP 8.3.6（部署差异：主体为 22.04/10.6/8.1，见 report.md 环境说明）
+19:5x  本地 source_projects/.git 复制入 WSL ext4 后 git reset --hard 恢复固定提交工作树
+       DVWA=068d974487a297c155c48722f9fcf7180a83adc4  sqli-labs=e96f21776372c8613a7e565106e62bc01a59355e
+19:57  PHP 5.6.40 源码编译完成（gcc-12，/opt/php56），configure/make/install 三段日志见 /srv/php56-*.log
+20:0x  bash optional4/tools/opt4_env_setup.sh → 全部 7 步通过，输出 OPT4_ENV_SETUP_OK
+       （/srv/web 双靶场部署、DVWA本地配置、MariaDB schema与最小权限账号、双端口服务、双靶场 setup 页）
+
+[健康检查（漏洞判断之前）]
+20:1x  GET :9080/login.php → 200
+      GET :9081/Less-1/?id=1 → Your Login name:Dumb（与主体SQLI-001健康检查同口径）
+      DVWA admin 登录 → 302 后 index 横幅 logged in as 'admin'
+      security.users=13 行、dvwa.users=5 行、dvwa.guestbook=1 行（基线）
+
+[POC 执行]
+20:14:00  run_opt4_so01.py 第2次运行 verdict=触发（第1次 20:1x 未触发：37字符载荷超 username varchar(20)，
+          注册被 "Data too long" 拒绝；载荷改为 20 字符 <svg onload=__o4s=1> 后通过。长度约束已记入追踪与用例文档）
+          证据 optional4/evidence/opt4-20261020-so01/（6 artifacts）
+20:14:15  run_opt4_so02.py verdict=触发
+          证据 optional4/evidence/opt4-20261020-so02/（7 artifacts）
+20:14:27  run_opt4_lg02.py verdict=触发
+          证据 optional4/evidence/opt4-20261020-lg02/（6 artifacts）
+20:19:23  run_opt4_lg01.py 第2次运行 verdict=触发（第1次 20:1x 未触发，两个原因均已修正：
+          ① captcha/index.php:38-42 在 reCAPTCHA 密钥为空时覆盖 $html，页面消息不可见 → 判定改以 DB 哈希回查为准；
+          ② 脚本在正/负两请求之后才断言负对照哈希，时序错误 → 改为请求后立即采样。两次原因均记入文档）
+          证据 optional4/evidence/opt4-20261020-lg01/（7 artifacts）
+
+[执行后完整性核对（核对清单）]
+20:2x  security.users = 13（无 opt4/__o4s 残留行）
+      dvwa.guestbook = 1（回到基线，无 __opt4nm/__opt4ms 残留）
+      gordonb.password = md5(abc123) 与预置一致（可登录验证）
+      admin/1337/pablo/smithy 未触碰；dvwa.users = 5
+      服务进程仍监听 9080/9081
+
+[说明]
+- 所有请求仅发往 127.0.0.1:9080/9081；未使用公网 OOB；攻击者页面仅以本地 HTML 文件形态存档（attacker_page.simulated.html）。
+- 证据请求体口令字段与 Cookie 均已脱敏（opt4lib.redact_body/redact_text）。
+- 两处首轮失败（SO-01 载荷长度、LG-01 判定口径与时序）保留在本日志中，作为过程证据不删除。
