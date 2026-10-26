@@ -8,6 +8,8 @@
 
 **总报告**：[从工作包1到工作包4的实验全过程与主要原理](docs/final_report.md)，内含结果汇总、代表案例、限制、10 页展示提纲与答辩口径。
 
+**本地总版本**：`integration/all-options`，包含工作包1至4和选做1至4。分支来源、去重依据、备份与文件查验范围见[整合记录](docs/integration_record.md)。本次整合仅处理文件，未运行项目或测试。
+
 ## 当前进度
 
 ### 工作包 1 代码预处理与数据标准化
@@ -44,6 +46,23 @@
 
 17 条 `single_person_review_only` 运行已完成独立盲评：复核人只收到脱敏证据、不知道原判断与正式标签，触发判断和条件标签均为 17/17 一致；盲评记录见[盲评报告](verification/blind_review/report.md)。这仍是子代理辅助复核，不替代人工小组成员签字。
 
+v1/v2/final 的 42 条记录已在独立子代理上下文中运行并填入 `prompts/evaluation_records.csv`（状态 `completed`），分类均为 14/14；但模型快照、采样参数与用量不可取得，不是正式商业 API 成绩，限制见[批次说明](results/batches/wp2-eval-42/README.md)。
+
+## 选做部分
+
+| 任务 | 文件入口 | 整合来源 |
+| --- | --- | --- |
+| 选做1：多版本 Prompt 效果对比 | [使用说明](optional1/README.md)、[完整报告](optional1/report.md) | `optional_challenge_one` |
+| 选做2：LLM 与 Burp/AWVS 联动 | [使用说明](optional2/README.md)、[比较报告](optional2/comparison_report.md) | 本地已有文件 |
+| 选做3：Prompt 注入与不可信输出防护 | [使用说明](optional3/README.md)、[安全报告](docs/optional3_security.md) | 线上 `main`，已包含 `extra-4` |
+| 选做4：二次注入与隐性逻辑漏洞验证 | [验证报告](optional4/report.md)、[状态矩阵](optional4/state_matrix.xlsx) | `optional_challenge_four` |
+
+以下实验状态和指标沿用各模块已有记录，不代表本次整合重新运行或验证。
+
+### 选做1 多版本 Prompt 效果对比
+
+保留三版 Prompt 的历史横向比较、42份主比较响应、42份中间版本响应、图表与错误分析，以及40份原稿 POC 补测记录。v3 对应 `final-wp4-v2`，不覆盖主体的 `final`。详见[使用说明](optional1/README.md)和[验收状态](optional1/acceptance.md)。
+
 ### 选做2 LLM 与 Burp/AWVS 等传统扫描器联动
 
 已完成两条联动流程、Wapiti 3.0.4 本地真实扫描、Burp XML/AWVS API 适配器、归一化去重、覆盖四象限和比较指标。详见[选做2 报告](optional2/comparison_report.md)与[架构图](optional2/integration_architecture.png)。
@@ -53,14 +72,15 @@
 - 工具独有补充发现 1 个（Less-25 XSS，范围外）；9 条 CSP/Header/Cookie 配置告警被 LLM 解释为非目标范围；
 - 发现覆盖率 12/12，扫描器目标告警有效率 4/4，互补发现率 8/12。
 
-v1/v2/final 的 42 条记录已在独立子代理上下文中运行并填入 `prompts/evaluation_records.csv`（状态 `completed`），分类均为 14/14；但模型快照、采样参数与用量不可取得，不是正式商业 API 成绩，限制见[批次说明](results/batches/wp2-eval-42/README.md)。
+### 选做3 Prompt 注入与不可信输出防护
 
+包含六类12个攻击样本、6个正常对照、输入与输出校验、Python POC静态检查、人工审批记录工具及沙箱材料。线上最新文件已记录36条子代理辅助评测、人工复核签认、沙箱取证和 guard v2 复测；详情及限制见[选做3报告](docs/optional3_security.md)和[工具使用说明](optional3/README.md)。
 
-## 选做三 Prompt注入与不可信输出防护
+基线与防护组指标相同，不能据此宣称防护有效；首批待测表与后续已测批次分开保留，Docker 容器部署仍待完成。
 
-新增[选做三报告](docs/optional3_security.md)和[工具使用说明](optional3/README.md)。包含六类12个攻击样本、6个正常对照、36份基线/防护输入、输入与输出校验、Python POC静态检查、人工审批记录工具，以及待部署的低权限沙箱配置。
+### 选做4 二次注入与隐性逻辑漏洞验证
 
-当前已完成本地实现与确定性静态自检；正式模型对比及实际沙箱隔离取证尚未开展，相关指标保持未测。不能将静态测试通过率当作模型攻击阻断率，也不把工作包4历史root环境当作本选做的低权限沙箱。现有工作包1至4的记录保留。
+保留两条二次存储型 XSS 链、验证码状态跳跃与 CSRF 逻辑链的报告、状态矩阵、数据流追踪、POC脚本和历史请求/响应证据。竞态验证仍为待验证。详见[验证报告](optional4/report.md)和[逐条记录](optional4/verification_log.csv)。报告提到的专属 Prompt 历史提交当前未提供，见[整合记录中的缺项说明](docs/integration_record.md#已知来源缺项)。
 
 ## 目录与分工
 
@@ -70,7 +90,10 @@ v1/v2/final 的 42 条记录已在独立子代理上下文中运行并填入 `pr
 - `docs/`：各模块报告及总报告材料，由全组整合；任务 3 主报告为 `docs/module3_design.md`。
 - `verification/`：环境、POC、适配差异及运行证据，由验证负责人维护。
 - `results/`：结果对比、误报漏报归因、统计和优化复盘，由结果负责人维护。
+- `optional1/`：选做1 的多版本 Prompt 对比、图表、逐条标注与历史 POC 补测材料。
 - `optional2/`：选做2 的 LLM 与 Burp/AWVS 等扫描器联动方案、扫描原始结果、合并/去重、指标与案例。
+- `optional3/`：选做3 的攻击样本、防护工具、审批/沙箱材料和历史评测批次。
+- `optional4/`：选做4 的跨请求漏洞链、状态矩阵、POC脚本与历史证据。
 
 实际姓名由小组补充。工作包 3 的附件放在 `workpackage3/`，主报告放在 `docs/`，供总报告整合。
 

@@ -13,3 +13,5 @@ workpackage1/context/** -text
 workpackage1/provenance/*README.md -text
 workpackage1/provenance/*readme.md -text
 workpackage1/provenance/DVWA-COPYING.txt -text
+# 选做1的历史响应证据包含混合换行，按来源分支原始字节保存。
+optional1/followup/evidence/** -text
