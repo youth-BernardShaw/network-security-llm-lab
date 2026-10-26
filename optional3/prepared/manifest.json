@@ -1,0 +1,326 @@
+[
+  {
+    "case_id": "A01-1",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A01-1.md",
+    "sha256": "cbf96c4e1a77ae307fe21406627a69d70e72fda2a3d19d981f6c8ffc9aaf2a20",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A01-1",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A01-1.md",
+    "sha256": "c8fdd41ba87c79eb31e5effa681a43270de34a3b535c10a6a46c73beb5b7ac35",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A01-2",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A01-2.md",
+    "sha256": "7910330b52beb359e57f1a25e2685abfb08bec0e224f868f2efb62959b233310",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A01-2",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A01-2.md",
+    "sha256": "8bb0f2dfba438fd9727db94330651b1b7aea0dd61bb29ba3304c9675632bd19b",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A02-1",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A02-1.md",
+    "sha256": "14b853d214dfe48b4db0b16f3f6cdaff9a7ea0a435ee8f565934696ed91571c3",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A02-1",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A02-1.md",
+    "sha256": "2a4bc2e90522a7cdb9b4a9874f2ec4269b1e2789cd1bab57dddb51fec5348e50",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A02-2",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A02-2.md",
+    "sha256": "c477e050a5c506b275ef49fdfea73e2c9cc60fc4dd3468be7e6815e2426e56e3",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A02-2",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A02-2.md",
+    "sha256": "45ef99621248249a445b01d2c07fcafaa7d4c615481807294865982ab79e605b",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A03-1",
+    "sample_id": "XSS-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A03-1.md",
+    "sha256": "c948f9b46e044da18f5b931862f0921597fd49ca506b5bc70495b6c68fcdc67f",
+    "source_sha256": "ec8c1a420b457f3571e4c886ec64e8bb7bd4a4931e0d70ea7e4f96e3bdd19232",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A03-1",
+    "sample_id": "XSS-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A03-1.md",
+    "sha256": "5896fc814aab5775eb14d1dcb3dcb6f05dab3c36c4468d717689ebbc144a3183",
+    "source_sha256": "ec8c1a420b457f3571e4c886ec64e8bb7bd4a4931e0d70ea7e4f96e3bdd19232",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A03-2",
+    "sample_id": "XSS-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A03-2.md",
+    "sha256": "ca1025e88e56d35e9cec75c8d313a9f87c53e7f431be8da91c3cc60ddf8faad2",
+    "source_sha256": "ec8c1a420b457f3571e4c886ec64e8bb7bd4a4931e0d70ea7e4f96e3bdd19232",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A03-2",
+    "sample_id": "XSS-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A03-2.md",
+    "sha256": "34c3607117eab722356c7bccc747ffc8aae765530dce3293ea500fcf91fbdf9a",
+    "source_sha256": "ec8c1a420b457f3571e4c886ec64e8bb7bd4a4931e0d70ea7e4f96e3bdd19232",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A04-1",
+    "sample_id": "CMD-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A04-1.md",
+    "sha256": "1b972c2dfb9eebd15ac3b172de90764ecfa30664edc5be367465c970b7cb9928",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A04-1",
+    "sample_id": "CMD-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A04-1.md",
+    "sha256": "e80e27d22eb6f756112c2d22a1dfcecf025991c6256e9c0458dd569102ef0f94",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A04-2",
+    "sample_id": "CMD-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A04-2.md",
+    "sha256": "cca75f831db2ee1a30e2f2a5ec9edad72dd1a0cae4d5dd5e015e5f3bad0114b4",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A04-2",
+    "sample_id": "CMD-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A04-2.md",
+    "sha256": "197c448ac7a8f26c0a8204142212b9f0b42bec7a7c3366bd1204a50df753e1c1",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A05-1",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A05-1.md",
+    "sha256": "1a0f40ac153d614cae8f50d3b6c13d5680597940c5437a3b1a5483090d52d089",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A05-1",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A05-1.md",
+    "sha256": "08f66ce08591907f3a1431f549019d04fa1b7b3fc85be8a1610d758f6d9d2905",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A05-2",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A05-2.md",
+    "sha256": "17585737dfefd077bb7bf006ca52c5378ccf518ec6ea7419661e92d9351bf032",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A05-2",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A05-2.md",
+    "sha256": "1c84938babaa149be7f544a408d0b597a8c4ccf28381c34782597b4bf459090e",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A06-1",
+    "sample_id": "CMD-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A06-1.md",
+    "sha256": "2dad761b4983349c4abf3e279fc7aa125a5ed04364a148d6a4ef56e9698db060",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A06-1",
+    "sample_id": "CMD-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A06-1.md",
+    "sha256": "f979539f8dd1f25a5392ed0ec11075b52b48789ab0346d9ceb8956c93a2ba7ee",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A06-2",
+    "sample_id": "CMD-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/A06-2.md",
+    "sha256": "347ffc9670777c207a903cdedcf67d107bfac5d33542441846047f71923dbcf3",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "A06-2",
+    "sample_id": "CMD-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/A06-2.md",
+    "sha256": "bd7a59bb9fb3d36fb90c98e8d6398d61c6c39fe0f49993ced9262966eaf043d0",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N01",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/N01.md",
+    "sha256": "442fbcd15a1ba14ce3314e59ae9d7c34c0c3f18fcba7f3818a7f5e5f3ed05f53",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N01",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/N01.md",
+    "sha256": "c9c987e9c43d6baeddc58784fb3b066de38a7e6b6693e9067635a9bd65d93356",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N02",
+    "sample_id": "XSS-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/N02.md",
+    "sha256": "98d3b82530c83801ba93ecece51919424934880c229ce3d7e1d4e155c5cb9c39",
+    "source_sha256": "ec8c1a420b457f3571e4c886ec64e8bb7bd4a4931e0d70ea7e4f96e3bdd19232",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N02",
+    "sample_id": "XSS-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/N02.md",
+    "sha256": "17e79278a380902ec9c66f41e8ac6ed830820a4848c6086c20e48c172ac5eaea",
+    "source_sha256": "ec8c1a420b457f3571e4c886ec64e8bb7bd4a4931e0d70ea7e4f96e3bdd19232",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N03",
+    "sample_id": "CMD-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/N03.md",
+    "sha256": "a68fcc3a4cb00584992d8e9d51fc97cfed982a70054ef213a764463722ee03f2",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N03",
+    "sample_id": "CMD-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/N03.md",
+    "sha256": "7fdcb6ca42e4a5f6101a58ef3a0279c4b83bc6e3ab12efcd022461f02b32dbd4",
+    "source_sha256": "94138ecbf8c75379b1da7579d666853541e09357b2787c3917d209a84daa7f21",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N04",
+    "sample_id": "XSS-004",
+    "mode": "baseline",
+    "path": "prepared/baseline/N04.md",
+    "sha256": "feacca0aa0c483a32c1796a97008b59d120d1fef8de76c267032ce2e96ad2b48",
+    "source_sha256": "f3c497067f9db85ab5142b8417d9ff63c228f334c86fab099662dcceb146eb4a",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N04",
+    "sample_id": "XSS-004",
+    "mode": "guarded",
+    "path": "prepared/guarded/N04.md",
+    "sha256": "46ed1187d05e30f5228c9cb59bea6b45fd027168f558bc65bb991a5bd9595a74",
+    "source_sha256": "f3c497067f9db85ab5142b8417d9ff63c228f334c86fab099662dcceb146eb4a",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N05",
+    "sample_id": "CMD-004",
+    "mode": "baseline",
+    "path": "prepared/baseline/N05.md",
+    "sha256": "2456a3903b24acfe59b8a44b82c70fa1270e20d238f4c1eb85d8dc62a7d031f6",
+    "source_sha256": "74625ffd8b77d76b54598b240914b86146baafe5e2f64957c4e3b6945d1bcdcc",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N05",
+    "sample_id": "CMD-004",
+    "mode": "guarded",
+    "path": "prepared/guarded/N05.md",
+    "sha256": "082369ca93780cebd253b37f4e1dc577171720fbd26acb2b7ac028683c8d1b72",
+    "source_sha256": "74625ffd8b77d76b54598b240914b86146baafe5e2f64957c4e3b6945d1bcdcc",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N06",
+    "sample_id": "SQLI-001",
+    "mode": "baseline",
+    "path": "prepared/baseline/N06.md",
+    "sha256": "44a49aafa2db6e30fd54c7b01104c470296385f1dc098642a77a6b4fc7b0a41b",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  },
+  {
+    "case_id": "N06",
+    "sample_id": "SQLI-001",
+    "mode": "guarded",
+    "path": "prepared/guarded/N06.md",
+    "sha256": "894789cd76b17914214a1db57ba9de03a378cff77c6910f4fda90d54b14977fd",
+    "source_sha256": "0b72fefdf51cda727caea0bc0ff259804396bb93135209b23748d6edcfc20940",
+    "status": "pending_model_run"
+  }
+]

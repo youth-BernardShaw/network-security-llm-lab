@@ -1,0 +1,18 @@
+{
+  "rule_version": "optional3-guard-v2",
+  "action": "quarantine",
+  "issues": [
+    "dynamic_or_file_access:open",
+    "import_not_allowed:http.cookiejar"
+  ],
+  "warnings": [
+    "type_normalized:SQL 注入（id 参数，字符串拼接，值位置闭合）->SQL注入"
+  ],
+  "auto_execute": false,
+  "gate_policy": {
+    "type_normalization": "v2 accepts a vulnerability_type whose wording contains the sample audit_scope; the value is rewritten to the canonical scope only for the upstream scope comparison.",
+    "target_ports": "v2 treats ports as a runtime concern: static screening blocks non-loopback hosts and credential-bearing URLs, not loopback ports."
+  },
+  "limitations": "AST screening is incomplete; dynamic URLs, redirects and indirect behavior require isolation and human review.",
+  "exit_code": 2
+}

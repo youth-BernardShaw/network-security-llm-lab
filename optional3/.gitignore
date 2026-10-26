@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+sandbox/approved/*
+!sandbox/approved/.gitkeep
+# 已审批并 sha256 绑定的单个脚本，作为审批链证据提交；其余 approved/* 仍忽略
+!sandbox/approved/approved.py

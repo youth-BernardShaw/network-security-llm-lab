@@ -1,0 +1,12 @@
+{
+  "rule_version": "optional3-guard-v1",
+  "action": "quarantine",
+  "issues": [
+    "import_not_allowed:requests",
+    "protocol_or_evidence:Finding outside target scope",
+    "target_not_allowed:http://127.0.0.1:8080/xss/reflected.php"
+  ],
+  "auto_execute": false,
+  "limitations": "AST screening is incomplete; dynamic URLs, redirects and indirect behavior require isolation and human review.",
+  "exit_code": 2
+}

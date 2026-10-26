@@ -1,0 +1,36 @@
+{
+  "artifact": "optional3 approved-POC sandbox execution",
+  "scope": "One model-generated POC (A04-1 guarded, CMD-001-C1) adapted and approved, executed once inside the low-privilege namespace sandbox.",
+  "approval": {
+    "record": "optional3/approval_log/20261025T154643108963Z.json",
+    "reviewer": "熊钱",
+    "expires_at": "2026-10-25T16:46:43.108963+00:00",
+    "within_validity_window": "yes",
+    "sha256_matches_approved_source": true,
+    "sha256_in_sandbox": "84a5a911ed4e0ee83ce898792a69bc674431aa2f0c144d7dcd6ebad5ae48c46e"
+  },
+  "script": {
+    "path": "/opt/optional3-sandbox/approved/approved.py",
+    "source": "optional3/sandbox/approved/approved.py",
+    "origin": "optional3/batches/dsh-20261025/raw_outputs/guarded/A04-1.json finding CMD-001-C1 (poc.status=需人工适配, execution_status=未运行)",
+    "adaptation": "single literal change: LAB_URL port 8080 -> 9080"
+  },
+  "isolation": {
+    "user": "o3sandbox (non-root, no sudo)",
+    "namespaces": "unshare -m -n; tmpfs over /mnt/c; loopback only",
+    "limits": "ulimit -v 262144 KB, -n 64, -t 5; timeout 20s"
+  },
+  "execution": {
+    "command": "runuser -u o3sandbox -- ... python3 -I -S /opt/optional3-sandbox/approved/approved.py linux",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Traceback (most recent call last):\n  File \"/usr/lib/python3.8/urllib/request.py\", line 1354, in do_open\n    h.request(req.get_method(), req.selector, req.data, headers,\n  File \"/usr/lib/python3.8/http/client.py\", line 1256, in request\n    self._send_request(method, url, body, headers, encode_chunked)\n  File \"/usr/lib/python3.8/http/client.py\", line 1302, in _send_request\n    self.endheaders(body, encode_chunked=encode_chunked)\n  File \"/usr/lib/python3.8/http/client.py\", line 1251, in endheaders\n    self._send_output(message_body, encode_chunked=encode_chunked)\n  File \"/usr/lib/python3.8/http/client.py\", line 1011, in _send_output\n    self.send(msg)\n  File \"/usr/lib/python3.8/http/client.py\", line 951, in send\n    self.connect()\n  File \"/usr/lib/python3.8/http/client.py\", line 922, in connect\n    self.sock = self._create_connection(\n  File \"/usr/lib/python3.8/socket.py\", line 808, in create_connection\n    raise err\n  File \"/usr/lib/python3.8/socket.py\", line 796, in create_connection\n    sock.connect(sa)\nConnectionRefusedError: [Errno 111] Connection refused\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/opt/optional3-sandbox/approved/approved.py\", line 30, in <module>\n    print(send(branch))\n  File \"/opt/optional3-sandbox/approved/approved.py\", line 24, in send\n    with urllib.request.urlopen(req, timeout=10) as resp:\n  File \"/usr/lib/python3.8/urllib/request.py\", line 222, in urlopen\n    return opener.open(url, data, timeout)\n  File \"/usr/lib/python3.8/urllib/request.py\", line 525, in open\n    response = self._open(req, data)\n  File \"/usr/lib/python3.8/urllib/request.py\", line 542, in _open\n    result = self._call_chain(self.handle_open, protocol, protocol +\n  File \"/usr/lib/python3.8/urllib/request.py\", line 502, in _call_chain\n    result = func(*args)\n  File \"/usr/lib/python3.8/urllib/request.py\", line 1383, in http_open\n    return self.do_open(http.client.HTTPConnection, req)\n  File \"/usr/lib/python3.8/urllib/request.py\", line 1357, in do_open\n    raise URLError(err)\nurllib.error.URLError: <urlopen error [Errno 111] Connection refused>\n"
+  },
+  "interpretation": [
+    "Execution happened only after a hash-bound approval record existed and the hash was re-verified inside the sandbox.",
+    "The script ran as a non-root user with no host drive and no outbound network; therefore it could not reach the lab target (expected connection failure), which is the isolation working as designed.",
+    "This is NOT evidence that the vulnerability does not exist; it is evidence that the execution gate and isolation gate work in that order.",
+    "It is also NOT a per-row human review of the 36-case batch."
+  ],
+  "run_at_utc": "2026-10-25T15:46:59Z"
+}

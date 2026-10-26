@@ -1,0 +1,11 @@
+{
+  "rule_version": "optional3-guard-v1",
+  "action": "quarantine",
+  "issues": [
+    "dynamic_or_file_access:open",
+    "target_not_allowed:http://127.0.0.1:8080"
+  ],
+  "auto_execute": false,
+  "limitations": "AST screening is incomplete; dynamic URLs, redirects and indirect behavior require isolation and human review.",
+  "exit_code": 2
+}
