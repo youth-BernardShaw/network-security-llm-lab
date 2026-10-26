@@ -1,0 +1,4 @@
+﻿cohort,generated,tested,succeeded,failed,untested,coverage,confirmed_success_lower_bound,possible_success_upper_bound,runnable_rate,status,source_results_sha256
+v1,14,14,13,1,0,1.00000000,0.92857143,0.92857143,0.92857143,complete,7cd755b723fa6b8caf9c3e1248ed239e6de6c75f47df24d4b880d5a44cc1ad71
+v2,13,13,11,2,0,1.00000000,0.84615385,0.84615385,0.84615385,complete,7cd755b723fa6b8caf9c3e1248ed239e6de6c75f47df24d4b880d5a44cc1ad71
+v3,13,13,13,0,0,1.00000000,1.00000000,1.00000000,1.00000000,complete,7cd755b723fa6b8caf9c3e1248ed239e6de6c75f47df24d4b880d5a44cc1ad71

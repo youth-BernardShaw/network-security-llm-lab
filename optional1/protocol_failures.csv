@@ -1,0 +1,45 @@
+﻿cohort,sample_id,error,source_output
+v1,AUTH-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/AUTH-001__v1.json
+v1,CMD-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/CMD-001__v1.json
+v1,SQLI-002,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/SQLI-002__v1.json
+v1,SQLI-003,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/SQLI-003__v1.json
+v1,SQLI-005,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/SQLI-005__v1.json
+v1,XSS-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-001__v1.json
+v1,XSS-002,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-002__v1.json
+v1,XSS-003,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-003__v1.json
+v1,XSS-005,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-005__v1.json
+v2,AUTH-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/AUTH-001__v2.json
+v2,CMD-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/CMD-001__v2.json
+v2,XSS-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-001__v2.json
+v2,XSS-002,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-002__v2.json
+v2,XSS-003,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-003__v2.json
+v2,XSS-005,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-005__v2.json
+historical-final,AUTH-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/AUTH-001__final.json
+historical-final,CMD-002,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/CMD-002__final.json
+historical-final,CMD-003,limitations must be a string array,results/batches/wp2-eval-42/raw_outputs/CMD-003__final.json
+historical-final,SQLI-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/SQLI-001__final.json
+historical-final,SQLI-002,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/SQLI-002__final.json
+historical-final,SQLI-003,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/SQLI-003__final.json
+historical-final,XSS-001,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-001__final.json
+historical-final,XSS-002,limitations must be a string array,results/batches/wp2-eval-42/raw_outputs/XSS-002__final.json
+historical-final,XSS-003,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-003__final.json
+historical-final,XSS-005,Finding outside target scope,results/batches/wp2-eval-42/raw_outputs/XSS-005__final.json
+wp4-baseline-final,AUTH-001,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/AUTH-001.json
+wp4-baseline-final,CMD-002,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/CMD-002.json
+wp4-baseline-final,CMD-003,Out-of-range citation: CMD-003,results/batches/wp4-baseline-final/raw_outputs/CMD-003.json
+wp4-baseline-final,SQLI-002,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/SQLI-002.json
+wp4-baseline-final,SQLI-005,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/SQLI-005.json
+wp4-baseline-final,XSS-001,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/XSS-001.json
+wp4-baseline-final,XSS-002,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/XSS-002.json
+wp4-baseline-final,XSS-003,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/XSS-003.json
+wp4-baseline-final,XSS-005,Finding outside target scope,results/batches/wp4-baseline-final/raw_outputs/XSS-005.json
+wp4-intermediate,AUTH-001,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/AUTH-001.json
+wp4-intermediate,CMD-003,Invalid success_criteria,results/batches/wp4-final-wp4-v1/raw_outputs/CMD-003.json
+wp4-intermediate,SQLI-001,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/SQLI-001.json
+wp4-intermediate,SQLI-002,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/SQLI-002.json
+wp4-intermediate,SQLI-003,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/SQLI-003.json
+wp4-intermediate,SQLI-005,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/SQLI-005.json
+wp4-intermediate,XSS-001,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/XSS-001.json
+wp4-intermediate,XSS-002,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/XSS-002.json
+wp4-intermediate,XSS-003,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/XSS-003.json
+wp4-intermediate,XSS-005,Finding outside target scope,results/batches/wp4-final-wp4-v1/raw_outputs/XSS-005.json

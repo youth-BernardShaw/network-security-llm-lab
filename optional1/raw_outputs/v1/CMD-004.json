@@ -1,0 +1,64 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "入口、四段拆分、逐段 is_numeric 校验、段数校验、重组及两个 shell_exec 分支均在片段内可见；不合规输入在到达 shell_exec 前进入错误分支，未发现可由 ip 参数带入的 shell 元字符或命令分隔符。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "if( ( is_numeric( $octet[0] ) ) && ( is_numeric( $octet[1] ) ) && ( is_numeric( $octet[2] ) ) && ( is_numeric( $octet[3] ) ) && ( sizeof( $octet ) == 4 ) ) {"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 13,
+      "line_end": 13,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 28,
+      "line_end": 28,
+      "quote": "$html .= '<pre>ERROR: You have entered an invalid IP.</pre>';"
+    }
+  ],
+  "missing_context": [
+    "外围处理器与 dvwaPage.inc.php 未提供，无法核实片段包含顺序、变量覆盖、会话初始化和页面输出上下文。",
+    "PHP 版本、Web 服务器、操作系统、shell 与 ping 可执行文件未实测；Windows 和 *nix 两个分支只能做静态推断。",
+    "会话 token 的获取方式、认证状态、难度配置以及 shell_exec 是否被禁用未提供。",
+    "未提供其他入口或包含文件，无法排除同一参数在其他路径中被直接拼接的可能。"
+  ],
+  "risk_notes": [
+    "片段仍保留 shell_exec 直接拼接；若部署版本移除或放宽 is_numeric、段数校验，或新增其他拼接路径，则可能形成命令注入，本结论不覆盖这些情形。",
+    "is_numeric 可能接受指数形式或首尾空白等数值写法，理论上可让非常规主机名进入 ping；但未发现可借此注入任意 shell 命令的路径，且 ping 的 DNS 解析风险不等同于命令注入。"
+  ],
+  "quality_notes": [
+    "在检查 sizeof($octet) == 4 之前索引 $octet[3]，少于四段时会产生未定义索引警告，具体表现取决于 PHP 错误处理配置。",
+    "使用 $_REQUEST 读取 ip，使参数可来自 GET、POST 或 Cookie，来源不够明确，建议改为 $_POST。",
+    "未使用 escapeshellarg/escapeshellcmd，当前安全性主要依赖数值白名单和重组；后续修改需保持该约束。"
+  ],
+  "limitations": [
+    "仅做静态审阅，未执行任何请求或 POC；runtime_evidence 为空。",
+    "排除结论只覆盖本片段中 ip -> explode/is_numeric -> 重组 -> shell_exec 的路径，不宣称整个项目安全。",
+    "未获得外围处理器、dvwaPage.inc.php、PHP 版本和运行配置，无法验证包含顺序、会话 token 校验及 shell 实际行为。"
+  ],
+  "runtime_evidence": []
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-004",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "XSS-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "第7行在进入字符串拼接前对 $_GET['name'] 调用了 htmlspecialchars，第9行只把该已编码结果放入 <pre> 元素的文本节点，既不是 HTML 属性、也不是 <script> 或 URL 上下文；因此 <、>、&（以及按版本转义的引号）在进入页面时已成为实体，浏览器在该位置无法把输入解析成新标签或事件处理器。第3行的参数存在性判断和第5行的 token 校验只决定能否到达该输出路径，不改变输出编码的结论。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$name = htmlspecialchars( $_GET[ 'name' ] );"
+    },
+    {
+      "fragment_id": "XSS-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$html .= \"<pre>Hello {$name}</pre>\";"
+    }
+  ],
+  "missing_context": [
+    "外围处理器（启动登录会话、按难度配置 include 本片段、把 $html 插入 page['body']、调用 dvwaHtmlEcho）的源码未随本包提供，仅有文字描述，无法逐行核对。",
+    "dvwaHtmlEcho、checkToken、generateSessionToken 的实现与失败行为（终止、重定向或仅记录告警）未提供。",
+    "PHP 版本、php.ini 的 default_charset 与实际运行编码未实测；htmlspecialchars 未显式传 encoding，行为依赖该配置。",
+    "浏览器版本、难度配置、认证开关以及 $_SESSION['session_token'] 的生成与绑定方式未实测。",
+    "输入值是否还被同一请求写入数据库、日志或缓存并在其他页面输出，本包未给出。"
+  ],
+  "risk_notes": [
+    "checkToken 从 $_REQUEST['user_token'] 取值，接受 GET、POST 与 Cookie 来源；若 token 通过 URL 传递，可能经访问日志或 Referer 泄漏，属 CSRF/会话管理范围风险，与本包 XSS 判定无关。",
+    "若外围处理器在 checkToken 校验失败后仍继续渲染（实现未提供），则仅剩的授权边界可能被绕过，但该路径的输出仍经过第7行编码，不产生 XSS。",
+    "若其他页面或组件读取同一 name 值并以未编码方式再次输出（本包未覆盖），则可能形成独立的存储或反射 XSS 风险，需要另行取证明。"
+  ],
+  "quality_notes": [
+    "htmlspecialchars 未显式指定 flags 与 encoding，转义字符集合随 PHP 版本和 default_charset 变化（PHP < 8.1 默认 ENT_COMPAT | ENT_HTML401，PHP >= 8.1 默认 ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401）；建议显式书写 htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')。",
+    "条件判断使用 $_GET['name'] != NULL 的松散比较，输入字符串 '0' 会被判为空而跳过输出，属逻辑瑕疵而非安全问题。",
+    "$html 采用 '.=' 追加，若外围未预初始化 $html，在严格错误级别下会产生未定义变量告警，取决于 context 实现。"
+  ],
+  "limitations": [
+    "本次仅为静态审计：未部署页面、未提交请求、未在浏览器中触发，全部结论无运行时证据支撑。",
+    "排除范围仅覆盖本片段第7行编码后经第9行进入 <pre> 文本节点的这一输出链；外围文件与 dvwaHtmlEcho 未在包内，若 body 后续还有解码、替换或二次拼接，需重新评估。",
+    "本排除以 htmlspecialchars 在 HTML 文本上下文正确生效为前提；默认编码与 PHP 版本未实测，若运行配置违背该前提（例如页面按不匹配的字符集解析），需补充实测复核。",
+    "安全回归观察（未执行）：携带有效 user_token 请求 ?name=%3Cscript%3Econsole.log('LLM_LAB_XSS')%3C%2Fscript%3E，响应中该标记的 <、> 应以 &lt;、&gt; 实体形式出现在 <pre> 文本中，浏览器不执行脚本、不产生 DOM 注入；同时以 name=Alice 作对照，确认页面正常渲染 <pre>Hello Alice</pre>。"
+  ],
+  "runtime_evidence": []
+}

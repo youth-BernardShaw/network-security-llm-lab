@@ -1,0 +1,77 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v1",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["CMD-004"],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "输入点（第6行 $target = $_REQUEST[ 'ip' ];）、唯一命令执行点（第17、21行 shell_exec）以及中间全部处理（第9行 explode、第11行四段 is_numeric 且 sizeof==4、第13行按 '.' 重组）都在本包代码内可见；重组后的字符串每个分量只允许数字及 is_numeric 接受的空白/指数/正负号，shell 元字符无法通过校验，故目标路径的静态证据完整。未确定的 PHP 版本、shell_exec 配置与操作系统差异记录于 missing_context。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "if( ( is_numeric( $octet[0] ) ) && ( is_numeric( $octet[1] ) ) && ( is_numeric( $octet[2] ) ) && ( is_numeric( $octet[3] ) ) && ( sizeof( $octet ) == 4 ) ) {"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 13,
+      "line_end": 13,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 17,
+      "line_end": 17,
+      "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 21,
+      "line_end": 21,
+      "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+    }
+  ],
+  "missing_context": [
+    "运行环境：PHP 版本、disable_functions 中 shell_exec 是否可用、ping 可执行文件是否存在、php_uname('s') 返回的具体操作系统，本包均未提供。",
+    "会话前置条件：登录状态、$_SESSION['session_token'] 的生成与保存方式、user_token 来源；checkToken 的实现不在本包内。",
+    "外围处理器与 dvwaPage.inc.php（context/）：$html 的初始化位置、page['body'] 的插入方式与 dvwaHtmlEcho 的输出编码/转义策略，本包未附且未读取。",
+    "DVWA 难度/安全级别配置：本片段被包含的条件，以及同一样本是否存在其它命令拼接分支（如 Medium/High 版本的黑名单实现）。",
+    "以数组形式提交 ip（如 ip[]=...）时目标 PHP 版本的具体行为：PHP 7 的 Warning 后继续执行与 PHP 8 的 TypeError 差异。"
+  ],
+  "risk_notes": [
+    "is_numeric 不是 IPv4 校验：接受 '1e3'、'-1'、带首尾空白等写法，使非 IP 值进入 ping 参数；在所示代码中这些值只作为 ping 的普通参数或选项被解释，未发现可注入任意命令的字符路径，属输入校验质量问题而非命令注入。",
+    "is_numeric 允许尾随空白（含换行），重组后的命令字符串中可能出现换行并被 shell 当作命令分隔符；但换行之后只能出现 '.' 加数字形式的片段，无法构造攻击者选定的命令名，建议改用 filter_var($target, FILTER_VALIDATE_IP) 与 escapeshellarg，或采用不经 shell 的进程调用以消除该残余语义。",
+    "若 ip 以数组提交，stripslashes/explode 在较新 PHP 上会失败（PHP 8 TypeError），属健壮性/可用性问题，不构成命令注入。",
+    "第24行把 ping 输出原样写入 <pre>，未见转义；所示路径中 ping 输出不能由用户直接控制，相关 XSS 超出本包关注类型，未验证。",
+    "第4行 checkToken 在读取 ip 之前执行，token 无效会重定向或终止流程；因此任何利用都需有效会话 token，这属于前置条件，不在本包注入路径上形成防护。"
+  ],
+  "quality_notes": [
+    "使用 $_REQUEST 读取 ip 而非 $_POST，输入来源覆盖 GET/POST/Cookie，与表单仅用 POST 的约定不一致。",
+    "先 stripslashes 再校验，属旧 magic_quotes 时代的遗留写法。",
+    "sizeof( $octet ) == 4 放在 && 链末尾，输入不含 3 个点时会先读取未定义的 $octet[1..3] 并产生 Warning。",
+    "未校验每段 0-255 范围，'999.999.999.999' 可通过检查并传给 ping。",
+    "shell_exec 失败返回 null，$cmd 被直接插入 HTML，缺少转义与失败区分。",
+    "每次请求末尾调用 generateSessionToken()，token 生命周期与复用策略未在本包体现。"
+  ],
+  "limitations": [
+    "本次仅做静态审计：没有运行靶场或脚本，runtime_evidence 为空；prediction 与 verdict 是静态判断，不代表实测结果。",
+    "排除范围仅限本包可见的 CMD-004 片段及其唯一命令执行点（第17、21行）；context/ 中的外围处理器与 dvwaPage.inc.php 未提供且未读取，不能据此断言外围不存在其它使用同一输入的执行点。",
+    "PHP 版本未确定：is_numeric 对前导/尾随空白与科学计数法的接受程度随版本有差异，但任何版本下都不接受 ; & | ` $ ( ) 等 shell 元字符，因此不改变本包的排除结论；仍需在目标 PHP 版本上回归确认。",
+    "shell_exec 是否被禁用、ping 是否存在、Windows NT 与非 Windows 分支的实际差异均未实测，属环境状态，既不能当作安全性证明，也不能反推漏洞存在。",
+    "未提供攻击 POC：按协议无候选时不给攻击脚本。建议的安全回归观察（尚未执行）：在本地会话中按同会话请求获取最新 user_token，提交 POST 参数 Submit=Submit 与 ip=127.0.0.1，观察响应第24行对应的 <pre> 区域只出现 ping 结果；再提交 ip=127.0.0.1;id 与 ip=127.0.0.1|id，确认落入第28行 invalid IP 分支且响应中不出现额外命令输出标记。"
+  ],
+  "runtime_evidence": []
+}

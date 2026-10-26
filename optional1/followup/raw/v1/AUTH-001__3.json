@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\AUTH-001__3.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--page",
+    "/vulnerabilities/authbypass/"
+  ],
+  "started_at": "2026-10-20T14:41:33+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.191,
+  "stdout": "security=impossible status=403 unauthorised_text=True body_len=12\r\nsecurity=low status=200 unauthorised_text=False body_len=4376\r\ncontrol_blocked: True\r\ntest_page_rendered: True\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "AUTH-001__3",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\AUTH-001__3.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--page",
+    "/vulnerabilities/authbypass/"
+  ]
+}

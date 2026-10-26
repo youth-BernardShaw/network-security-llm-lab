@@ -1,0 +1,175 @@
+{
+  "source_commit": "533b87dd1225d6bd11cb8bdc98b0f2f91eb69617",
+  "source_zip_sha256": "5de86d0de9be93aed2308d557d5322a8960bde423fa82d6af5f7ec63e549f200",
+  "historical_records": 84,
+  "primary_records": 42,
+  "parent_samples": 14,
+  "condition_rows": 17,
+  "unique_audit_packets": 17,
+  "audit_input_equal_across_versions": true,
+  "strict_counts": {
+    "v1": 5,
+    "v2": 8,
+    "v3": 14,
+    "historical-final": 4,
+    "wp4-baseline-final": 5,
+    "wp4-intermediate": 4
+  },
+  "classification_ids": {
+    "v1": {
+      "TP": [
+        "AUTH-001",
+        "CMD-001",
+        "CMD-002",
+        "CMD-003",
+        "SQLI-001",
+        "SQLI-002",
+        "SQLI-003",
+        "SQLI-005",
+        "XSS-001",
+        "XSS-002",
+        "XSS-003",
+        "XSS-005"
+      ],
+      "FP": [],
+      "FN": [],
+      "TN": [
+        "CMD-004",
+        "XSS-004"
+      ],
+      "U": []
+    },
+    "v2": {
+      "TP": [
+        "AUTH-001",
+        "CMD-001",
+        "CMD-002",
+        "CMD-003",
+        "SQLI-001",
+        "SQLI-002",
+        "SQLI-003",
+        "SQLI-005",
+        "XSS-001",
+        "XSS-002",
+        "XSS-003",
+        "XSS-005"
+      ],
+      "FP": [],
+      "FN": [],
+      "TN": [
+        "CMD-004",
+        "XSS-004"
+      ],
+      "U": []
+    },
+    "v3": {
+      "TP": [
+        "AUTH-001",
+        "CMD-001",
+        "CMD-002",
+        "CMD-003",
+        "SQLI-001",
+        "SQLI-002",
+        "SQLI-003",
+        "SQLI-005",
+        "XSS-001",
+        "XSS-002",
+        "XSS-003",
+        "XSS-005"
+      ],
+      "FP": [],
+      "FN": [],
+      "TN": [
+        "CMD-004",
+        "XSS-004"
+      ],
+      "U": []
+    },
+    "historical-final": {
+      "TP": [
+        "AUTH-001",
+        "CMD-001",
+        "CMD-002",
+        "CMD-003",
+        "SQLI-001",
+        "SQLI-002",
+        "SQLI-003",
+        "SQLI-005",
+        "XSS-001",
+        "XSS-002",
+        "XSS-003",
+        "XSS-005"
+      ],
+      "FP": [],
+      "FN": [],
+      "TN": [
+        "CMD-004",
+        "XSS-004"
+      ],
+      "U": []
+    },
+    "wp4-baseline-final": {
+      "TP": [
+        "AUTH-001",
+        "CMD-001",
+        "CMD-002",
+        "CMD-003",
+        "SQLI-001",
+        "SQLI-002",
+        "SQLI-003",
+        "SQLI-005",
+        "XSS-001",
+        "XSS-002",
+        "XSS-003",
+        "XSS-005"
+      ],
+      "FP": [],
+      "FN": [],
+      "TN": [
+        "CMD-004",
+        "XSS-004"
+      ],
+      "U": []
+    },
+    "wp4-intermediate": {
+      "TP": [
+        "AUTH-001",
+        "CMD-001",
+        "CMD-002",
+        "CMD-003",
+        "SQLI-001",
+        "SQLI-002",
+        "SQLI-003",
+        "SQLI-005",
+        "XSS-001",
+        "XSS-002",
+        "XSS-003",
+        "XSS-005"
+      ],
+      "FP": [],
+      "FN": [],
+      "TN": [
+        "CMD-004",
+        "XSS-004"
+      ],
+      "U": []
+    }
+  },
+  "poc_counts": {
+    "v1": 14,
+    "v2": 13,
+    "v3": 13,
+    "historical-final": 14,
+    "wp4-baseline-final": 13,
+    "wp4-intermediate": 13
+  },
+  "poc_executed": 0,
+  "assignment_fully_satisfied": false,
+  "missing_requirements": [
+    "各版本模型POC原稿的实测可运行率",
+    "历史单次运行耗时及可核验的模型采样参数",
+    "人工成员独立复核记录及预先冻结标签的时间证据"
+  ],
+  "v3_caveat": "CR-008对CMD-004提出负例最小条数，含样本特定提示；属于同集调优，不能当作盲测泛化",
+  "raw_outputs_modified": false
+}

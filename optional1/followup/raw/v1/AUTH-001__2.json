@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\AUTH-001__2.py",
+    "--base",
+    "http://127.0.0.1:9080/vulnerabilities/authbypass/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--target-id",
+    "6"
+  ],
+  "started_at": "2026-10-20T14:41:33+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.331,
+  "stdout": "snapshot: {\"user_id\": 6, \"first_name\": \"Wp4\", \"surname\": \"Target\"}\r\nupdate_status=200 body={\"result\":\"ok\"}\r\nafter_update: {\"user_id\": \"6\", \"first_name\": \"AUTH001-POC-F\", \"surname\": \"AUTH001-POC-S\"}\r\nchange_observed: True\r\nrestore_status=200 body={\"result\":\"ok\"}\r\nafter_restore: {\"user_id\": \"6\", \"first_name\": \"Wp4\", \"surname\": \"Target\"}\r\nrestore_ok: True\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "AUTH-001__2",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\AUTH-001__2.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080/vulnerabilities/authbypass/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--target-id",
+    "6"
+  ]
+}

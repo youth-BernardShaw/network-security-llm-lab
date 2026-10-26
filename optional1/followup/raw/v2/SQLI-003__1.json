@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\SQLI-003__1.py",
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-25/"
+  ],
+  "started_at": "2026-10-20T14:42:04+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.245,
+  "stdout": "[baseline id=1] status=200 location=None bytes=892\r\n    marker present: Your Login name:\r\n    marker present: Your Password:\r\n    marker present: Hint: Your Input is Filtered\r\n[control  id=999999] status=200 location=None bytes=846\r\n    marker present: Hint: Your Input is Filtered\r\n[control  id=1'] status=200 location=None bytes=1169\r\n    marker present: Hint: Your Input is Filtered\r\n    marker present: You have an error in your SQL syntax\r\n[test     union marker] status=200 location=None bytes=916\r\n    marker present: Your Login name:\r\n    marker present: Your Password:\r\n    marker present: Hint: Your Input is Filtered\r\ncompare the four responses; the script reports observations only, not a verified verdict\r\n",
+  "stderr": "",
+  "cohort": "v2",
+  "stem": "SQLI-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v2\\SQLI-003__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-25/"
+  ]
+}

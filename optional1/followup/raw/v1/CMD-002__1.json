@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\CMD-002__1.py",
+    "--url",
+    "http://127.0.0.1:9080/vulnerabilities/exec/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ],
+  "started_at": "2026-10-20T14:41:39+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 3.228,
+  "stdout": "HTTP_STATUS 200\r\nMODE marker\r\nMARKER_OBSERVED True\r\nOBSERVED_SNIPPET '<input type=\"submit\" name=\"Submit\" value=\"Submit\">\\r\\n\\t\\t\\t</p>\\n\\r\\n\\t\\t</form>\\r\\n\\t\\t<pre>CMD002_MARKER\\n</pre>\\r\\n\\t</div>\\r\\n\\r\\n\\t<h2>More Information</h2>\\r\\n\\t<ul>\\r\\n\\t\\t<li><a href=\"https://ww'\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "CMD-002__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\CMD-002__1.py",
+  "args_redacted": [
+    "--url",
+    "http://127.0.0.1:9080/vulnerabilities/exec/",
+    "--cookie",
+    "PHPSESSID=<redacted>; security=<level>"
+  ]
+}

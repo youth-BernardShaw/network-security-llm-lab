@@ -1,0 +1,116 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-004",
+  "input_version": "v2",
+  "prompt_version": "final-wp4-v2",
+  "analysis_stage": "parent",
+  "received_packet_ids": [
+    "CMD-004"
+  ],
+  "prediction": "未检出候选",
+  "verdict": "排除",
+  "confidence": {
+    "level": "high",
+    "reason": "规范化片段完整呈现了 Submit/checkToken 前置、ip 读取、stripslashes、explode、四段 is_numeric 与 sizeof==4 校验、点分重组及 shell_exec 的静态路径；命令分隔符和第五段均在校验处被拒绝，危险 sink 只接收由四个通过 is_numeric 的片段重组的点分串。"
+  },
+  "findings": [],
+  "exclusion_evidence": [
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 2,
+      "line_end": 2,
+      "quote": "if( isset( $_POST[ 'Submit' ]  ) ) {"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 4,
+      "line_end": 4,
+      "quote": "checkToken( $_REQUEST[ 'user_token' ], $_SESSION[ 'session_token' ], 'index.php' );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 6,
+      "line_end": 6,
+      "quote": "$target = $_REQUEST[ 'ip' ];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "$target = stripslashes( $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 9,
+      "line_end": 9,
+      "quote": "$octet = explode( \".\", $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "( is_numeric( $octet[0] ) ) && ( is_numeric( $octet[1] ) ) && ( is_numeric( $octet[2] ) ) && ( is_numeric( $octet[3] ) )"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "( sizeof( $octet ) == 4 )"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 13,
+      "line_end": 13,
+      "quote": "$target = $octet[0] . '.' . $octet[1] . '.' . $octet[2] . '.' . $octet[3];"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 17,
+      "line_end": 17,
+      "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 21,
+      "line_end": 21,
+      "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 24,
+      "line_end": 24,
+      "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 28,
+      "line_end": 28,
+      "quote": "$html .= '<pre>ERROR: You have entered an invalid IP.</pre>';"
+    },
+    {
+      "fragment_id": "CMD-004",
+      "line_start": 32,
+      "line_end": 32,
+      "quote": "generateSessionToken();"
+    }
+  ],
+  "missing_context": [
+    "未提供 PHP 版本、shell_exec 是否启用、ping 是否存在及 Windows/Linux 实际分支，运行配置未实测。",
+    "外围处理器、dvwaPage.inc.php 与登录会话仅以文字说明，未包含在本片段中；本结论仅覆盖 CMD-004 规范化片段展示的 ip 参数路径。"
+  ],
+  "risk_notes": [
+    "合法路径仍会执行固定 ping 命令并回显其输出，这是预期业务行为，不是命令注入。",
+    "若后续修改移除 is_numeric 或 sizeof($octet)==4 校验，或改为直接拼接原始 ip，则同一 sink 会重新暴露命令注入风险。"
+  ],
+  "quality_notes": [
+    "is_numeric 对数值形态的接受范围宽于严格 IPv4 点分十进制校验，属于输入校验质量问题，未在本片段中转化为命令注入。",
+    "使用 shell_exec 拼接固定命令前缀虽在四段数值校验后未发现注入，仍建议改用参数数组或无 shell 的 ping 调用作为纵深防御。"
+  ],
+  "limitations": [
+    "本次未运行 POC，未获取实际 HTTP 响应或命令输出；prediction 与 verdict 基于片段静态数据流，不声称已实测利用。",
+    "未验证 PHP 版本对 is_numeric 边界形态的具体处理；未发现可把任意命令文本带入 shell 的路径，目标版本的输入边界需回归确认。",
+    "Windows 与 Linux 分支分别使用固定 ping 前缀；shell、ping 可用性和 shell_exec 配置需在部署环境记录，但不改变命令分隔符无法通过四段校验的静态结论。",
+    "排除范围仅限本片段展示的 ip 参数路径；外围处理器、会话实现和其他请求参数未纳入本次代码审计。"
+  ],
+  "runtime_evidence": []
+}

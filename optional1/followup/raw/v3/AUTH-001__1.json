@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\AUTH-001__1.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--admin-cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_plain.cookie",
+    "--security",
+    "low"
+  ],
+  "started_at": "2026-10-20T14:42:05+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.195,
+  "stdout": "[low-priv] http_status=200\r\n[low-priv] row_count=6\r\n[low-priv]   user_id='1' first_name='admin' surname='admin'\r\n[low-priv]   user_id='2' first_name='Gordon' surname='Brown'\r\n[low-priv]   user_id='3' first_name='Hack' surname='Me'\r\n[low-priv]   user_id='4' first_name='Pablo' surname='Picasso'\r\n[low-priv]   user_id='5' first_name='Bob' surname='Smith'\r\n[low-priv]   user_id='6' first_name='Wp4' surname='Target'\r\nRESULT: received 6 user records from a non-admin session\r\nCHECK: at least one user_id must differ from the acting account id\r\n[admin] http_status=200\r\n[admin] row_count=6\r\n[admin]   user_id='1' first_name='admin' surname='admin'\r\n[admin]   user_id='2' first_name='Gordon' surname='Brown'\r\n[admin]   user_id='3' first_name='Hack' surname='Me'\r\n[admin]   user_id='4' first_name='Pablo' surname='Picasso'\r\n[admin]   user_id='5' first_name='Bob' surname='Smith'\r\n[admin]   user_id='6' first_name='Wp4' surname='Target'\r\nCONTROL: admin and low-priv row sets identical = True\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "AUTH-001__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\AUTH-001__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\gordonb_plain.cookie",
+    "--admin-cookie-file",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\followup\\sessions\\admin_plain.cookie",
+    "--security",
+    "low"
+  ]
+}

