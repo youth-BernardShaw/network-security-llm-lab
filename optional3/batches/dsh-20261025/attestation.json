@@ -1,0 +1,28 @@
+{
+  "signer": "熊钱",
+  "attested_at": "2026-10-25",
+  "signature_image": null,
+  "signature_committed": false,
+  "signature_sha256": "367899b0d8ec903699c6500f2474eaa5d16f6e1f6603457fe490df1764ef6096",
+  "signature_note": "签字人以电子签名签认；签名原件由签字人保管、未提交仓库（隐私考虑），此处仅保留其 SHA256 以便对应。记录由助手按签字人指示录入，非助手代签姓名。",
+  "human_review": {
+    "declared": true,
+    "declared_by": "熊钱",
+    "declared_at": "2026-10-25",
+    "statement": "签字人声明已复核本批次 36 条实测结果。",
+    "depth_note": "复核深度以签字人声明为准，助手未独立核验其实际逐条阅读过程；判定原文仍保留在 review/review-*.json。"
+  },
+  "scope_approved": [
+    "已复核并批准批次 dsh-20261025 的 36 条实测结果，作为选做三的小组结论",
+    "批准适配后的 A04-1 POC 在低权限命名空间沙箱内执行一次"
+  ],
+  "not_covered": [
+    "未验证 Docker 容器沙箱（compose.yaml 仍未部署）",
+    "未对 guard v2 提案签字",
+    "未核验签字人复核时的具体阅读过程，仅记录其声明"
+  ],
+  "review_provenance": "Judgments were produced by dsh-reviewer-subagent-1..6 and then reviewed/confirmed by the signer; judgment_by column keeps the per-row attribution.",
+  "approval_record": "optional3/approval_log/20261025T154643108963Z.json",
+  "approved_poc_sha256": "84a5a911ed4e0ee83ce898792a69bc674431aa2f0c144d7dcd6ebad5ae48c46e",
+  "approved_poc_run_evidence": "optional3/checks/sandbox-poc-run-20261025.json"
+}

@@ -1,0 +1,19 @@
+services:
+  reviewer:
+    image: ${IMAGE_REF:?Set a reviewed immutable python image reference with sha256 digest}
+    user: "65534:65534"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 256m
+    cpus: 0.5
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    volumes:
+      - ./approved:/work:ro
+    working_dir: /work
+    # Default only proves identity. Execution requires separate human action.
+    command: ["python", "-I", "-S", "-c", "import os; print('uid=',os.getuid()); print('No generated code executed')"]
+    restart: "no"

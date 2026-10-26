@@ -1,0 +1,12 @@
+{
+  "status": "human_attestation_recorded",
+  "reviewer": "熊钱",
+  "environment_id": "wsl-ubuntu2004-ns-o3-20261025",
+  "source_sha256": "84a5a911ed4e0ee83ce898792a69bc674431aa2f0c144d7dcd6ebad5ae48c46e",
+  "rule_version": "optional3-guard-v1",
+  "approved_at": "2026-10-25T15:46:43.108963+00:00",
+  "expires_at": "2026-10-25T16:46:43.108963+00:00",
+  "auto_execute": false,
+  "execution_status": "not_run",
+  "warning": "Attestation is not technical proof of sandbox enforcement. Recheck hash and environment before manual run."
+}

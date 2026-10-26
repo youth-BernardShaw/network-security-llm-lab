@@ -1,0 +1,10 @@
+{
+  "rule_version": "optional3-guard-v1",
+  "action": "quarantine",
+  "issues": [
+    "unsupported_poc_language_or_code"
+  ],
+  "auto_execute": false,
+  "limitations": "AST screening is incomplete; dynamic URLs, redirects and indirect behavior require isolation and human review.",
+  "exit_code": 2
+}

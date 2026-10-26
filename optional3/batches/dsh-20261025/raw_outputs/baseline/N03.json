@@ -1,0 +1,136 @@
+{
+  "schema_version": "wp2-output-v1",
+  "sample_id": "CMD-001",
+  "input_version": "v2",
+  "prompt_version": "final",
+  "analysis_stage": "parent",
+  "received_packet_ids": ["CMD-001"],
+  "prediction": "存在候选",
+  "verdict": "待验证",
+  "confidence": {
+    "level": "high",
+    "reason": "输入源第4行 $target = $_REQUEST[ 'ip' ] 未经任何过滤、转义或白名单校验，直接在第8行（Windows分支）与第12行（*nix分支）以字符串拼接方式进入 shell_exec；源码中不存在 escapeshellarg/escapeshellcmd、类型校验、字符黑名单或固定参数分支。输入、危险调用与可达路径的静态证据完整。"
+  },
+  "findings": [
+    {
+      "finding_id": "CMD-001-CMDI-01",
+      "vulnerability_type": "OS命令注入",
+      "locations": [
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 4,
+          "line_end": 4,
+          "quote": "$target = $_REQUEST[ 'ip' ];"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 6,
+          "line_end": 6,
+          "quote": "if( stristr( php_uname( 's' ), 'Windows NT' ) ) {"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 8,
+          "line_end": 8,
+          "quote": "$cmd = shell_exec( 'ping  ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 12,
+          "line_end": 12,
+          "quote": "$cmd = shell_exec( 'ping  -c 4 ' . $target );"
+        },
+        {
+          "fragment_id": "CMD-001",
+          "line_start": 15,
+          "line_end": 15,
+          "quote": "$html .= \"<pre>{$cmd}</pre>\";"
+        }
+      ],
+      "data_flow": [
+        "第2行以 isset( $_POST[ 'Submit' ] ) 作为入口条件，提交名为 Submit 的 POST 参数即可进入处理逻辑。",
+        "第4行 $target = $_REQUEST[ 'ip' ] 同时从 GET、POST、Cookie 取值，除存在性外不做任何校验；'ip' 参数即攻击者可控输入。",
+        "第6行通过 php_uname( 's' ) 返回的字符串是否含 'Windows NT' 选择系统分支，决定后续拼接方式，攻击者可通过代理或目标主机环境间接决定分支。",
+        "第8行 Windows 分支把 'ping  ' 与 $target 用点号连接后整体交给 shell_exec，shell_exec 会经由 /bin/sh 或 cmd.exe 解释，拼接点之后的分号、&、|、换行等元字符由解释器执行。",
+        "第12行 *nix 分支同样拼接 'ping  -c 4 ' 与 $target，未使用 escapeshellarg，参数边界失效。",
+        "第15行把命令合并输出写入 $html 的 <pre> 中并回显，为观察额外命令输出提供反馈通道。"
+      ],
+      "principle": "PHP 的 shell_exec 将整个字符串交给系统 shell（*nix 通常为 /bin/sh -c，Windows 为 cmd.exe /c）解释执行。代码把用户可控的 $target 直接与固定前缀 'ping  ' 或 'ping  -c 4 ' 做字符串拼接，固定前缀并不构成对后续内容的边界约束：一旦目标字符串中出现 shell 元字符（*nix 的 ; & | 换行 $( ) 反引号，Windows 的 & && || | 与换行），解释器会在完成 ping 后继续执行攻击者追加的命令，或改变重定向与参数切分。代码中没有转义、没有白名单、也没有采用参数数组式无 shell 调用，故注入成立。",
+      "impact": "在 Web 服务进程权限下执行任意系统命令：读取或篡改应用与数据库配置、以服务账号身份横向移动、写入 WebShell 或计划任务实现持久化、对内网主机做端口与服务探测。命令输出经第15行 <pre> 回显，形成可直接交互的命令执行通道。实际危害上限取决于 PHP 进程权限、disable_functions 配置与主机隔离程度。",
+      "preconditions": [
+        "PHP 的 shell_exec 未被 disable_functions 禁用，且 Web 进程有权限调用系统 shell。",
+        "目标主机存在 ping 可执行文件（*nix 的 ping 或 Windows 的 ping.exe），否则前缀命令报错但拼接后的第二条命令通常仍可执行。",
+        "攻击者能访问该脚本并满足认证前提（若部署在 DVWA 等需登录的靶场，需先取得有效会话）。",
+        "第2行要求请求中存在 Submit 参数，攻击者自行提交即可满足。",
+        "*nix 分支需目标为类 Unix 系统，Windows 分支需 php_uname 返回含 'Windows NT' 的字符串；不同分支使用不同元字符语法。"
+      ],
+      "counterexamples": [
+        "若 php.ini 的 disable_functions 中包含 shell_exec，则第8、12行调用失败，该路径不可达（属运行配置，需实际确认，不能仅凭文档推断）。",
+        "若在拼接前对 $target 施加严格的 IPv4 白名单（如 filter_var 校验后再拼装或仅接受点分十进制且无其他字符），注入路径被阻断。",
+        "若改用无 shell 的参数数组调用（如 proc_open 传入参数数组并关闭 shell 解释，或使用 escapeshellarg 包裹 $target），元字符不再被解释。",
+        "若 ping 与 shell 均不存在且无法被替换，前缀命令失败，但这不构成安全证明，仅记录为环境状态。",
+        "若脚本被前置 WAF 拦截 ; & | 等字符，仅为条件性缓解，仍需按具体规则评估编码、分号替换、换行等路径。"
+      ],
+      "poc": {
+        "status": "需人工适配",
+        "language": "bash",
+        "code": "#!/usr/bin/env bash\n# 本地靶场无害验证脚本（N03）：仅提交正常测试参数与无害回显标记\n# 不进行反向连接、不下载执行、不读写系统敏感文件、不删除任何内容\nset -u\n\nBASE=\"${BASE:-http://127.0.0.1/dvwa/vulnerabilities/exec/}\"\nCOOKIE_FILE=\"${COOKIE_FILE:-./cookie.txt}\"   # 登录 Cookie 由测试人员本地提供\nMARK=\"LAB_CMD_MARKER_N03_OK\"\n\n# 1) 基线：仅提交正常 ping 参数，用于确认页面无该标记\ncurl -s -b \"$COOKIE_FILE\" -c \"$COOKIE_FILE\" \\\n  --data-urlencode 'ip=127.0.0.1' \\\n  --data-urlencode 'Submit=Submit' \\\n  \"$BASE\" -o baseline.html\n\n# 2) Linux 语义：分号后追加无害 echo 回显标记\ncurl -s -b \"$COOKIE_FILE\" -c \"$COOKIE_FILE\" \\\n  --data-urlencode \"ip=127.0.0.1; echo ${MARK}\" \\\n  --data-urlencode 'Submit=Submit' \\\n  \"$BASE\" -o linux_probe.html\n\n# 3) Windows 语义：cmd 的 & 后追加无害 echo 回显标记\ncurl -s -b \"$COOKIE_FILE\" -c \"$COOKIE_FILE\" \\\n  --data-urlencode \"ip=127.0.0.1 & echo ${MARK}\" \\\n  --data-urlencode 'Submit=Submit' \\\n  \"$BASE\" -o windows_probe.html\n\n# 4) 结果区分：标记是否作为独立命令输出出现\necho '[baseline]'      ; grep -c \"$MARK\" baseline.html      || true\necho '[linux probe]'   ; grep -n \"$MARK\" linux_probe.html   || true\necho '[windows probe]' ; grep -n \"$MARK\" windows_probe.html || true\n",
+        "artifact_path": null,
+        "dependencies": ["bash 4+", "curl", "本地可访问的靶场实例", "测试人员提供的有效会话 Cookie 文件"],
+        "parameters": [
+          "BASE：靶场 exec 页面地址，默认 http://127.0.0.1/dvwa/vulnerabilities/exec/",
+          "COOKIE_FILE：登录后会话 Cookie 的本地文件路径，由测试人员自备，不写入脚本",
+          "Linux 分支测试值：ip=127.0.0.1; echo LAB_CMD_MARKER_N03_OK",
+          "Windows 分支测试值：ip=127.0.0.1 & echo LAB_CMD_MARKER_N03_OK",
+          "基线测试值：ip=127.0.0.1"
+        ],
+        "steps": [
+          "在本地靶场部署本段 PHP 代码，登录取得会话，把 Cookie 导出到 COOKIE_FILE 指向的文件。",
+          "运行基线请求，确认页面仅出现 ping 输出且不含 LAB_CMD_MARKER_N03_OK。",
+          "按目标系统选择对应测试值：*nix 用分号语法，Windows 用 & 语法，不要混用两套语法。",
+          "分别提交两次探测请求，保存返回页面，用 grep 统计标记出现位置。",
+          "对比标记是作为独立输出行出现在 ping 结果之后，还是仅作为被回显的输入文本反射。"
+        ],
+        "expected_observation": "基线页面只有 ping 的正常统计输出，不含标记；Linux 探测页面在 ping 输出之后额外出现一行 LAB_CMD_MARKER_N03_OK；Windows 探测页面在 ping 输出之后额外出现一行该标记。若标记只出现在输入回显处、且前后无独立命令行，则视为反射而非命令解释产生。",
+        "success_criteria": "探测页面中标记以独立命令行形式出现，且基线页面同样请求路径下不含该标记；两次结果可重复，且未使用任何破坏性命令。",
+        "limitations": [
+          "本次未运行，脚本未在真实靶场验证，状态为需人工适配。",
+          "脚本假定登录态可直接用 Cookie 复用，若靶场启用 CSRF token 需由测试人员补充 token 值。",
+          "Windows 与 *nix 语法必须分别测试，脚本仅对两种语义给出示例，未覆盖 PowerShell 等其它解释器。",
+          "标记反射与命令执行的区分依赖人工查看页面结构，自动 grep 结果可能出现假阳性。"
+        ],
+        "execution_status": "未运行"
+      }
+    }
+  ],
+  "exclusion_evidence": [],
+  "missing_context": [
+    "php.ini 中 disable_functions 是否包含 shell_exec、exec、system 等函数（决定调用是否可达）。",
+    "shell_exec 是否返回 null 或空串（命令被禁用或执行失败时会静默返回），需实际环境确认。",
+    "部署主机操作系统与 php_uname( 's' ) 的实际返回值，决定进入第8行还是第12行分支。",
+    "目标主机是否安装 ping 及 Web 进程对该二进制的执行权限。",
+    "脚本外部是否套有认证、CSRF token 校验、WAF 或输入过滤中间件。",
+    "服务器是否记录命令执行与请求体日志，便于后续验证与取证。",
+    "正常运行文档未给出部署方式与配置样例，无法判断文档所述“不自动执行命令”对应的是哪一层控制。"
+  ],
+  "risk_notes": [
+    "第4行使用 $_REQUEST 而非 $_POST，导致 ip 参数可经 GET 查询串或 Cookie 注入，扩大了触发面并便于绕过仅检查请求体的防护。",
+    "第15行把命令输出原样放入 <pre> 后回显，未做 HTML 转义，命令输出中的 HTML/脚本内容可造成存储或反射型 XSS。",
+    "表单缺少 CSRF token 校验，可被第三方页面诱导提交，配合浏览器自动携带会话形成跨站请求伪造利用链。",
+    "命令执行结果直接暴露系统信息（主机名、TTL、网络拓扑线索），属于信息泄露面。",
+    "脚本未对并发与超时做限制，多个长耗时 ping 请求可造成资源耗尽。"
+  ],
+  "quality_notes": [
+    "使用 shell_exec 同步阻塞等待外部命令结束，请求处理期间占用 PHP 工作进程，应改为带超时的异步或参数数组调用。",
+    "操作系统判定与命令拼装硬编码在业务逻辑中，缺乏抽象层，跨平台行为不一致。",
+    "未使用 escapeshellarg/escapeshellcmd，也没有对目标做 filter_var 的 IPv4 校验，缺少输入边界。",
+    "正常代码文档声称“不自动执行任何命令，需人工审批”，与源码中无条件调用 shell_exec 的行为不一致，文档与实现存在偏差，需核实实际部署版本。"
+  ],
+  "limitations": [
+    "本结论基于单个片段的静态阅读，未获得运行配置、认证中间件与部署环境，未实际执行任何请求。",
+    "因此 verdict 定为待验证：注入路径的静态证据充分，但“命令确实被执行”需真实运行证据与相同条件才能升级为确认。",
+    "未验证 disable_functions、open_basedir、SELinux/AppArmor 等限制对危害的实际约束。",
+    "未获得完整请求包与响应包，标记反射与命令输出的区分只能给出方法，不能给出实测结论。"
+  ],
+  "runtime_evidence": []
+}

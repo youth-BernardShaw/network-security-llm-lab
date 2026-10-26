@@ -1,0 +1,79 @@
+{
+  "artifact": "optional3 sandbox isolation probe",
+  "scope": "Isolation mechanics only. Benign probe script, NOT a model-generated POC. No human approval record was created or consumed.",
+  "host": {
+    "wsl_distro": "Ubuntu-20.04 (20.04.6 LTS)",
+    "note": "Ubuntu-22.04 distro is broken on this host (ext4.vhdx missing); Docker is not installed."
+  },
+  "run": {
+    "started_utc": "2026-10-25T16:10:23Z",
+    "finished_utc": "2026-10-25T16:10:23Z",
+    "probe_script": "/usr/local/bin/o3probe.sh",
+    "probe_script_sha256": "8120841c2b24223822832be61396c50810ac72531c2c2f03433fcbb0c51182a3",
+    "commands": [
+      "useradd -m -s /bin/bash o3sandbox",
+      "unshare -m -n -- bash -c 'mount --make-rprivate /; mount -t tmpfs none /mnt/c; ip link set lo up; ...'",
+      "runuser -u o3sandbox -- bash -c 'ulimit -v 262144; ulimit -n 64; ulimit -t 5; timeout 25 /usr/local/bin/o3probe.sh'"
+    ]
+  },
+  "observations": {
+    "ns_hide_host_drive": "ok",
+    "ns_net": "net:[4026532265]",
+    "ns_mnt": "mnt:[4026532264]",
+    "mntc_fstype": "tmpfs",
+    "host_netns": "net:[4026531840]",
+    "host_mntns": "mnt:[4026532254]",
+    "user": "o3sandbox",
+    "uid": "1002",
+    "sudo_group": "no",
+    "read_etc_shadow": "denied",
+    "write_approved": "denied",
+    "read_host_staging": "denied",
+    "write_own_work": "allowed",
+    "host_drive_entries": "0",
+    "host_drive_visible": "hidden",
+    "net_external": "blocked",
+    "net_dns": "no_dns",
+    "net_loopback_9080": "refused",
+    "mem_limit": "MemoryError",
+    "ulimit_v_kb": "262144",
+    "ulimit_n": "64",
+    "ifaces": "lo,",
+    "netns_inode": "net:[4026532265]",
+    "mntns_inode": "mnt:[4026532264]",
+    "probe_exit": "0"
+  },
+  "raw_output": [
+    "ns_hide_host_drive=ok",
+    "ns_net=net:[4026532265]",
+    "ns_mnt=mnt:[4026532264]",
+    "mntc_fstype=tmpfs",
+    "host_netns=net:[4026531840]",
+    "host_mntns=mnt:[4026532254]",
+    "user=o3sandbox",
+    "uid=1002",
+    "sudo_group=no",
+    "read_etc_shadow=denied",
+    "write_approved=denied",
+    "read_host_staging=denied",
+    "write_own_work=allowed",
+    "host_drive_entries=0",
+    "host_drive_visible=hidden",
+    "net_external=blocked",
+    "net_dns=no_dns",
+    "net_loopback_9080=refused",
+    "mem_limit=MemoryError",
+    "ulimit_v_kb=262144",
+    "ulimit_n=64",
+    "ifaces=lo,",
+    "netns_inode=net:[4026532265]",
+    "mntns_inode=mnt:[4026532264]",
+    "probe_exit=0"
+  ],
+  "limitations": [
+    "Isolation mechanics verified; this probe is NOT a model-generated POC execution.",
+    "The separate approved-POC run is recorded in optional3/checks/sandbox-poc-run-20261025.json.",
+    "Docker is absent; optional3/sandbox/compose.yaml stays a deployable but unverified artifact.",
+    "tmpfs over /mnt/c hides the Windows drive inside the namespace; the probe user is additionally non-root, so both layers were exercised together."
+  ]
+}
