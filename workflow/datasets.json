@@ -1,0 +1,16 @@
+{
+  "baseline": {
+    "description": "原必做 v2 样本集；保留历史批次及统计口径",
+    "data_root": "workpackage1",
+    "prompt_version": "final-wp4-v2",
+    "prompt_root": "prompts/prepared/final-wp4-v2",
+    "batch_root": "results/batches/wp4-final-wp4-v2"
+  },
+  "optional4": {
+    "description": "选做四接入五模块主流程的新批次；模型与历史证据分别登记",
+    "data_root": "workpackage1/extensions/optional4-v1",
+    "prompt_version": "optional4-mainflow-v1",
+    "prompt_root": "prompts/prepared/optional4-mainflow-v1",
+    "batch_root": "results/batches/optional4-mainflow-20261102"
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "sample_id": "O4-LOGIC-01",
+  "dataset_id": "optional4",
+  "preprocess_version": "v2",
+  "input_dataset_version": "optional4-v1",
+  "project": "DVWA",
+  "commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+  "source_url": "https://github.com/digininja/DVWA",
+  "audit_scope": "业务逻辑",
+  "scenario_rule": "business_logic.md",
+  "business_specification": "改密须由当前登录用户完成验证码验证后确认；后续步骤应由服务端验证其前置条件。",
+  "fragments": [
+    {
+      "fragment_id": "O4-LOGIC-01-A",
+      "code_id": "A",
+      "role": "页面入口",
+      "source_file": "vulnerabilities/captcha/index.php",
+      "selected_spans": [
+        [
+          1,
+          98
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-01/A.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-01/A.php",
+      "line_map": "line_maps/O4-LOGIC-01-A.csv",
+      "raw_sha256": "c9333ef0cce5cee3315b6edc581f263fd6d2841f02bfbe5fe182029d88c958eb",
+      "normalized_sha256": "052bef23781c093d7509b45f779448dd8e4d194a60147ff6a4098f7f25e90b42",
+      "normalized_lines": 98
+    },
+    {
+      "fragment_id": "O4-LOGIC-01-B",
+      "code_id": "B",
+      "role": "处理器一",
+      "source_file": "vulnerabilities/captcha/source/low.php",
+      "selected_spans": [
+        [
+          1,
+          75
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-01/B.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-01/B.php",
+      "line_map": "line_maps/O4-LOGIC-01-B.csv",
+      "raw_sha256": "c5300e1cd9f6e9b330a39fdcd04e79ff0d155f368cc4ed6f05a94da953459d4c",
+      "normalized_sha256": "b3cf9cf56e8c28ffc14cfa14b621779a78734aadbbd6211237a03b3cb5dc2c98",
+      "normalized_lines": 75
+    },
+    {
+      "fragment_id": "O4-LOGIC-01-C",
+      "code_id": "C",
+      "role": "处理器二",
+      "source_file": "vulnerabilities/captcha/source/medium.php",
+      "selected_spans": [
+        [
+          1,
+          83
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-01/C.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-01/C.php",
+      "line_map": "line_maps/O4-LOGIC-01-C.csv",
+      "raw_sha256": "4e781d8abc146a68a18c321b9cfee46abfcd8d9c75de52be13bf2a006c257682",
+      "normalized_sha256": "c934212d6c3a96bc2e110bf6d7b4d7bc395373517165dbff8481cc628c7990dc",
+      "normalized_lines": 83
+    },
+    {
+      "fragment_id": "O4-LOGIC-01-D",
+      "code_id": "D",
+      "role": "处理器三",
+      "source_file": "vulnerabilities/captcha/source/impossible.php",
+      "selected_spans": [
+        [
+          1,
+          67
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-01/D.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-01/D.php",
+      "line_map": "line_maps/O4-LOGIC-01-D.csv",
+      "raw_sha256": "46a74e7bcb57b23fd5daed1bff8955e6f654c8012080389ddbac1bf976bf9c3f",
+      "normalized_sha256": "9f1c104ea6ed1b79f046f72c98dcf3f0f46c0bceae81993f42cb55df8120c796",
+      "normalized_lines": 67
+    },
+    {
+      "fragment_id": "O4-LOGIC-01-E",
+      "code_id": "E",
+      "role": "会话和Token依赖",
+      "source_file": "dvwa/includes/dvwaPage.inc.php",
+      "selected_spans": [
+        [
+          124,
+          129
+        ],
+        [
+          132,
+          138
+        ],
+        [
+          146,
+          154
+        ],
+        [
+          172,
+          175
+        ],
+        [
+          200,
+          216
+        ],
+        [
+          634,
+          645
+        ],
+        [
+          647,
+          652
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-01/E.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-01/E.php",
+      "line_map": "line_maps/O4-LOGIC-01-E.csv",
+      "raw_sha256": "bea6c28500f15705ad5cfedf8c501706bf36a293f22419e7a63651907495f3b8",
+      "normalized_sha256": "59631a34280141f730c393a4a973fbdf80f269807760dcdd8fd8a87ea52aa568",
+      "normalized_lines": 63
+    }
+  ],
+  "packets": [
+    {
+      "packet_id": "O4-LOGIC-01-P1",
+      "input_file": "llm_inputs/O4-LOGIC-01-P1.md",
+      "fragment_ids": [
+        "O4-LOGIC-01-A",
+        "O4-LOGIC-01-E"
+      ],
+      "code_lines": 161
+    },
+    {
+      "packet_id": "O4-LOGIC-01-P2",
+      "input_file": "llm_inputs/O4-LOGIC-01-P2.md",
+      "fragment_ids": [
+        "O4-LOGIC-01-B",
+        "O4-LOGIC-01-C"
+      ],
+      "code_lines": 158
+    },
+    {
+      "packet_id": "O4-LOGIC-01-P3",
+      "input_file": "llm_inputs/O4-LOGIC-01-P3.md",
+      "fragment_ids": [
+        "O4-LOGIC-01-D",
+        "O4-LOGIC-01-E"
+      ],
+      "code_lines": 130
+    }
+  ],
+  "runtime_validation": "pending_new_batch",
+  "limitations": [
+    "验证码服务是否配置、页面提示是否可见需要实测；当前口令和步骤参数以源码为准。",
+    "历史选做四证据不进入模型输入；本次输出与历史标签分开。"
+  ]
+}

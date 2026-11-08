@@ -1,0 +1,10 @@
+{
+  "batch_id": "optional4-mainflow-20261102",
+  "dataset_id": "optional4",
+  "prompt_version": "optional4-mainflow-v1",
+  "created_date": "2026-11-02",
+  "model_execution_status": "not_run",
+  "model_name": null,
+  "model_version": null,
+  "historical_evidence_reused_as_new_run": false
+}

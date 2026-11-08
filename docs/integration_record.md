@@ -57,9 +57,9 @@
 
 本次没有执行任何项目自检、测试、POC、安装、编译或服务启动命令。来源仓库自带的测试输出和历史运行日志只是被保留。
 
-## 已知来源缺项
+## 已知来源缺项与后续补齐
 
-`optional4/report.md` 提到专属 Prompt 的完整文本保存在历史提交 `5c12a4b`。本次获取的线上全部分支及本地 Git 对象中均未找到该提交，当前 `optional4/` 也未提供对应完整 Prompt 文件。因此保留报告原文并明确记录此缺项，没有推测补写或声称材料完整；其余线上已提供的选做4文件均纳入总分支。
+`optional4/report.md` 提到专属 Prompt 的完整文本保存在历史提交 `5c12a4b`。初始整合时线上分支未包含该提交；后续已在本地仓库对象中定位到提交 `5c12a4b2b176ea2ee6e0998c21900448a7806402`，并将 `optional4/workflow_model.md`、`optional4/special_prompts/`、`optional4/poc_cases/`、`optional4/reset_steps.md`、`optional4/analysis_report.md` 及 `optional4/environment_opt4.md` 完整恢复入库，同时补齐主流程扩展脚本 `workflow.py` 与 `workpackage1/extensions/optional4-v1/`。
 
 ## 本地备份
 

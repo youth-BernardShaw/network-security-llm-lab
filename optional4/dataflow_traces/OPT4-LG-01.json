@@ -7,7 +7,7 @@
   ],
   "traceback": {
     "sample_id": null,
-    "scan_surface": "新扫描面：vulnerabilities/captcha（不在主体 samples.csv 15 个样本内，属同一固定提交）",
+    "scan_surface": "新扫描面：vulnerabilities/captcha（不在主体 samples.csv 14 个父样本内，属同一固定提交）",
     "main_body_evidence": "反例机制复用主体 XSS-004/CMD-004 的 checkToken 行为记录",
     "delta": "单函数扫描只能看到 UPDATE 语句本身（参数来自 POST，非注入点）；只有把 step=1→step=2 建成状态机并检查迁移凭证的来源，才能发现状态跳跃"
   },

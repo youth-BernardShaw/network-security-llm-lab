@@ -7,8 +7,10 @@
 *.csv text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+*.js text eol=lf
 # 原始副本按上游 Git 对象保存字节，禁止换行转换影响 SHA256。
 workpackage1/raw_samples/** -text
+workpackage1/extensions/**/raw_samples/** -text
 workpackage1/context/** -text
 workpackage1/provenance/*README.md -text
 workpackage1/provenance/*readme.md -text

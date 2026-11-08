@@ -1,0 +1,158 @@
+{
+  "sample_id": "O4-XSS-02",
+  "dataset_id": "optional4",
+  "preprocess_version": "v2",
+  "input_dataset_version": "optional4-v1",
+  "project": "DVWA",
+  "commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+  "source_url": "https://github.com/digininja/DVWA",
+  "audit_scope": "XSS",
+  "scenario_rule": "second_order.md",
+  "business_specification": "用户提交姓名与留言，页面再次读取历史记录并展示；每个字段分别追踪。",
+  "fragments": [
+    {
+      "fragment_id": "O4-XSS-02-A",
+      "code_id": "A",
+      "role": "处理器一",
+      "source_file": "vulnerabilities/xss_s/source/medium.php",
+      "selected_spans": [
+        [
+          1,
+          24
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-02/A.php",
+      "normalized_file": "normalized_samples/O4-XSS-02/A.php",
+      "line_map": "line_maps/O4-XSS-02-A.csv",
+      "raw_sha256": "e4a44437fd9cdafff38a896622075fa8e35531d25e6ebda33cd364bc36649993",
+      "normalized_sha256": "6aa73a765520ab8317de6da3d0f5b78dd288160be00ad474c1fa8003748425fd",
+      "normalized_lines": 24
+    },
+    {
+      "fragment_id": "O4-XSS-02-B",
+      "code_id": "B",
+      "role": "页面入口",
+      "source_file": "vulnerabilities/xss_s/index.php",
+      "selected_spans": [
+        [
+          1,
+          87
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-02/B.php",
+      "normalized_file": "normalized_samples/O4-XSS-02/B.php",
+      "line_map": "line_maps/O4-XSS-02-B.csv",
+      "raw_sha256": "88c6ade99cb248f5ae211a49cc23f56d48fe07c6e2d63175f76116e3560a8df5",
+      "normalized_sha256": "e8d70411787617b4d38031a6ed9736825e95b77a12da97c2035993465b74dde4",
+      "normalized_lines": 87
+    },
+    {
+      "fragment_id": "O4-XSS-02-C",
+      "code_id": "C",
+      "role": "读取与配置",
+      "source_file": "dvwa/includes/dvwaPage.inc.php",
+      "selected_spans": [
+        [
+          200,
+          216
+        ],
+        [
+          610,
+          629
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-02/C.php",
+      "normalized_file": "normalized_samples/O4-XSS-02/C.php",
+      "line_map": "line_maps/O4-XSS-02-C.csv",
+      "raw_sha256": "bea6c28500f15705ad5cfedf8c501706bf36a293f22419e7a63651907495f3b8",
+      "normalized_sha256": "141035daea24a9bfc9c21c2a68da5daf15a305ebb82bef101dec10b43255da01",
+      "normalized_lines": 39
+    },
+    {
+      "fragment_id": "O4-XSS-02-D",
+      "code_id": "D",
+      "role": "处理器二",
+      "source_file": "vulnerabilities/xss_s/source/impossible.php",
+      "selected_spans": [
+        [
+          1,
+          31
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-02/D.php",
+      "normalized_file": "normalized_samples/O4-XSS-02/D.php",
+      "line_map": "line_maps/O4-XSS-02-D.csv",
+      "raw_sha256": "aa8c2d4ea5e990441070a57a33c92afb7562ecb1fa621a056624d40263cbd5be",
+      "normalized_sha256": "4007490a51b9255a77bf879ea611416eb1878a9d2428c6851c0cabc624869bd1",
+      "normalized_lines": 31
+    },
+    {
+      "fragment_id": "O4-XSS-02-E",
+      "code_id": "E",
+      "role": "会话和Token依赖",
+      "source_file": "dvwa/includes/dvwaPage.inc.php",
+      "selected_spans": [
+        [
+          124,
+          129
+        ],
+        [
+          132,
+          138
+        ],
+        [
+          146,
+          154
+        ],
+        [
+          172,
+          175
+        ],
+        [
+          200,
+          216
+        ],
+        [
+          634,
+          645
+        ],
+        [
+          647,
+          652
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-02/E.php",
+      "normalized_file": "normalized_samples/O4-XSS-02/E.php",
+      "line_map": "line_maps/O4-XSS-02-E.csv",
+      "raw_sha256": "bea6c28500f15705ad5cfedf8c501706bf36a293f22419e7a63651907495f3b8",
+      "normalized_sha256": "59631a34280141f730c393a4a973fbdf80f269807760dcdd8fd8a87ea52aa568",
+      "normalized_lines": 63
+    }
+  ],
+  "packets": [
+    {
+      "packet_id": "O4-XSS-02-P1",
+      "input_file": "llm_inputs/O4-XSS-02-P1.md",
+      "fragment_ids": [
+        "O4-XSS-02-A",
+        "O4-XSS-02-B",
+        "O4-XSS-02-C"
+      ],
+      "code_lines": 150
+    },
+    {
+      "packet_id": "O4-XSS-02-P2",
+      "input_file": "llm_inputs/O4-XSS-02-P2.md",
+      "fragment_ids": [
+        "O4-XSS-02-D",
+        "O4-XSS-02-E"
+      ],
+      "code_lines": 94
+    }
+  ],
+  "runtime_validation": "pending_new_batch",
+  "limitations": [
+    "分别检查配置对应的实际处理器，不能把某配置的写入逻辑套用到其他配置。",
+    "历史选做四证据不进入模型输入；本次输出与历史标签分开。"
+  ]
+}

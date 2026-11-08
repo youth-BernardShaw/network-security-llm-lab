@@ -1,0 +1,135 @@
+{
+  "sample_id": "O4-LOGIC-02",
+  "dataset_id": "optional4",
+  "preprocess_version": "v2",
+  "input_dataset_version": "optional4-v1",
+  "project": "DVWA",
+  "commit": "068d974487a297c155c48722f9fcf7180a83adc4",
+  "source_url": "https://github.com/digininja/DVWA",
+  "audit_scope": "CSRF",
+  "scenario_rule": "business_logic.md",
+  "business_specification": "当前用户的口令变更须绑定有效会话与用户主动发起的操作；来源、Token和当前口令等条件逐项核对。",
+  "fragments": [
+    {
+      "fragment_id": "O4-LOGIC-02-A",
+      "code_id": "A",
+      "role": "页面入口",
+      "source_file": "vulnerabilities/csrf/index.php",
+      "selected_spans": [
+        [
+          1,
+          96
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-02/A.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-02/A.php",
+      "line_map": "line_maps/O4-LOGIC-02-A.csv",
+      "raw_sha256": "1b0056ef03b6fd142ce6863e6cf2b7cfd6a9e35a5720db8f1ade56900baec3a3",
+      "normalized_sha256": "218700c3805c00f32b95ec51a5b8e6d73d84c94d2f928b2ee2539701d206a257",
+      "normalized_lines": 96
+    },
+    {
+      "fragment_id": "O4-LOGIC-02-B",
+      "code_id": "B",
+      "role": "处理器一",
+      "source_file": "vulnerabilities/csrf/source/low.php",
+      "selected_spans": [
+        [
+          1,
+          30
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-02/B.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-02/B.php",
+      "line_map": "line_maps/O4-LOGIC-02-B.csv",
+      "raw_sha256": "d718de6b22eabe0f1a2f0f2b0c148c251787a46ed334a4496857a1cf12155ec6",
+      "normalized_sha256": "68ab6cc2af36950a5dd3762a6aa08dead78d57a14a61234ce1b2db654688eb53",
+      "normalized_lines": 30
+    },
+    {
+      "fragment_id": "O4-LOGIC-02-C",
+      "code_id": "C",
+      "role": "处理器二",
+      "source_file": "vulnerabilities/csrf/source/impossible.php",
+      "selected_spans": [
+        [
+          1,
+          50
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-02/C.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-02/C.php",
+      "line_map": "line_maps/O4-LOGIC-02-C.csv",
+      "raw_sha256": "cf93ff925216475c0b47bd2b7aa0a55cafeed5a3a76c66fbed776c2746b0c05f",
+      "normalized_sha256": "4bc2807f27bd8125d77198129dcb899be416b007ef101729517082b3c6919534",
+      "normalized_lines": 50
+    },
+    {
+      "fragment_id": "O4-LOGIC-02-D",
+      "code_id": "D",
+      "role": "会话和Token依赖",
+      "source_file": "dvwa/includes/dvwaPage.inc.php",
+      "selected_spans": [
+        [
+          124,
+          129
+        ],
+        [
+          132,
+          138
+        ],
+        [
+          146,
+          154
+        ],
+        [
+          172,
+          175
+        ],
+        [
+          200,
+          216
+        ],
+        [
+          634,
+          645
+        ],
+        [
+          647,
+          652
+        ]
+      ],
+      "raw_file": "raw_samples/O4-LOGIC-02/D.php",
+      "normalized_file": "normalized_samples/O4-LOGIC-02/D.php",
+      "line_map": "line_maps/O4-LOGIC-02-D.csv",
+      "raw_sha256": "bea6c28500f15705ad5cfedf8c501706bf36a293f22419e7a63651907495f3b8",
+      "normalized_sha256": "59631a34280141f730c393a4a973fbdf80f269807760dcdd8fd8a87ea52aa568",
+      "normalized_lines": 63
+    }
+  ],
+  "packets": [
+    {
+      "packet_id": "O4-LOGIC-02-P1",
+      "input_file": "llm_inputs/O4-LOGIC-02-P1.md",
+      "fragment_ids": [
+        "O4-LOGIC-02-A",
+        "O4-LOGIC-02-B",
+        "O4-LOGIC-02-C"
+      ],
+      "code_lines": 176
+    },
+    {
+      "packet_id": "O4-LOGIC-02-P2",
+      "input_file": "llm_inputs/O4-LOGIC-02-P2.md",
+      "fragment_ids": [
+        "O4-LOGIC-02-D"
+      ],
+      "code_lines": 63
+    }
+  ],
+  "runtime_validation": "pending_new_batch",
+  "limitations": [
+    "服务端接收请求与真实浏览器跨站携带Cookie分开验证；不假定浏览器策略。",
+    "历史选做四证据不进入模型输入；本次输出与历史标签分开。"
+  ]
+}

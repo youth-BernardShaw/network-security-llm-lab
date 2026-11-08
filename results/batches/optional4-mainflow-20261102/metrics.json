@@ -1,0 +1,15 @@
+{
+  "scope": "Only exact prompt/attempt/original-POC paired runs in this extension; no historical pooling",
+  "total_parent_count": 4,
+  "model_response_count": 0,
+  "paired_condition_count": 0,
+  "counts": {
+    "TP": 0,
+    "FP": 0,
+    "FN": 0,
+    "TN": 0,
+    "U": 0
+  },
+  "classification_rate": null,
+  "reason": "不同条件/多finding不自动当作独立父样本；未形成父样本核验前不计算总体准确率"
+}

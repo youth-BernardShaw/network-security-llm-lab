@@ -80,7 +80,7 @@ v1/v2/final 的 42 条记录已在独立子代理上下文中运行并填入 `pr
 
 ### 选做4 二次注入与隐性逻辑漏洞验证
 
-保留两条二次存储型 XSS 链、验证码状态跳跃与 CSRF 逻辑链的报告、状态矩阵、数据流追踪、POC脚本和历史请求/响应证据。竞态验证仍为待验证。详见[验证报告](optional4/report.md)和[逐条记录](optional4/verification_log.csv)。报告提到的专属 Prompt 历史提交当前未提供，见[整合记录中的缺项说明](docs/integration_record.md#已知来源缺项)。
+保留两条二次存储型 XSS 链、验证码状态跳跃与 CSRF 逻辑链的报告、流程建模、专属 Prompt、状态矩阵、数据流追踪、POC 用例与脚本以及历史请求/响应证据。竞态验证仍为待验证。详见[验证报告](optional4/report.md)、[流程模型](optional4/workflow_model.md)和[逐条记录](optional4/verification_log.csv)。历史提交 `5c12a4b` 中的专属 Prompt 与完整分析材料已恢复入库，见[整合记录中的补齐说明](docs/integration_record.md#已知来源缺项与后续补齐)。
 
 ## 目录与分工
 

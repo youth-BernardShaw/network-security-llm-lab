@@ -1,0 +1,112 @@
+{
+  "sample_id": "O4-XSS-01",
+  "dataset_id": "optional4",
+  "preprocess_version": "v2",
+  "input_dataset_version": "optional4-v1",
+  "project": "sqli-labs",
+  "commit": "e96f21776372c8613a7e565106e62bc01a59355e",
+  "source_url": "https://github.com/Audi-1/sqli-labs",
+  "audit_scope": "XSS",
+  "scenario_rule": "second_order.md",
+  "business_specification": "用户注册、登录后显示用户名；所有显示内容按HTML文本处理。",
+  "fragments": [
+    {
+      "fragment_id": "O4-XSS-01-A",
+      "code_id": "A",
+      "role": "注册处理",
+      "source_file": "Less-24/login_create.php",
+      "selected_spans": [
+        [
+          1,
+          76
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-01/A.php",
+      "normalized_file": "normalized_samples/O4-XSS-01/A.php",
+      "line_map": "line_maps/O4-XSS-01-A.csv",
+      "raw_sha256": "66f697af12e79e48785aee028daa35872d823b047ec976cabaf56918f4f9dc14",
+      "normalized_sha256": "66f697af12e79e48785aee028daa35872d823b047ec976cabaf56918f4f9dc14",
+      "normalized_lines": 76
+    },
+    {
+      "fragment_id": "O4-XSS-01-B",
+      "code_id": "B",
+      "role": "登录处理",
+      "source_file": "Less-24/login.php",
+      "selected_spans": [
+        [
+          1,
+          65
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-01/B.php",
+      "normalized_file": "normalized_samples/O4-XSS-01/B.php",
+      "line_map": "line_maps/O4-XSS-01-B.csv",
+      "raw_sha256": "8065e89386cf1a98bd6a3337ecb9b0886c4744b66e8573c532b19108d16d5d21",
+      "normalized_sha256": "8065e89386cf1a98bd6a3337ecb9b0886c4744b66e8573c532b19108d16d5d21",
+      "normalized_lines": 65
+    },
+    {
+      "fragment_id": "O4-XSS-01-C",
+      "code_id": "C",
+      "role": "登录后页面",
+      "source_file": "Less-24/logged-in.php",
+      "selected_spans": [
+        [
+          1,
+          91
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-01/C.php",
+      "normalized_file": "normalized_samples/O4-XSS-01/C.php",
+      "line_map": "line_maps/O4-XSS-01-C.csv",
+      "raw_sha256": "4658659f50a3cbf2ef853e862184dbeb91b5335173d3d85a33bf2d69d1c6a7a4",
+      "normalized_sha256": "4658659f50a3cbf2ef853e862184dbeb91b5335173d3d85a33bf2d69d1c6a7a4",
+      "normalized_lines": 91
+    },
+    {
+      "fragment_id": "O4-XSS-01-D",
+      "code_id": "D",
+      "role": "数据库连接依赖",
+      "source_file": "sql-connections/sql-connect.php",
+      "selected_spans": [
+        [
+          1,
+          37
+        ]
+      ],
+      "raw_file": "raw_samples/O4-XSS-01/D.php",
+      "normalized_file": "normalized_samples/O4-XSS-01/D.php",
+      "line_map": "line_maps/O4-XSS-01-D.csv",
+      "raw_sha256": "63addc74cdf08772db4557a2084ac4bfe5210b161a3d47037501bf55a832c9a3",
+      "normalized_sha256": "18de887a68841d823e28c50db119330867b5ddbd45eb0ac550cf4681e0950f97",
+      "normalized_lines": 37
+    }
+  ],
+  "packets": [
+    {
+      "packet_id": "O4-XSS-01-P1",
+      "input_file": "llm_inputs/O4-XSS-01-P1.md",
+      "fragment_ids": [
+        "O4-XSS-01-A",
+        "O4-XSS-01-D"
+      ],
+      "code_lines": 113
+    },
+    {
+      "packet_id": "O4-XSS-01-P2",
+      "input_file": "llm_inputs/O4-XSS-01-P2.md",
+      "fragment_ids": [
+        "O4-XSS-01-B",
+        "O4-XSS-01-C",
+        "O4-XSS-01-D"
+      ],
+      "code_lines": 193
+    }
+  ],
+  "runtime_validation": "pending_new_batch",
+  "limitations": [
+    "已提供相关注册、登录、显示与数据库连接代码；本地路径和数据库字段长度由验证阶段确认。",
+    "历史选做四证据不进入模型输入；本次输出与历史标签分开。"
+  ]
+}

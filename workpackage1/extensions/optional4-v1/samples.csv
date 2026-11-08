@@ -1,0 +1,5 @@
+sample_id,dataset_id,audit_scope,project,commit,metadata_file,fragment_count,packet_count
+O4-XSS-01,optional4,XSS,sqli-labs,e96f21776372c8613a7e565106e62bc01a59355e,sample_metadata/O4-XSS-01.json,4,2
+O4-XSS-02,optional4,XSS,DVWA,068d974487a297c155c48722f9fcf7180a83adc4,sample_metadata/O4-XSS-02.json,5,2
+O4-LOGIC-01,optional4,业务逻辑,DVWA,068d974487a297c155c48722f9fcf7180a83adc4,sample_metadata/O4-LOGIC-01.json,5,3
+O4-LOGIC-02,optional4,CSRF,DVWA,068d974487a297c155c48722f9fcf7180a83adc4,sample_metadata/O4-LOGIC-02.json,4,2

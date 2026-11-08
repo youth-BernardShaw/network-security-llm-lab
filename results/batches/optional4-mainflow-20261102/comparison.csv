@@ -1,0 +1,5 @@
+sample_id,attempt_id,model_prediction,model_verdict,trigger_result,comparison,evidence_path,failure_kind
+O4-LOGIC-01,,,,未测,待模型运行,,
+O4-LOGIC-02,,,,未测,待模型运行,,
+O4-XSS-01,,,,未测,待模型运行,,
+O4-XSS-02,,,,未测,待模型运行,,

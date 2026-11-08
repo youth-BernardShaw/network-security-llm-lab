@@ -1,0 +1,130 @@
+{
+  "dataset_id": "optional4",
+  "input_version": "v2",
+  "input_dataset_version": "optional4-v1",
+  "prompt_version": "optional4-mainflow-v1",
+  "parent_sample_count": 4,
+  "prepared_prompt_count": 9,
+  "execution_status": "not_run",
+  "entries": [
+    {
+      "sample_id": "O4-LOGIC-01",
+      "packet_id": "O4-LOGIC-01-P1",
+      "fragment_ids": [
+        "O4-LOGIC-01-A",
+        "O4-LOGIC-01-E"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-LOGIC-01-P1.md",
+      "source_sha256": "de4c817181a711dc3848144abfc53b7c076022b139a246d41eb8d9a2127fca6e",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-LOGIC-01-P1.md",
+      "prompt_sha256": "c5c5befba5c9eaedf11d349c9df78c7818aab539b7cad67bce84a9d078186c9c",
+      "code_lines": 161
+    },
+    {
+      "sample_id": "O4-LOGIC-01",
+      "packet_id": "O4-LOGIC-01-P2",
+      "fragment_ids": [
+        "O4-LOGIC-01-B",
+        "O4-LOGIC-01-C"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-LOGIC-01-P2.md",
+      "source_sha256": "68dad258b22793d474f0ce89460d0d609f87bce8a66267653e86576947d14c0b",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-LOGIC-01-P2.md",
+      "prompt_sha256": "a0d95f0da9c9fb160a7678fb7a514b502cfd94a9292c568402a25acb580b7b6c",
+      "code_lines": 158
+    },
+    {
+      "sample_id": "O4-LOGIC-01",
+      "packet_id": "O4-LOGIC-01-P3",
+      "fragment_ids": [
+        "O4-LOGIC-01-D",
+        "O4-LOGIC-01-E"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-LOGIC-01-P3.md",
+      "source_sha256": "351de7a02a986aedc4db8a4bda3edd26e3e75a1850cf9ea32ceefc5b981753ec",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-LOGIC-01-P3.md",
+      "prompt_sha256": "edc8cd293618d61ed52f20b36bcf92954a4e9cc40d73aa34f1c08a63bffc2694",
+      "code_lines": 130
+    },
+    {
+      "sample_id": "O4-LOGIC-02",
+      "packet_id": "O4-LOGIC-02-P1",
+      "fragment_ids": [
+        "O4-LOGIC-02-A",
+        "O4-LOGIC-02-B",
+        "O4-LOGIC-02-C"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-LOGIC-02-P1.md",
+      "source_sha256": "ee43e21cfc92dcf0cee34b97fe4cbf5df6223e74464a5cd52eb4c72a303bf8a1",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-LOGIC-02-P1.md",
+      "prompt_sha256": "c70fff2f73e6df13e65edc67b4b76e61e294926a3a0db3918a4072f036ec9da2",
+      "code_lines": 176
+    },
+    {
+      "sample_id": "O4-LOGIC-02",
+      "packet_id": "O4-LOGIC-02-P2",
+      "fragment_ids": [
+        "O4-LOGIC-02-D"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-LOGIC-02-P2.md",
+      "source_sha256": "012e3431f920afa8433575a9bfca7fc654c531bf0e7a6380a75380976c8e0e3c",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-LOGIC-02-P2.md",
+      "prompt_sha256": "9e753d0fcc72785c76565006594c0c753f4f60dad4ce3c1467656009a1ec7ab1",
+      "code_lines": 63
+    },
+    {
+      "sample_id": "O4-XSS-01",
+      "packet_id": "O4-XSS-01-P1",
+      "fragment_ids": [
+        "O4-XSS-01-A",
+        "O4-XSS-01-D"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-XSS-01-P1.md",
+      "source_sha256": "703cb00ce9529945f3292fad99caf5fd2ec35c007b17357d4818ae6a5569075c",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-XSS-01-P1.md",
+      "prompt_sha256": "7e4e0416ff912ebb92b0dad2f683d7480a2dc14b872b8b5b39b1b019c39d0655",
+      "code_lines": 113
+    },
+    {
+      "sample_id": "O4-XSS-01",
+      "packet_id": "O4-XSS-01-P2",
+      "fragment_ids": [
+        "O4-XSS-01-B",
+        "O4-XSS-01-C",
+        "O4-XSS-01-D"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-XSS-01-P2.md",
+      "source_sha256": "de79dc47069d474fe22d638baab29b83b06e8e12d0964e0770cf291d12b0c32f",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-XSS-01-P2.md",
+      "prompt_sha256": "01f5799f8c5e607a4a81a11d77d3537628ef1c60ce525d8a411c22b99afff120",
+      "code_lines": 193
+    },
+    {
+      "sample_id": "O4-XSS-02",
+      "packet_id": "O4-XSS-02-P1",
+      "fragment_ids": [
+        "O4-XSS-02-A",
+        "O4-XSS-02-B",
+        "O4-XSS-02-C"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-XSS-02-P1.md",
+      "source_sha256": "c38611407fbdadb0b9cbb2cfea1c847f48b8a5879b53fdaaac541f8ef4fe9e66",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-XSS-02-P1.md",
+      "prompt_sha256": "d2955fb0fea8346a99c85b7bf6ecc7e91dcb97f284c7e21fa258f402805790af",
+      "code_lines": 150
+    },
+    {
+      "sample_id": "O4-XSS-02",
+      "packet_id": "O4-XSS-02-P2",
+      "fragment_ids": [
+        "O4-XSS-02-D",
+        "O4-XSS-02-E"
+      ],
+      "source_input": "workpackage1/extensions/optional4-v1/llm_inputs/O4-XSS-02-P2.md",
+      "source_sha256": "fe909899826847a57a9dc31c933072cae371592da40c6d58fedc8f6022f5935f",
+      "prompt_file": "prompts/prepared/optional4-mainflow-v1/O4-XSS-02-P2.md",
+      "prompt_sha256": "29b63636ff1dbfe1d68e88e7b6a0704f324d7f6a99251ae27b8768cd15b38aa4",
+      "code_lines": 94
+    }
+  ]
+}

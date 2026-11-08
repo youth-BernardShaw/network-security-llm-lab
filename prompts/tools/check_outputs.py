@@ -29,15 +29,18 @@ def repository_path(value):
     return p
 
 
-def check(data):
+def check(data, data_root=None, prompt_versions=None):
+    data_root = Path(data_root) if data_root is not None else ROOT / "workpackage1"
+    require(data_root.resolve().is_relative_to(ROOT.resolve()), "Dataset must be inside repository")
     require(isinstance(data, dict) and ROOT_FIELDS <= data.keys(), "Missing root protocol fields")
     require(data["schema_version"] == "wp2-output-v1", "Unsupported schema")
     require(data["input_version"] == "v2", "Unexpected input version")
     # final-wp4-v1/v2 are explicit work-package-4 variants; old batches keep their versions.
-    require(data["prompt_version"] in ("v1", "v2", "final", "final-wp4-v1", "final-wp4-v2"), "Invalid prompt version")
+    allowed_versions = prompt_versions or ("v1", "v2", "final", "final-wp4-v1", "final-wp4-v2")
+    require(data["prompt_version"] in allowed_versions, "Invalid prompt version")
     sid = data["sample_id"]
     require(isinstance(sid, str) and sid.replace("-", "").isalnum(), "Invalid sample ID")
-    meta_path = repository_path(f"workpackage1/sample_metadata/{sid}.json")
+    meta_path = repository_path((data_root / "sample_metadata" / f"{sid}.json").relative_to(ROOT).as_posix())
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     if meta.get("fragments"):
         fragments = {f["fragment_id"]: f["normalized_file"] for f in meta["fragments"]}
@@ -74,7 +77,7 @@ def check(data):
         require(isinstance(loc, dict) and {"fragment_id", "line_start", "line_end", "quote"} <= loc.keys(), "Missing location fields")
         fid = loc["fragment_id"]
         require(fid in fragments and fid in available, f"Unknown or unreceived fragment: {fid}")
-        code = repository_path("workpackage1/" + fragments[fid]).read_text(encoding="utf-8").splitlines()
+        code = repository_path((data_root / fragments[fid]).relative_to(ROOT).as_posix()).read_text(encoding="utf-8").splitlines()
         start, end = loc["line_start"], loc["line_end"]
         require(type(start) is int and type(end) is int and 1 <= start <= end <= len(code), f"Out-of-range citation: {fid}")
         quote = loc["quote"]

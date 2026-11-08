@@ -1,0 +1,13 @@
+{
+  "dataset_id": "optional4",
+  "version": "optional4-v1",
+  "parent_sample_count": 4,
+  "fragment_count": 18,
+  "input_packet_count": 9,
+  "max_packet_code_lines": 193,
+  "source_pins": {
+    "DVWA": "068d974487a297c155c48722f9fcf7180a83adc4",
+    "sqli-labs": "e96f21776372c8613a7e565106e62bc01a59355e"
+  },
+  "scope": "Pinned source extraction and mappings only; not model execution or vulnerability confirmation"
+}

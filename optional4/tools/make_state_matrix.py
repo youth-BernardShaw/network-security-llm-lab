@@ -98,12 +98,12 @@ INVARIANTS = [
 
 # (用例ID, 序列, 回溯样本, 状态)
 CASES = [
-    ("OPT4-SO-01", "SEQ-A01", "SQLI-005", "待执行"),
-    ("OPT4-SO-02", "SEQ-A02", "XSS-005", "待执行"),
-    ("OPT4-LG-01a", "SEQ-A03", "新扫描面captcha(low)", "待执行"),
-    ("OPT4-LG-01b", "SEQ-A04", "新扫描面captcha(medium)", "待执行"),
-    ("OPT4-LG-02", "SEQ-A05", "新扫描面csrf(low)", "待执行"),
-    ("SEQ-C01/C02", "反例序列", "XSS-004/CMD-004机制复用", "待执行"),
+    ("OPT4-SO-01", "SEQ-A01", "SQLI-005", "已触发(真漏洞)"),
+    ("OPT4-SO-02", "SEQ-A02", "XSS-005", "已触发(真漏洞)"),
+    ("OPT4-LG-01a", "SEQ-A03", "新扫描面captcha(low)", "已触发(真漏洞)"),
+    ("OPT4-LG-01b", "SEQ-A04", "新扫描面captcha(medium)", "已触发(真漏洞)"),
+    ("OPT4-LG-02", "SEQ-A05", "新扫描面csrf(low)", "已触发(真漏洞)"),
+    ("SEQ-C01/C02", "反例序列", "XSS-004/CMD-004机制复用", "未触发(反例成立)"),
 ]
 
 
